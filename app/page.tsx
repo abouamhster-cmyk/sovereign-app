@@ -103,14 +103,14 @@ export default function DashboardPage() {
     setIsLoading(false);
   }
 
-  async function fetchMissions() {
-    const { data } = await supabase
-      .from("missions")
-      .select("*")
-      .eq("status", "active")
-      .limit(4);
-    setMissions(data || []);
-  }
+async function fetchMissions() {
+  const { data } = await supabase
+    .from("missions")
+    .select("*")
+    .eq("status", "active");
+  // pas de .limit(4)
+  setMissions(data || []);
+}
 
   async function fetchTasks() {
     const { data } = await supabase
