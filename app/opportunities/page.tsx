@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
+import LoadingSpinner from "@/components/LoadingSpinner";
 import { motion, AnimatePresence } from "framer-motion";
 import { 
   TrendingUp, Plus, Trash2, Edit2, X, Calendar, 
@@ -445,9 +446,9 @@ export default function OpportunitiesPage() {
 
       {/* LISTE DES OPPORTUNITÉS AVEC SCORE */}
       <div className="space-y-3">
-        {isLoading ? (
-          <div className="text-center py-12 text-gray-500">Chargement...</div>
-        ) : sortedOpportunities.length === 0 ? (
+          {isLoading ? (
+            <LoadingSpinner />
+          ) : sortedOpportunities.length === 0 ? (
           <div className="text-center py-12 text-gray-500">
             <TrendingUp className="w-12 h-12 mx-auto mb-4 opacity-30" />
             <p>Aucune opportunité</p>
