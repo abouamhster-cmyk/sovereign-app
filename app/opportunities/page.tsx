@@ -147,7 +147,7 @@ export default function OpportunitiesPage() {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'opportunities' }, () => fetchOpportunities())
       .subscribe();
     
-    return () => channel.unsubscribe();
+    return () => {   channel.unsubscribe();  
   }, []);
 
   async function fetchData() {
