@@ -69,17 +69,19 @@ export default function FamilyPage() {
     notes: ""
   });
 
-  useEffect(() => {
-    fetchEvents();
-    
-    const channel = supabase
-      .channel('family_changes')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'family_events' }, () => fetchEvents())
-      .subscribe();
-    
-    return () => {   channel.unsubscribe();  
-  }, []);
-
+useEffect(() => {
+  fetchEvents();
+  
+  const channel = supabase
+    .channel('family_changes')
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'family_events' }, () => fetchEvents())
+    .subscribe();
+  
+  return () => {
+    channel.unsubscribe();
+  };
+}, []);
+  
   async function fetchEvents() {
     setIsLoading(true);
     const { data } = await supabase
