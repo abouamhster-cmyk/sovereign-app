@@ -17,6 +17,7 @@ export default function ProtectedRoute({ children }: { children: React.ReactNode
     }
   }, [user, isLoading, router, pathname]);
 
+  // Pendant le chargement, on affiche un écran de chargement
   if (isLoading) {
     return (
       <div className="min-h-screen bg-midnight flex items-center justify-center">
@@ -25,9 +26,12 @@ export default function ProtectedRoute({ children }: { children: React.ReactNode
     );
   }
 
+  // Si l'utilisateur n'est pas connecté ET qu'on n'est pas sur une route publique
+  // on ne retourne RIEN du tout (pas même le layout)
   if (!user && !publicRoutes.includes(pathname)) {
     return null;
   }
 
+  // Si l'utilisateur est connecté ou sur une route publique, on affiche les enfants
   return <>{children}</>;
 }
