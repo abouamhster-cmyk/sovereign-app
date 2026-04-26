@@ -423,13 +423,9 @@ export default function MotherhoodPage() {
           </h2>
           
           <div className="flex-1 overflow-y-auto space-y-3 scrollbar-hide max-h-[400px]">
-            {isLoading ? (
-              <div className="space-y-3">
-                {[1, 2, 3].map(i => (
-                  <div key={i} className="animate-pulse h-16 bg-white/5 rounded-xl" />
-                ))}
-              </div>
-            ) : records.length > 0 ? (
+              {isLoading ? (
+                <LoadingSpinner />
+              ) : records.length > 0 ? (
               records.map((record) => (
                 <motion.div 
                   key={record.id}
