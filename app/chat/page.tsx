@@ -1,11 +1,10 @@
 "use client";
 import { useState, useRef, useEffect } from "react";
 import { 
-  Send, ArrowLeft, Plus, Trash2, ChevronLeft, ChevronRight, 
-  Search, Edit2, Check, X, MoreHorizontal, Loader2 
+  Send, Plus, Trash2, ChevronLeft, ChevronRight, 
+  Search, Edit2, Check, X, Loader2, Menu
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
-import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 
 const API_URL = "https://sovereign-bridge.onrender.com";
@@ -31,7 +30,7 @@ export default function ChatPage() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false); // Fermée par défaut sur mobile
   const [isMobile, setIsMobile] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [editingTitleId, setEditingTitleId] = useState<string | null>(null);
@@ -231,10 +230,7 @@ export default function ChatPage() {
       setMessages(prev => [...prev, { role: "assistant", content: assistantContent }]);
       await saveMessage(currentConversationId, "assistant", assistantContent);
       
-      // Mettre à jour la liste des conversations pour l'ordre
       fetchConversations();
-      
-      // Remettre le focus sur l'input
       inputRef.current?.focus();
     } catch (error) {
       console.error("Erreur:", error);
@@ -275,203 +271,209 @@ export default function ChatPage() {
   };
 
   return (
-    <div className="flex h-screen bg-midnight text-ivory">
-      {/* SIDEBAR DES CONVERSATIONS */}
-      <div className={`${isSidebarOpen ? 'w-80' : 'w-0'} transition-all duration-300 overflow-hidden border-r border-white/10 bg-midnight/50`}>
-        <div className="p-4 h-full flex flex-col">
-          {/* En-tête sidebar */}
-          <div className="flex justify-between items-center mb-4">
-            <h2 className="text-sm font-serif text-gold-500">Conversations</h2>
-            <button
+    <div className="fixed inset-0 bg-midnight flex flex-col">
+      {/* HEADER DU CHAT - FIXE EN HAUT */}
+      <header className="sticky top-0 z-10 h-14 border-b border-white/10 flex items-center px-4 bg-midnight/90 backdrop-blur-lg shrink-0">
+        <button
+          onClick={() => setIsSidebarOpen(true)}
+          className="p-2 text-gray-400 hover:text-gold-500 transition-colors rounded-lg hover:bg-white/5"
+        >
+          <Menu className="w-5 h-5" />
+        </button>
+        
+        <div className="flex-1 text-center">
+          <h1 className="text-base font-serif text-gold-500">SOVEREIGN AI</h1>
+          <p className="text-[9px] text-gold-500/60 uppercase tracking-widest">Executive Mode</p>
+        </div>
+        
+        <div className="w-10" /> {/* Équilibrage */}
+      </header>
+
+      {/* SIDEBAR OVERLAY */}
+      <AnimatePresence>
+        {isSidebarOpen && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
               onClick={() => setIsSidebarOpen(false)}
-              className="p-1 text-gray-500 hover:text-gold-500 transition-colors"
-            >
-              <ChevronLeft className="w-4 h-4" />
-            </button>
-          </div>
-          
-          {/* Bouton nouvelle conversation */}
-          <button
-            onClick={createNewConversation}
-            className="w-full mb-4 flex items-center justify-center gap-2 bg-gold-500/20 hover:bg-gold-500/30 text-gold-500 py-2 rounded-xl transition-colors text-sm"
-          >
-            <Plus className="w-4 h-4" />
-            Nouvelle conversation
-          </button>
-          
-          {/* Barre de recherche */}
-          <div className="relative mb-4">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-500" />
-            <input
-              type="text"
-              placeholder="Rechercher..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-9 pr-4 py-2 bg-white/5 border border-white/10 rounded-xl text-sm focus:outline-none focus:border-gold-500 text-ivory placeholder:text-gray-500"
+              className="fixed inset-0 bg-black/80 backdrop-blur-sm z-40"
             />
-          </div>
-          
-          {/* Liste des conversations */}
-          <div className="flex-1 overflow-y-auto space-y-2">
-            {filteredConversations.length === 0 ? (
-              <div className="text-center py-8 text-gray-500 text-sm">
-                {searchTerm ? "Aucune conversation trouvée" : "Aucune conversation"}
-              </div>
-            ) : (
-              filteredConversations.map(conv => (
-                <div
-                  key={conv.id}
-                  className={`group p-2 rounded-xl cursor-pointer transition-all ${
-                    currentConversationId === conv.id
-                      ? "bg-gold-500/10 border border-gold-500/30"
-                      : "hover:bg-white/5 border border-transparent"
-                  }`}
+            <motion.aside
+              initial={{ x: "-100%" }}
+              animate={{ x: 0 }}
+              exit={{ x: "-100%" }}
+              transition={{ type: "spring", damping: 25, stiffness: 200 }}
+              className="fixed inset-y-0 left-0 w-80 bg-midnight z-50 border-r border-white/10 flex flex-col"
+            >
+              <div className="p-4 border-b border-white/10 flex justify-between items-center">
+                <h2 className="text-sm font-serif text-gold-500">Conversations</h2>
+                <button
+                  onClick={() => setIsSidebarOpen(false)}
+                  className="p-1 text-gray-500 hover:text-gold-500 transition-colors"
                 >
-                  <div className="flex items-center justify-between">
-                    <div 
-                      onClick={() => setCurrentConversationId(conv.id)}
-                      className="flex-1 min-w-0 p-1"
+                  <ChevronLeft className="w-5 h-5" />
+                </button>
+              </div>
+              
+              <div className="p-4">
+                <button
+                  onClick={createNewConversation}
+                  className="w-full flex items-center justify-center gap-2 bg-gold-500/20 hover:bg-gold-500/30 text-gold-500 py-2 rounded-xl transition-colors text-sm"
+                >
+                  <Plus className="w-4 h-4" />
+                  Nouvelle conversation
+                </button>
+              </div>
+              
+              <div className="px-4 pb-4">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-500" />
+                  <input
+                    type="text"
+                    placeholder="Rechercher..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="w-full pl-9 pr-4 py-2 bg-white/5 border border-white/10 rounded-xl text-sm focus:outline-none focus:border-gold-500 text-ivory placeholder:text-gray-500"
+                  />
+                </div>
+              </div>
+              
+              <div className="flex-1 overflow-y-auto px-4 pb-4 space-y-2">
+                {filteredConversations.length === 0 ? (
+                  <div className="text-center py-8 text-gray-500 text-sm">
+                    {searchTerm ? "Aucune conversation trouvée" : "Aucune conversation"}
+                  </div>
+                ) : (
+                  filteredConversations.map(conv => (
+                    <div
+                      key={conv.id}
+                      className={`group p-3 rounded-xl cursor-pointer transition-all ${
+                        currentConversationId === conv.id
+                          ? "bg-gold-500/10 border border-gold-500/30"
+                          : "hover:bg-white/5 border border-transparent"
+                      }`}
                     >
-                      {editingTitleId === conv.id ? (
-                        <div className="flex items-center gap-2">
-                          <input
-                            type="text"
-                            value={editingTitle}
-                            onChange={(e) => setEditingTitle(e.target.value)}
-                            className="flex-1 bg-white/10 border border-gold-500 rounded-md px-2 py-1 text-sm focus:outline-none"
-                            autoFocus
-                            onKeyDown={(e) => {
-                              if (e.key === 'Enter') updateConversationTitle(conv.id, editingTitle);
-                              if (e.key === 'Escape') setEditingTitleId(null);
+                      <div className="flex items-center justify-between">
+                        <div 
+                          onClick={() => setCurrentConversationId(conv.id)}
+                          className="flex-1 min-w-0"
+                        >
+                          {editingTitleId === conv.id ? (
+                            <div className="flex items-center gap-2">
+                              <input
+                                type="text"
+                                value={editingTitle}
+                                onChange={(e) => setEditingTitle(e.target.value)}
+                                className="flex-1 bg-white/10 border border-gold-500 rounded-md px-2 py-1 text-sm focus:outline-none"
+                                autoFocus
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter') updateConversationTitle(conv.id, editingTitle);
+                                  if (e.key === 'Escape') setEditingTitleId(null);
+                                }}
+                              />
+                              <button onClick={() => updateConversationTitle(conv.id, editingTitle)} className="text-emerald-400">
+                                <Check className="w-3 h-3" />
+                              </button>
+                              <button onClick={() => setEditingTitleId(null)} className="text-red-400">
+                                <X className="w-3 h-3" />
+                              </button>
+                            </div>
+                          ) : (
+                            <>
+                              <p className="text-sm truncate">{conv.title || "Nouvelle conversation"}</p>
+                              <p className="text-xs text-gray-500 mt-1">{formatDate(conv.updated_at)}</p>
+                            </>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              startEditTitle(conv);
                             }}
-                          />
-                          <button onClick={() => updateConversationTitle(conv.id, editingTitle)} className="text-emerald-400">
-                            <Check className="w-3 h-3" />
+                            className="p-1 text-gray-500 hover:text-gold-500 transition-colors"
+                          >
+                            <Edit2 className="w-3 h-3" />
                           </button>
-                          <button onClick={() => setEditingTitleId(null)} className="text-red-400">
-                            <X className="w-3 h-3" />
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              deleteConversation(conv.id);
+                            }}
+                            className="p-1 text-gray-500 hover:text-red-400 transition-colors"
+                          >
+                            <Trash2 className="w-3 h-3" />
                           </button>
                         </div>
-                      ) : (
-                        <>
-                          <p className="text-sm truncate">{conv.title || "Nouvelle conversation"}</p>
-                          <p className="text-xs text-gray-500 mt-1">{formatDate(conv.updated_at)}</p>
-                        </>
-                      )}
+                      </div>
                     </div>
-                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          startEditTitle(conv);
-                        }}
-                        className="p-1 text-gray-500 hover:text-gold-500 transition-colors"
-                      >
-                        <Edit2 className="w-3 h-3" />
-                      </button>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          deleteConversation(conv.id);
-                        }}
-                        className="p-1 text-gray-500 hover:text-red-400 transition-colors"
-                      >
-                        <Trash2 className="w-3 h-3" />
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
-        </div>
+                  ))
+                )}
+              </div>
+            </motion.aside>
+          </>
+        )}
+      </AnimatePresence>
+
+      {/* ZONE DES MESSAGES - SCROLLABLE */}
+      <div 
+        ref={messagesContainerRef}
+        className="flex-1 overflow-y-auto p-6 space-y-4"
+      >
+        {messages.map((m, i) => (
+          <motion.div
+            key={i}
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3 }}
+            className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}
+          >
+            <div className={`max-w-[80%] p-4 rounded-2xl text-sm leading-relaxed ${
+              m.role === "user" 
+                ? "bg-gold-500 text-midnight rounded-br-none" 
+                : "bg-white/10 text-ivory border border-white/5 rounded-bl-none"
+            }`}>
+              {m.content}
+            </div>
+          </motion.div>
+        ))}
+        
+        {isLoading && (
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="flex justify-start"
+          >
+            <div className="bg-white/10 p-4 rounded-2xl rounded-bl-none">
+              <Loader2 className="w-4 h-4 text-gold-500 animate-spin" />
+            </div>
+          </motion.div>
+        )}
+        
+        <div ref={messagesEndRef} />
       </div>
 
-      {/* ZONE PRINCIPALE DU CHAT */}
-      <div className="flex-1 flex flex-col">
-        {/* HEADER */}
-        <header className="sticky top-0 z-10 h-16 border-b border-white/5 flex items-center px-4 bg-midnight/80 backdrop-blur-lg shrink-0">
-          {!isSidebarOpen && (
-            <button
-              onClick={() => setIsSidebarOpen(true)}
-              className="mr-3 p-1 text-gray-500 hover:text-gold-500 transition-colors"
-            >
-              <ChevronRight className="w-5 h-5" />
-            </button>
-          )}
-          <Link href="/" className="text-gray-400 hover:text-gold-500 mr-4 transition-colors">
-            <ArrowLeft className="w-5 h-5" />
-          </Link>
-          <div className="flex-1">
-            <h1 className="text-lg font-serif text-ivory">Sovereign AI</h1>
-            <p className="text-[10px] text-gold-500 uppercase tracking-widest">Executive Mode</p>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse" />
-            <span className="text-xs text-gold-500/60 hidden sm:inline">EN LIGNE</span>
-          </div>
-        </header>
-
-        {/* ZONE DES MESSAGES */}
-        <div 
-          ref={messagesContainerRef}
-          className="flex-1 overflow-y-auto p-6 space-y-4"
-        >
-          {messages.map((m, i) => (
-            <motion.div
-              key={i}
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.3 }}
-              className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}
-            >
-              <div className={`max-w-[80%] p-4 rounded-2xl text-sm leading-relaxed ${
-                m.role === "user" 
-                  ? "bg-gold-500 text-midnight rounded-br-none" 
-                  : "bg-white/10 text-ivory border border-white/5 rounded-bl-none"
-              }`}>
-                {m.content}
-              </div>
-            </motion.div>
-          ))}
-          
-          {isLoading && (
-            <motion.div
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="flex justify-start"
-            >
-              <div className="bg-white/10 p-4 rounded-2xl rounded-bl-none">
-                <div className="flex gap-1">
-                  <Loader2 className="w-4 h-4 text-gold-500 animate-spin" />
-                </div>
-              </div>
-            </motion.div>
-          )}
-          
-          <div ref={messagesEndRef} />
-        </div>
-
-        {/* BARRE DE SAISIE */}
-        <div className="shrink-0 p-4 border-t border-white/10 bg-midnight/80 backdrop-blur-lg">
-          <div className="relative max-w-4xl mx-auto flex items-center gap-2">
-            <input
-              ref={inputRef}
-              type="text"
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={handleKeyDown}
-              placeholder="Écris ton message... (Entrée pour envoyer)"
-              className="flex-1 bg-white/10 border border-white/20 rounded-full py-3 px-5 pr-12 text-sm focus:outline-none focus:border-gold-500 transition-all text-ivory placeholder:text-gray-500"
-            />
-            <button 
-              onClick={handleSend}
-              disabled={isLoading || !input.trim()}
-              className="absolute right-2 p-2 bg-gold-500 rounded-full text-midnight hover:scale-105 transition-transform disabled:opacity-50 disabled:hover:scale-100"
-            >
-              <Send className="w-4 h-4" />
-            </button>
-          </div>
+      {/* BARRE DE SAISIE - FIXE EN BAS */}
+      <div className="shrink-0 p-4 border-t border-white/10 bg-midnight/90 backdrop-blur-lg">
+        <div className="relative max-w-4xl mx-auto flex items-center gap-2">
+          <input
+            ref={inputRef}
+            type="text"
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={handleKeyDown}
+            placeholder="Écris ton message... (Entrée pour envoyer)"
+            className="flex-1 bg-white/10 border border-white/20 rounded-full py-3 px-5 pr-12 text-sm focus:outline-none focus:border-gold-500 transition-all text-ivory placeholder:text-gray-500"
+          />
+          <button 
+            onClick={handleSend}
+            disabled={isLoading || !input.trim()}
+            className="absolute right-2 p-2 bg-gold-500 rounded-full text-midnight hover:scale-105 transition-transform disabled:opacity-50 disabled:hover:scale-100"
+          >
+            <Send className="w-4 h-4" />
+          </button>
         </div>
       </div>
     </div>
