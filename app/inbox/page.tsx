@@ -54,16 +54,21 @@ export default function InboxPage() {
   const [filter, setFilter] = useState<string>("all");
   const [selectedType, setSelectedType] = useState<string>("all");
 
-  useEffect(() => {
-    fetchItems();
-    
-    const channel = supabase
-      .channel('inbox_changes')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'inbox' }, () => fetchItems())
-      .subscribe();
-    
-    return () => channel.unsubscribe();
-  }, []);
+useEffect(() => {
+  fetchItems();
+  
+  const channel = supabase
+    .channel('inbox_changes')
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'inbox' }, () => fetchItems())
+    .subscribe();
+  
+  return () => {
+    // Ne pas retourner la Promise directement
+    if (channel) {
+      channel.unsubscribe();
+    }
+  };
+}, []); 
 
   async function fetchItems() {
     setIsLoading(true);
