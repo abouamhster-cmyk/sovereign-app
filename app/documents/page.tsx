@@ -73,7 +73,7 @@ export default function DocumentsPage() {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'documents' }, () => fetchDocuments())
       .subscribe();
     
-    return () => channel.unsubscribe();
+    return () => {   channel.unsubscribe();   
   }, []);
 
   async function fetchDocuments() {
