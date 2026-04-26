@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState, useCallback } from "react";
 import { supabase } from "@/lib/supabase";
+import LoadingSpinner from "@/components/LoadingSpinner";
 import { motion, AnimatePresence } from "framer-motion";
 import { useDropzone } from "react-dropzone";
 import { 
@@ -473,8 +474,8 @@ export default function DocumentsPage() {
             <tbody>
               {isLoading ? (
                 <tr>
-                  <td colSpan={6} className="text-center py-12 text-gray-500">
-                    <div className="animate-pulse">Chargement des documents...</div>
+                  <td colSpan={6} className="text-center py-12">
+                    <LoadingSpinner />
                   </td>
                 </tr>
               ) : filteredDocuments.length > 0 ? (
