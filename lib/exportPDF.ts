@@ -1,19 +1,20 @@
 import jsPDF from "jspdf";
-import html2canvas from "html2canvas";
+import { toPng } from "html-to-image";
 
 export async function exportToPDF(elementId: string, filename: string) {
   const element = document.getElementById(elementId);
-  if (!element) return;
+  if (!element) {
+    console.error("Élément non trouvé:", elementId);
+    return;
+  }
 
   try {
-    const canvas = await html2canvas(element, {
-      scale: 2,
-      backgroundColor: "#0A0A0B",
-      logging: false,
-      useCORS: true
+    const imgData = await toPng(element, {
+      quality: 1,
+      pixelRatio: 2,
+      backgroundColor: "#0A0A0B"
     });
     
-    const imgData = canvas.toDataURL("image/png");
     const pdf = new jsPDF({
       orientation: "portrait",
       unit: "mm",
@@ -21,7 +22,7 @@ export async function exportToPDF(elementId: string, filename: string) {
     });
     
     const imgWidth = 210;
-    const imgHeight = (canvas.height * imgWidth) / canvas.width;
+    const imgHeight = (element.clientHeight * imgWidth) / element.clientWidth;
     
     pdf.addImage(imgData, "PNG", 0, 0, imgWidth, imgHeight);
     pdf.save(`${filename}.pdf`);
