@@ -8,6 +8,11 @@ import {
   Download
 } from "lucide-react";
 import { exportToPDF } from "@/lib/exportPDF";
+import { Chart as ChartJS, ArcElement, Tooltip, Legend, CategoryScale, LinearScale, BarElement, Title } from 'chart.js';
+import { Bar, Pie } from 'react-chartjs-2';
+
+// Enregistrer les composants Chart.js
+ChartJS.register(ArcElement, Tooltip, Legend, CategoryScale, LinearScale, BarElement, Title);
 
 // Types
 type Spending = {
@@ -41,9 +46,7 @@ export default function MoneyPage() {
   const [filterProject, setFilterProject] = useState<string>("all");
   const [filterMonth, setFilterMonth] = useState<string>("all");
 
-
-  
-  // Ajoute cette fonction après les useState (vers ligne 55)
+  // Fonction scroll vers formulaire
   const scrollToForm = () => {
     setTimeout(() => {
       const formElement = document.getElementById('form-container');
@@ -52,8 +55,6 @@ export default function MoneyPage() {
       }
     }, 150);
   };
-  
-
   
   // Formulaire
   const [formData, setFormData] = useState({
@@ -65,7 +66,7 @@ export default function MoneyPage() {
     notes: ""
   });
 
-  // Projets disponibles (depuis la base missions)
+  // Projets disponibles
   const projects = [
     "Ifè Farm",
     "Santé Plus",
@@ -90,7 +91,6 @@ export default function MoneyPage() {
   useEffect(() => {
     fetchData();
     
-    // Écouter les changements en temps réel
     const spendingChannel = supabase
       .channel('spending_changes')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'spending' }, () => fetchData())
@@ -107,11 +107,6 @@ export default function MoneyPage() {
     };
   }, []);
 
-
-
-
-
-  
   async function fetchData() {
     setIsLoading(true);
     
@@ -177,21 +172,20 @@ export default function MoneyPage() {
     }
   }
 
-
   function editEntry(entry: Spending | Revenue, type: "spending" | "revenue") {
-  setFormType(type);
-  setFormData({
-    title: "title" in entry ? entry.title : entry.source,
-    amount: entry.amount.toString(),
-    category: "category" in entry ? entry.category : "other",
-    project: entry.project,
-    date: entry.date,
-    notes: entry.notes || ""
-  });
-  setEditingId(entry.id);
-  setShowForm(true);
-  scrollToForm();  
-}
+    setFormType(type);
+    setFormData({
+      title: "title" in entry ? entry.title : entry.source,
+      amount: entry.amount.toString(),
+      category: "category" in entry ? entry.category : "other",
+      project: entry.project,
+      date: entry.date,
+      notes: entry.notes || ""
+    });
+    setEditingId(entry.id);
+    setShowForm(true);
+    scrollToForm();  
+  }
 
   function resetForm() {
     setShowForm(false);
@@ -241,6 +235,58 @@ export default function MoneyPage() {
     ...spending.map(s => new Date(s.date).toLocaleString('fr-FR', { month: 'long', year: 'numeric' })),
     ...revenue.map(r => new Date(r.date).toLocaleString('fr-FR', { month: 'long', year: 'numeric' }))
   ])];
+
+  // Configuration du graphique des dépenses par catégorie
+  const categoryChartData = {
+    labels: spendingByCategory.map(c => c.label),
+    datasets: [{
+      label: 'Dépenses (CFA)',
+      data: spendingByCategory.map(c => c.total),
+      backgroundColor: [
+        'rgba(212, 175, 55, 0.8)',
+        'rgba(212, 175, 55, 0.6)',
+        'rgba(212, 175, 55, 0.4)',
+        'rgba(212, 175, 55, 0.3)',
+        'rgba(212, 175, 55, 0.2)',
+      ],
+      borderColor: '#D4AF37',
+      borderWidth: 1,
+    }]
+  };
+
+  // Configuration du graphique d'évolution
+  const getMonthlyEvolution = () => {
+    const monthlyData: { [key: string]: { revenue: number; spending: number } } = {};
+    
+    [...spending, ...revenue].forEach(item => {
+      const month = new Date(item.date).toLocaleString('fr-FR', { month: 'short', year: 'numeric' });
+      if (!monthlyData[month]) monthlyData[month] = { revenue: 0, spending: 0 };
+      
+      if ('source' in item) monthlyData[month].revenue += item.amount;
+      else monthlyData[month].spending += item.amount;
+    });
+    
+    const months = Object.keys(monthlyData).slice(-6);
+    return {
+      labels: months,
+      datasets: [
+        {
+          label: 'Revenus',
+          data: months.map(m => monthlyData[m].revenue),
+          backgroundColor: 'rgba(16, 185, 129, 0.6)',
+          borderColor: '#10b981',
+          borderWidth: 2,
+        },
+        {
+          label: 'Dépenses',
+          data: months.map(m => monthlyData[m].spending),
+          backgroundColor: 'rgba(239, 68, 68, 0.6)',
+          borderColor: '#ef4444',
+          borderWidth: 2,
+        }
+      ]
+    };
+  };
 
   return (
     <div className="p-6 lg:p-10 h-full flex flex-col overflow-y-auto bg-midnight">
@@ -322,7 +368,26 @@ export default function MoneyPage() {
           </motion.div>
         </div>
 
-        {/* ANALYSE PAR CATÉGORIE */}
+        {/* GRAPHIQUES */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+          {spendingByCategory.length > 0 && (
+            <div className="bg-white/5 border border-white/10 rounded-2xl p-5">
+              <h2 className="text-sm font-serif text-gold-500 mb-4">📊 Dépenses par catégorie</h2>
+              <div className="h-64">
+                <Pie data={categoryChartData} options={{ responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom', labels: { color: '#F5F5F0' } } } }} />
+              </div>
+            </div>
+          )}
+          
+          <div className="bg-white/5 border border-white/10 rounded-2xl p-5">
+            <h2 className="text-sm font-serif text-gold-500 mb-4">📈 Évolution 6 mois</h2>
+            <div className="h-64">
+              <Bar data={getMonthlyEvolution()} options={{ responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'top', labels: { color: '#F5F5F0' } } }, scales: { x: { ticks: { color: '#9CA3AF' } }, y: { ticks: { color: '#9CA3AF' } } } }} />
+            </div>
+          </div>
+        </div>
+
+        {/* ANALYSE PAR CATÉGORIE (texte) */}
         {spendingByCategory.length > 0 && (
           <div className="mb-8">
             <h2 className="text-sm uppercase tracking-wider text-gray-500 mb-3">📊 Répartition des dépenses</h2>
@@ -452,9 +517,9 @@ export default function MoneyPage() {
 
       {/* FORMULAIRE MODAL (hors zone export) */}
       <AnimatePresence>
-    {showForm && (
-      <motion.div id="form-container" initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-2xl p-6 mt-6">      
-        <div className="flex justify-between items-center mb-4">
+        {showForm && (
+          <motion.div id="form-container" initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-2xl p-6 mt-6">      
+            <div className="flex justify-between items-center mb-4">
               <h3 className="text-lg font-serif text-ivory">
                 {editingId ? "Modifier" : "Nouvelle"} {formType === "spending" ? "dépense" : "revenu"}
               </h3>
