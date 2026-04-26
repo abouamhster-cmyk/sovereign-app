@@ -57,7 +57,7 @@ export default function WinsPage() {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'wins' }, () => fetchWins())
       .subscribe();
     
-    return () => channel.unsubscribe();
+    return () => {   channel.unsubscribe();  
   }, []);
 
   async function fetchWins() {
