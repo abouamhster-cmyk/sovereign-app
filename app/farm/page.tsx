@@ -114,6 +114,16 @@ export default function FarmPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [formData, setFormData] = useState<any>({});
 
+
+const scrollToForm = () => {
+  setTimeout(() => {
+    const formElement = document.getElementById('form-container');
+    if (formElement) {
+      formElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  }, 150);
+};
+
   useEffect(() => {
     fetchAllData();
     
@@ -283,6 +293,7 @@ export default function FarmPage() {
       });
     }
     setShowForm(true);
+    scrollToForm(); 
   }
 
   function resetForm() {
@@ -356,7 +367,7 @@ export default function FarmPage() {
         {/* BOUTON AJOUTER */}
         <div className="flex justify-end mb-6">
           <button
-            onClick={() => { setShowForm(true); setEditingId(null); setFormData({}); }}
+            onClick={() => { setShowForm(true); setEditingId(null); setFormData({}); scrollToForm(); }}
             className="bg-gold-500 text-midnight px-5 py-2 rounded-full text-sm font-medium flex items-center gap-2 hover:bg-gold-400 transition-colors"
           >
             <Plus className="w-4 h-4" /> Ajouter
@@ -366,7 +377,7 @@ export default function FarmPage() {
         {/* FORMULAIRE DYNAMIQUE */}
         <AnimatePresence>
           {showForm && (
-            <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-2xl p-6 mb-8">
+            <motion.div id="form-container" initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-2xl p-6 mb-8">
               <div className="flex justify-between items-center mb-4">
                 <h3 className="text-lg font-serif text-ivory">
                   {editingId ? "Modifier" : "Ajouter"} - {activeTab === "infrastructure" ? "Infrastructure" : activeTab === "production" ? "Production" : activeTab === "spending" ? "Dépense" : "Membre"}
