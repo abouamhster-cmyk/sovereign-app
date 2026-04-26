@@ -266,25 +266,25 @@ export default function RescuePage() {
   return (
     <div className="p-8 lg:p-12 h-full flex flex-col overflow-y-auto bg-midnight">
       {/* HEADER */}
-      <div className="flex justify-between items-center mb-8">
-        <div>
-          <div className="flex items-center gap-3 mb-2">
-            <ShieldAlert className="w-8 h-8 text-red-400" />
-            <h1 className="text-4xl font-serif text-red-400 tracking-tight">Rescue Mode</h1>
-          </div>
-          <p className="text-gray-500 mt-2 italic font-light">
-            Analyse de charge et recentrage stratégique
-          </p>
-        </div>
-        <button
-          onClick={analyzeLoad}
-          disabled={isAnalyzing}
-          className="bg-white/5 border border-white/10 px-4 py-2 rounded-full text-sm flex items-center gap-2 hover:bg-white/10 transition-colors disabled:opacity-50"
-        >
-          {isAnalyzing ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
-          Réanalyser
-        </button>
-      </div>
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
+  <div>
+    <div className="flex items-center gap-3 mb-2">
+      <ShieldAlert className="w-8 h-8 text-red-400" />
+      <h1 className="text-3xl md:text-4xl font-serif text-red-400 tracking-tight">Rescue Mode</h1>
+    </div>
+    <p className="text-gray-500 text-sm">
+      Analyse de charge et recentrage stratégique
+    </p>
+  </div>
+  <button
+    onClick={analyzeLoad}
+    disabled={isAnalyzing}
+    className="bg-white/5 border border-white/10 px-4 py-2 rounded-full text-sm flex items-center justify-center gap-2 hover:bg-white/10 transition-colors disabled:opacity-50 w-full md:w-auto"
+  >
+    {isAnalyzing ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
+    Réanalyser
+  </button>
+</div>
 
       {/* ANALYSE DE CHARGE */}
       {loadAnalysis && (
