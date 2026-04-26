@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
+import LoadingSpinner from "@/components/LoadingSpinner";
 import { supabase } from "@/lib/supabase";
 import { motion } from "framer-motion";
 import { 
@@ -164,9 +165,11 @@ export default function AlignmentPage() {
           <h2 className="text-xl font-serif text-gold-500 mb-6 flex items-center gap-3">
             <Crown className="w-5 h-5" /> Wins & Truths
           </h2>
-          
+            
           {isLoading ? (
-            <div className="space-y-4">
+            <LoadingSpinner />
+          ) : wins.length > 0 ? (
+          <div className="space-y-4">
               {[1, 2, 3].map((i) => (
                 <div key={i} className="animate-pulse flex items-center gap-3 p-4 bg-white/5 rounded-xl">
                   <div className="w-8 h-8 bg-white/10 rounded-full" />
