@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
+import LoadingSpinner from "@/components/LoadingSpinner";
 import { supabase } from "@/lib/supabase";
 import { motion } from "framer-motion";
 import { 
@@ -212,9 +213,9 @@ export default function BriefPage() {
         </div>
       </div>
 
-      {isLoading ? (
-        <div className="text-center py-12 text-gray-500">Chargement...</div>
-      ) : !todayBrief && !isGenerating ? (
+        {isLoading ? (
+          <LoadingSpinner />
+        ) : !todayBrief && !isGenerating ? (
         <div className="text-center py-12">
           <Calendar className="w-16 h-16 text-gold-500/30 mx-auto mb-4" />
           <p className="text-gray-500">Aucun brief pour aujourd'hui</p>
