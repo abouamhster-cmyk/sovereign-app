@@ -1,0 +1,12 @@
+theme: {
+  extend: {
+    colors: {
+      midnight: '#0A0A0B',
+      gold: {
+        500: '#D4AF37',
+        600: '#B8860B',
+      },
+      ivory: '#F5F5F0',
+    },
+  },
+},
