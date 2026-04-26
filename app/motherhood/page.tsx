@@ -213,28 +213,28 @@ export default function MotherhoodPage() {
 
   return (
     <div className="p-8 lg:p-12 h-full flex flex-col overflow-y-auto bg-midnight">
-      <header className="mb-8">
-        <div className="flex justify-between items-start">
-          <div>
-            <motion.h1 
-              initial={{ opacity: 0, y: -10 }}
-              animate={{ opacity: 1, y: 0 }} 
-              className="text-4xl font-serif text-gold-500 tracking-tight"
-            >
-              Motherhood Command
-            </motion.h1>
-            <p className="text-gray-500 mt-2 italic font-light">
-              Logistique familiale et priorités absolues
-            </p>
-          </div>
-          <button
-            onClick={() => { setShowEventForm(true); setEditingEvent(null); }}
-            className="bg-gold-500 text-midnight px-4 py-2 rounded-full text-sm font-medium flex items-center gap-2 hover:bg-gold-400 transition-colors"
-          >
-            <Plus className="w-4 h-4" /> Ajouter un événement
-          </button>
-        </div>
-      </header>
+<header className="mb-8">
+  <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+    <div>
+      <motion.h1 
+        initial={{ opacity: 0, y: -10 }}
+        animate={{ opacity: 1, y: 0 }} 
+        className="text-3xl md:text-4xl font-serif text-gold-500 tracking-tight"
+      >
+        Motherhood Command
+      </motion.h1>
+      <p className="text-gray-500 mt-1 text-sm md:text-base italic font-light">
+        Logistique familiale et priorités absolues
+      </p>
+    </div>
+    <button
+      onClick={() => { setShowEventForm(true); setEditingEvent(null); }}
+      className="bg-gold-500 text-midnight px-4 py-2 rounded-full text-sm font-medium flex items-center justify-center gap-2 hover:bg-gold-400 transition-colors w-full md:w-auto"
+    >
+      <Plus className="w-4 h-4" /> Ajouter un événement
+    </button>
+  </div>
+</header>
 
       {/* STATISTIQUES */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8">
