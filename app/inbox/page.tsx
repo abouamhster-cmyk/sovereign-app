@@ -54,6 +54,15 @@ export default function InboxPage() {
   const [filter, setFilter] = useState<string>("all");
   const [selectedType, setSelectedType] = useState<string>("all");
 
+  const scrollToForm = () => {
+  setTimeout(() => {
+    const formElement = document.getElementById('form-container');
+    if (formElement) {
+      formElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  }, 150);
+};
+
 useEffect(() => {
   fetchItems();
   
