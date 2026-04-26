@@ -49,16 +49,20 @@ export default function WinsPage() {
     notes: ""
   });
 
+
   useEffect(() => {
-    fetchWins();
-    
-    const channel = supabase
-      .channel('wins_changes')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'wins' }, () => fetchWins())
-      .subscribe();
-    
-    return () => {   channel.unsubscribe();  
-  }, []);
+  fetchWins();
+  
+  const channel = supabase
+    .channel('wins_changes')
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'wins' }, () => fetchWins())
+    .subscribe();
+  
+  return () => {
+    channel.unsubscribe();
+  };
+}, []);
+  
 
   async function fetchWins() {
     setIsLoading(true);
