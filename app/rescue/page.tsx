@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
+import LoadingSpinner from "@/components/LoadingSpinner";
 import { motion } from "framer-motion";
 import { 
   ShieldAlert, Heart, CheckCircle, Clock, 
@@ -328,6 +329,10 @@ export default function RescuePage() {
         </motion.div>
       )}
 
+      {isLoading ? (
+        <LoadingSpinner />
+      ) : (
+        <>
       {/* STATS DE CHARGE */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
         <div className="bg-white/5 border border-white/10 rounded-xl p-4 text-center">
@@ -466,4 +471,5 @@ export default function RescuePage() {
       </div>
     </div>
   );
+  
 }
