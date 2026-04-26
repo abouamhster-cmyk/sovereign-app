@@ -66,16 +66,18 @@ export default function DocumentsPage() {
   });
 
   useEffect(() => {
-    fetchDocuments();
-    
-    const channel = supabase
-      .channel('documents_changes')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'documents' }, () => fetchDocuments())
-      .subscribe();
-    
-    return () => {   channel.unsubscribe();   
-  }, []);
-
+  fetchDocuments();
+  
+  const channel = supabase
+    .channel('documents_changes')
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'documents' }, () => fetchDocuments())
+    .subscribe();
+  
+  return () => {
+    channel.unsubscribe();
+  };
+}, []);
+  
   async function fetchDocuments() {
     setIsLoading(true);
     const { data } = await supabase
