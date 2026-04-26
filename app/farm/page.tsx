@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
+import LoadingSpinner from "@/components/LoadingSpinner";
 import { motion, AnimatePresence } from "framer-motion";
 import { 
   Sprout, Plus, Trash2, Edit2, X, Calendar, 
@@ -460,7 +461,7 @@ const scrollToForm = () => {
         {/* LISTES PAR TAB */}
         <div className="space-y-3">
           {isLoading ? (
-            <div className="text-center py-12 text-gray-500">Chargement...</div>
+            <LoadingSpinner />
           ) : activeTab === "infrastructure" && infrastructure.length === 0 ? (
             <div className="text-center py-12 text-gray-500">Aucune infrastructure</div>
           ) : activeTab === "production" && production.length === 0 ? (
