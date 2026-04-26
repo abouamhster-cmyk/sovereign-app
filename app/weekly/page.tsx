@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
+import LoadingSpinner from "@/components/LoadingSpinner";
 import { supabase } from "@/lib/supabase";
 import { motion } from "framer-motion";
 import { 
@@ -243,9 +244,9 @@ export default function WeeklyPage() {
         </div>
       </div>
 
-      {isLoading ? (
-        <div className="text-center py-12 text-gray-500">Chargement...</div>
-      ) : !lastReview && !isGenerating ? (
+          {isLoading ? (
+            <LoadingSpinner />
+          ) : !lastReview && !isGenerating ? (
         <div className="text-center py-12">
           <Calendar className="w-16 h-16 text-gold-500/30 mx-auto mb-4" />
           <p className="text-gray-500">Aucune revue pour cette semaine</p>
