@@ -103,26 +103,28 @@ useEffect(() => {
 
   return (
     <div className="p-8 lg:p-12 h-full flex flex-col overflow-y-auto bg-midnight">
-      <header className="mb-8">
-        <div className="flex justify-between items-start">
-          <div>
-            <motion.h1 
-              initial={{ opacity: 0, y: -10 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="text-4xl font-serif text-gold-500 tracking-tight"
-            >
-              Business Command
-            </motion.h1>
-            <p className="text-gray-500 mt-2 italic font-light">Pilotage stratégique et suivi des missions</p>
-          </div>
-          <Link 
-            href="/missions" 
-            className="bg-gold-500/20 text-gold-500 px-4 py-2 rounded-full text-sm font-medium flex items-center gap-2 hover:bg-gold-500/30 transition-colors"
+          <header className="mb-8">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+        <div>
+          <motion.h1 
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="text-3xl md:text-4xl font-serif text-gold-500 tracking-tight"
           >
-            <Plus className="w-4 h-4" /> Gérer les missions
-          </Link>
+            Business Command
+          </motion.h1>
+          <p className="text-gray-500 mt-2 italic font-light text-sm md:text-base">
+            Pilotage stratégique et suivi des missions
+          </p>
         </div>
-      </header>
+        <Link 
+          href="/missions" 
+          className="bg-gold-500/20 text-gold-500 px-4 py-2 rounded-full text-sm font-medium flex items-center justify-center gap-2 hover:bg-gold-500/30 transition-colors w-full md:w-auto"
+        >
+          <Plus className="w-4 h-4" /> Gérer les missions
+        </Link>
+      </div>
+    </header>
 
       {/* STATISTIQUES */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8">
