@@ -36,16 +36,20 @@ export default function RelocationPage() {
     notes: ""
   });
 
+
   useEffect(() => {
-    fetchTasks();
-    
-    const channel = supabase
-      .channel('relocation_tasks')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'relocation_tasks' }, () => fetchTasks())
-      .subscribe();
-    
-    return () => {   channel.unsubscribe(); 
-  }, []);
+  fetchTasks();
+  
+  const channel = supabase
+    .channel('relocation_tasks')
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'relocation_tasks' }, () => fetchTasks())
+    .subscribe();
+  
+  return () => {
+    channel.unsubscribe();
+  };
+}, []);
+  
 
   async function fetchTasks() {
     setIsLoading(true);
