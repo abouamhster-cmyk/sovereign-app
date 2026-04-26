@@ -77,7 +77,7 @@ export default function FamilyPage() {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'family_events' }, () => fetchEvents())
       .subscribe();
     
-    return () => channel.unsubscribe();
+    return () => {   channel.unsubscribe();  
   }, []);
 
   async function fetchEvents() {
