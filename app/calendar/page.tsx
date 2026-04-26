@@ -188,29 +188,29 @@ return (
       <LoadingSpinner />
     ) : (
       <>
-        {/* HEADER */}
-        <div className="flex justify-between items-center mb-8">
-          <div>
-            <h1 className="text-4xl font-serif text-gold-500 tracking-tight">Calendar</h1>
-            <p className="text-gray-500 mt-2 italic font-light">
-              Vue d'ensemble des échéances et événements
-            </p>
+          {/* HEADER - VERSION RESPONSIVE */}
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
+            <div>
+              <h1 className="text-3xl md:text-4xl font-serif text-gold-500 tracking-tight">Calendar</h1>
+              <p className="text-gray-500 mt-1 text-sm md:text-base">
+                Vue d'ensemble des échéances et événements
+              </p>
+            </div>
+            <div className="flex flex-col sm:flex-row gap-2 w-full md:w-auto">
+              <button
+                onClick={goToToday}
+                className="bg-white/5 border border-white/10 px-4 py-2 rounded-full text-sm hover:bg-white/10 transition-colors w-full sm:w-auto"
+              >
+                Aujourd'hui
+              </button>
+              <Link
+                href="/tasks/new"
+                className="bg-gold-500 text-midnight px-4 py-2 rounded-full text-sm font-medium flex items-center justify-center gap-2 hover:bg-gold-400 transition-colors w-full sm:w-auto"
+              >
+                <Plus className="w-4 h-4" /> Ajouter
+              </Link>
+            </div>
           </div>
-          <div className="flex gap-2">
-            <button
-              onClick={goToToday}
-              className="bg-white/5 border border-white/10 px-4 py-2 rounded-full text-sm hover:bg-white/10 transition-colors"
-            >
-              Aujourd'hui
-            </button>
-            <Link
-              href="/tasks/new"
-              className="bg-gold-500 text-midnight px-4 py-2 rounded-full text-sm font-medium flex items-center gap-2 hover:bg-gold-400 transition-colors"
-            >
-              <Plus className="w-4 h-4" /> Ajouter
-            </Link>
-          </div>
-        </div>
 
         {/* LÉGENDE */}
         <div className="flex flex-wrap gap-4 mb-6">
