@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
+import LoadingSpinner from "@/components/LoadingSpinner";
 import { motion, AnimatePresence } from "framer-motion";
 import { 
   Target, Plus, Trash2, Edit2, X, Calendar, 
@@ -333,7 +334,7 @@ function editMission(mission: Mission) {
       {/* LISTE DES MISSIONS */}
       <div className="space-y-3">
         {isLoading ? (
-          <div className="text-center py-12 text-gray-500">Chargement...</div>
+          <LoadingSpinner />
         ) : sortedMissions.length === 0 ? (
           <div className="text-center py-12 text-gray-500">
             <Target className="w-12 h-12 mx-auto mb-4 opacity-30" />
