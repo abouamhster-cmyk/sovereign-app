@@ -458,7 +458,7 @@ export default function MoneyPage() {
             </div>
             <div className="divide-y divide-white/5 max-h-[500px] overflow-y-auto">
               {isLoading ? (
-                <div className="p-8 text-center text-gray-500">Chargement...</div>
+                <LoadingSpinner />
               ) : filteredRevenue.length === 0 ? (
                 <div className="p-8 text-center text-gray-500">Aucun revenu</div>
               ) : (
