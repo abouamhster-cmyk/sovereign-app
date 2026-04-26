@@ -70,3 +70,14 @@ body {
   overflow-y: auto;
   overflow-x: hidden;
 }
+
+
+/* Empêcher les chiffres de sortir des cartes */
+.stat-card {
+  word-break: break-word;
+  overflow-wrap: break-word;
+}
+
+.stat-card .text-2xl {
+  font-size: clamp(1.25rem, 5vw, 1.5rem);
+}
