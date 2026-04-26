@@ -51,6 +51,15 @@ export default function TasksPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [filterStatus, setFilterStatus] = useState<string>("all");
   const [filterPriority, setFilterPriority] = useState<string>("all");
+
+ const scrollToForm = () => {
+  setTimeout(() => {
+    const formElement = document.getElementById('form-container');
+    if (formElement) {
+      formElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  }, 150);
+};
   
   const [formData, setFormData] = useState({
     title: "",
@@ -123,18 +132,19 @@ export default function TasksPage() {
     }
   }
 
-  function editTask(task: Task) {
-    setFormData({
-      title: task.title,
-      status: task.status,
-      priority: task.priority,
-      project: task.project,
-      due_date: task.due_date || "",
-      estimated_time: task.estimated_time?.toString() || ""
-    });
-    setEditingId(task.id);
-    setShowForm(true);
-  }
+function editTask(task: Task) {
+  setFormData({
+    title: task.title,
+    status: task.status,
+    priority: task.priority,
+    project: task.project,
+    due_date: task.due_date || "",
+    estimated_time: task.estimated_time?.toString() || ""
+  });
+  setEditingId(task.id);
+  setShowForm(true);
+  scrollToForm(); 
+}
 
   function resetForm() {
     setShowForm(false);
@@ -170,12 +180,17 @@ export default function TasksPage() {
           <h1 className="text-4xl font-serif text-gold-500 tracking-tight">Task Command</h1>
           <p className="text-gray-500 text-sm mt-1">Gestion des priorités et exécution</p>
         </div>
-        <button
-          onClick={() => { setShowForm(true); setEditingId(null); }}
-          className="bg-gold-500 text-midnight px-5 py-2 rounded-full text-sm font-medium flex items-center gap-2 hover:bg-gold-400 transition-colors"
-        >
-          <Plus className="w-4 h-4" /> Nouvelle tâche
-        </button>
+          <button
+            onClick={() => { 
+              setShowForm(true); 
+              setEditingId(null);
+              scrollToForm(); // ← AJOUTE CETTE LIGNE
+            }}
+            className="bg-gold-500 text-midnight px-5 py-2 rounded-full text-sm font-medium flex items-center gap-2 hover:bg-gold-400 transition-colors"
+          >
+            <Plus className="w-4 h-4" /> Nouvelle tâche
+          </button>
+        
       </div>
 
       {/* STATS */}
@@ -225,9 +240,9 @@ export default function TasksPage() {
 
       {/* FORMULAIRE */}
       <AnimatePresence>
-        {showForm && (
-          <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-2xl p-6 mb-8">
-            <div className="flex justify-between items-center mb-4">
+    {showForm && (
+      <motion.div id="form-container" initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-2xl p-6 mb-8"> 
+        <div className="flex justify-between items-center mb-4">
               <h3 className="text-lg font-serif text-ivory">{editingId ? "Modifier" : "Nouvelle"} tâche</h3>
               <button onClick={resetForm} className="text-gray-400 hover:text-white"><X className="w-5 h-5" /></button>
             </div>
