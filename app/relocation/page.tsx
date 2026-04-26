@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
+import LoadingSpinner from "@/components/LoadingSpinner";
 import { motion, AnimatePresence } from "framer-motion";
 import { 
   Globe, Plane, CheckCircle, Clock, AlertCircle, 
@@ -423,6 +424,12 @@ export default function RelocationPage() {
       </AnimatePresence>
 
       {/* LISTE DES TÂCHES PAR CATÉGORIE */}
+        {isLoading ? (
+                  <div className="flex-1 flex items-center justify-center py-20">
+                    <LoadingSpinner />
+                  </div>
+                ) : (
+        <>
       <div className="space-y-6">
         {categoriesList.filter(c => c.id !== "all").map(cat => {
           const categoryTasks = filteredTasks.filter(t => t.category === cat.id);
