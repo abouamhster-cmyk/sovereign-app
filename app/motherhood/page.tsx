@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
+import LoadingSpinner from "@/components/LoadingSpinner";
 import { motion } from "framer-motion";
 import { 
   Users, Calendar, FileCheck, Heart, Baby, 
@@ -370,13 +371,9 @@ export default function MotherhoodPage() {
           </h2>
           
           <div className="flex-1 overflow-y-auto space-y-3 scrollbar-hide max-h-[400px]">
-            {isLoading ? (
-              <div className="space-y-3">
-                {[1, 2, 3].map(i => (
-                  <div key={i} className="animate-pulse h-16 bg-white/5 rounded-xl" />
-                ))}
-              </div>
-            ) : calendar.length > 0 ? (
+                {isLoading ? (
+                  <LoadingSpinner />
+                ) : calendar.length > 0 ? (
               calendar.map((event) => {
                 const isToday = event.date && new Date(event.date).toDateString() === new Date().toDateString();
                 const priorityClass = getPriorityColor(event.priority);
