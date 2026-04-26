@@ -198,7 +198,7 @@ export default function MoneyPage() {
   const filteredRevenue = revenue.filter(r => {
     if (filterProject !== "all" && r.project !== filterProject) return false;
     if (filterMonth !== "all") {
-      const month = new Date(r.date).toLocaleString('fr-FR', { month: 'year' });
+      const month = new Date(r.date).toLocaleString('fr-FR', { month: 'long', year: 'numeric' });
       if (month !== filterMonth) return false;
     }
     return true;
