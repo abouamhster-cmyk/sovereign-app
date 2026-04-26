@@ -7,7 +7,7 @@ import {
   LayoutDashboard, Target, Heart, DollarSign, Briefcase,
   Sprout, AlertCircle, CheckCircle, Clock, TrendingUp,
   Calendar, Sparkles, ArrowRight, MessageSquare, Shield,
-  FileText, Users, Wallet, Globe, Zap, Menu
+  FileText, Users, Wallet, Globe, Zap, Menu, Lightbulb
 } from "lucide-react";
 
 type Mission = {
@@ -49,9 +49,21 @@ type FarmStats = {
   nextMilestone: string;
 };
 
+type Suggestion = {
+  type: string;
+  priority: "high" | "medium" | "low";
+  title: string;
+  message: string;
+  action_url: string;
+  action_label: string;
+};
+
+const API_URL = "https://sovereign-bridge.onrender.com";
+
 export default function DashboardPage() {
   const [greeting, setGreeting] = useState("");
   const [isLoading, setIsLoading] = useState(true);
+  const [proactiveSuggestions, setProactiveSuggestions] = useState<Suggestion[]>([]);
   
   // Données
   const [missions, setMissions] = useState<Mission[]>([]);
@@ -98,19 +110,29 @@ export default function DashboardPage() {
       fetchOpportunities(),
       fetchWins(),
       fetchFarmStats(),
-      fetchFinancials()
+      fetchFinancials(),
+      fetchProactiveSuggestions()
     ]);
     setIsLoading(false);
   }
 
-async function fetchMissions() {
-  const { data } = await supabase
-    .from("missions")
-    .select("*")
-    .eq("status", "active");
-  // pas de .limit(4)
-  setMissions(data || []);
-}
+  async function fetchProactiveSuggestions() {
+    try {
+      const response = await fetch(`${API_URL}/api/proactive-suggestions`);
+      const data = await response.json();
+      setProactiveSuggestions(data.suggestions || []);
+    } catch (error) {
+      console.error("Erreur suggestions:", error);
+    }
+  }
+
+  async function fetchMissions() {
+    const { data } = await supabase
+      .from("missions")
+      .select("*")
+      .eq("status", "active");
+    setMissions(data || []);
+  }
 
   async function fetchTasks() {
     const { data } = await supabase
@@ -120,11 +142,11 @@ async function fetchMissions() {
       .limit(5);
     setTodayTasks(data || []);
     
-const { data: urgent } = await supabase
-  .from("tasks")
-  .select("*")
-  .eq("status", "today")  
-  .neq("status", "done");
+    const { data: urgent } = await supabase
+      .from("tasks")
+      .select("*")
+      .eq("status", "today")  
+      .neq("status", "done");
     setUrgentTasks(urgent || []);
   }
 
@@ -212,6 +234,40 @@ const { data: urgent } = await supabase
           <span className="hidden sm:inline">Sovereign</span>
         </Link>
       </div>
+
+      {/* SUGGESTIONS PROACTIVES */}
+      {proactiveSuggestions.length > 0 && (
+        <div className="mb-8">
+          <div className="flex items-center gap-2 text-gold-500 mb-3">
+            <Lightbulb className="w-4 h-4" />
+            <h2 className="text-sm font-serif">Suggestions Sovereign</h2>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {proactiveSuggestions.map((suggestion, idx) => {
+              const priorityColor = suggestion.priority === "high" ? "border-red-500/30 bg-red-950/20" :
+                                    suggestion.priority === "medium" ? "border-yellow-500/30 bg-yellow-950/20" :
+                                    "border-gold-500/30 bg-gold-500/5";
+              const actionColor = suggestion.priority === "high" ? "text-red-400 hover:bg-red-500/20" :
+                                  suggestion.priority === "medium" ? "text-yellow-400 hover:bg-yellow-500/20" :
+                                  "text-gold-500 hover:bg-gold-500/20";
+              
+              return (
+                <Link
+                  key={idx}
+                  href={suggestion.action_url}
+                  className={`block p-4 rounded-xl border transition-all hover:scale-[1.02] ${priorityColor}`}
+                >
+                  <p className="text-sm font-medium text-ivory">{suggestion.title}</p>
+                  <p className="text-xs text-gray-400 mt-1">{suggestion.message}</p>
+                  <span className={`inline-block text-xs mt-3 px-2 py-1 rounded-full ${actionColor}`}>
+                    {suggestion.action_label} →
+                  </span>
+                </Link>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* STATS RAPIDES */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
