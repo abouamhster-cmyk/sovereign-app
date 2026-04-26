@@ -139,17 +139,20 @@ export default function OpportunitiesPage() {
     notes: ""
   });
 
-  useEffect(() => {
-    fetchData();
-    
-    const channel = supabase
-      .channel('opportunities_changes')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'opportunities' }, () => fetchOpportunities())
-      .subscribe();
-    
-    return () => {   channel.unsubscribe();  
-  }, []);
 
+  useEffect(() => {
+  fetchData();
+  
+  const channel = supabase
+    .channel('opportunities_changes')
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'opportunities' }, () => fetchOpportunities())
+    .subscribe();
+  
+  return () => {
+    channel.unsubscribe();
+  };
+}, []);
+    
   async function fetchData() {
     setIsLoading(true);
     await Promise.all([fetchOpportunities(), fetchMissions()]);
