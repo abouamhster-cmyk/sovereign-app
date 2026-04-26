@@ -7,9 +7,16 @@ import {
   LayoutDashboard, Target, Heart, DollarSign, Briefcase,
   Sprout, AlertCircle, CheckCircle, Clock, TrendingUp,
   Calendar, Sparkles, ArrowRight, MessageSquare, Shield,
-  FileText, Users, Wallet, Globe, Zap, Menu, Lightbulb, Bell
+  FileText, Users, Wallet, Globe, Zap, Lightbulb, 
+  PieChart, LineChart
 } from "lucide-react";
+import { Chart as ChartJS, ArcElement, Tooltip, Legend, CategoryScale, LinearScale, BarElement, PointElement, LineElement, Title } from 'chart.js';
+import { Bar, Pie, Line } from 'react-chartjs-2';
 
+// Enregistrement ChartJS
+ChartJS.register(ArcElement, Tooltip, Legend, CategoryScale, LinearScale, BarElement, PointElement, LineElement, Title);
+
+// Types
 type Mission = {
   id: string;
   name: string;
@@ -76,6 +83,19 @@ type CalmGuidance = {
   time_context: string;
 };
 
+type CategoryData = {
+  value: string;
+  label: string;
+  total: number;
+  color: string;
+};
+
+type MonthlyEvolution = {
+  labels: string[];
+  revenue: number[];
+  spending: number[];
+};
+
 const API_URL = "https://sovereign-bridge.onrender.com";
 
 export default function DashboardPage() {
@@ -102,7 +122,13 @@ export default function DashboardPage() {
     spending: 0,
     balance: 0
   });
-
+  const [spendingByCategory, setSpendingByCategory] = useState<CategoryData[]>([]);
+  const [monthlyEvolution, setMonthlyEvolution] = useState<MonthlyEvolution>({ 
+    labels: [], 
+    revenue: [], 
+    spending: [] 
+  });
+  
   useEffect(() => {
     const hour = new Date().getHours();
     if (hour < 12) setGreeting("Bonjour");
@@ -111,7 +137,6 @@ export default function DashboardPage() {
     
     fetchAllData();
     
-    // Écouter les changements en temps réel
     const channels = [
       supabase.channel('dashboard_missions').on('postgres_changes', { event: '*', schema: 'public', table: 'missions' }, () => fetchMissions()).subscribe(),
       supabase.channel('dashboard_tasks').on('postgres_changes', { event: '*', schema: 'public', table: 'tasks' }, () => fetchTasks()).subscribe(),
@@ -132,6 +157,8 @@ export default function DashboardPage() {
       fetchFarmStats(),
       fetchFinancials(),
       fetchAiPriorities(),
+      fetchSpendingByCategory(),
+      fetchMonthlyEvolution(),
       fetchProactiveSuggestions(),
       fetchCalmGuidance()
     ]);
@@ -252,6 +279,66 @@ export default function DashboardPage() {
     const spending = (spendingRes.data || []).reduce((sum, s) => sum + (s.amount || 0), 0);
     
     setFinancials({ revenue, spending, balance: revenue - spending });
+  }
+
+  async function fetchSpendingByCategory() {
+    const { data } = await supabase.from("spending").select("amount, category");
+    if (!data) return;
+    
+    const categories: CategoryData[] = [
+      { value: "materials", label: "Matériaux", total: 0, color: "rgba(212, 175, 55, 0.8)" },
+      { value: "construction", label: "Construction", total: 0, color: "rgba(212, 175, 55, 0.6)" },
+      { value: "labor", label: "Main d'œuvre", total: 0, color: "rgba(212, 175, 55, 0.5)" },
+      { value: "livestock", label: "Élevage", total: 0, color: "rgba(212, 175, 55, 0.4)" },
+      { value: "crops", label: "Cultures", total: 0, color: "rgba(212, 175, 55, 0.3)" },
+      { value: "other", label: "Autre", total: 0, color: "rgba(212, 175, 55, 0.2)" }
+    ];
+    
+    data.forEach(item => {
+      const cat = categories.find(c => c.value === item.category);
+      if (cat) cat.total += item.amount;
+    });
+    
+    setSpendingByCategory(categories.filter(c => c.total > 0));
+  }
+
+  async function fetchMonthlyEvolution() {
+    const [revenueData, spendingData] = await Promise.all([
+      supabase.from("revenue").select("amount, date"),
+      supabase.from("spending").select("amount, date")
+    ]);
+    
+    const monthlyMap = new Map<string, { label: string; revenue: number; spending: number }>();
+    
+    revenueData.data?.forEach(r => {
+      const date = new Date(r.date);
+      const monthKey = `${date.getMonth() + 1}/${date.getFullYear()}`;
+      const monthLabel = date.toLocaleString('fr-FR', { month: 'short' });
+      if (!monthlyMap.has(monthKey)) monthlyMap.set(monthKey, { label: monthLabel, revenue: 0, spending: 0 });
+      monthlyMap.get(monthKey)!.revenue += r.amount;
+    });
+    
+    spendingData.data?.forEach(s => {
+      const date = new Date(s.date);
+      const monthKey = `${date.getMonth() + 1}/${date.getFullYear()}`;
+      const monthLabel = date.toLocaleString('fr-FR', { month: 'short' });
+      if (!monthlyMap.has(monthKey)) monthlyMap.set(monthKey, { label: monthLabel, revenue: 0, spending: 0 });
+      monthlyMap.get(monthKey)!.spending += s.amount;
+    });
+    
+    const sorted = Array.from(monthlyMap.entries())
+      .sort((a, b) => {
+        const [aMonth, aYear] = a[0].split('/');
+        const [bMonth, bYear] = b[0].split('/');
+        return parseInt(aYear) - parseInt(bYear) || parseInt(aMonth) - parseInt(bMonth);
+      })
+      .slice(-6);
+    
+    setMonthlyEvolution({
+      labels: sorted.map(s => s[1].label),
+      revenue: sorted.map(s => s[1].revenue),
+      spending: sorted.map(s => s[1].spending)
+    });
   }
 
   const formatCurrency = (val: number) => {
@@ -420,12 +507,88 @@ export default function DashboardPage() {
         />
       </div>
 
+      {/* GRAPHIQUES */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+        {spendingByCategory.length > 0 && (
+          <div className="bg-white/5 border border-white/10 rounded-2xl p-5">
+            <h2 className="text-sm font-serif text-gold-500 mb-4 flex items-center gap-2">
+              <PieChart className="w-4 h-4" />
+              Dépenses par catégorie
+            </h2>
+            <div className="h-64">
+              <Pie 
+                data={{
+                  labels: spendingByCategory.map(c => c.label),
+                  datasets: [{
+                    data: spendingByCategory.map(c => c.total),
+                    backgroundColor: spendingByCategory.map(c => c.color),
+                    borderColor: '#D4AF37',
+                    borderWidth: 1,
+                  }]
+                }}
+                options={{
+                  responsive: true,
+                  maintainAspectRatio: false,
+                  plugins: {
+                    legend: { position: 'bottom', labels: { color: '#9CA3AF' } },
+                    tooltip: { callbacks: { label: (ctx) => `${ctx.label}: ${ctx.raw?.toLocaleString()} CFA` } }
+                  }
+                }}
+              />
+            </div>
+          </div>
+        )}
+        
+        {monthlyEvolution.labels.length > 0 && (
+          <div className="bg-white/5 border border-white/10 rounded-2xl p-5">
+            <h2 className="text-sm font-serif text-gold-500 mb-4 flex items-center gap-2">
+              <LineChart className="w-4 h-4" />
+              Évolution 6 mois
+            </h2>
+            <div className="h-64">
+              <Bar
+                data={{
+                  labels: monthlyEvolution.labels,
+                  datasets: [
+                    {
+                      label: 'Revenus',
+                      data: monthlyEvolution.revenue,
+                      backgroundColor: 'rgba(16, 185, 129, 0.6)',
+                      borderColor: '#10b981',
+                      borderWidth: 2,
+                    },
+                    {
+                      label: 'Dépenses',
+                      data: monthlyEvolution.spending,
+                      backgroundColor: 'rgba(239, 68, 68, 0.6)',
+                      borderColor: '#ef4444',
+                      borderWidth: 2,
+                    }
+                  ]
+                }}
+                options={{
+                  responsive: true,
+                  maintainAspectRatio: false,
+                  plugins: {
+                    legend: { position: 'top', labels: { color: '#9CA3AF' } },
+                    tooltip: { callbacks: { label: (ctx) => `${ctx.dataset.label}: ${ctx.raw?.toLocaleString()} CFA` } }
+                  },
+                  scales: {
+                    x: { ticks: { color: '#9CA3AF' } },
+                    y: { ticks: { color: '#9CA3AF' }, title: { display: true, text: 'CFA', color: '#9CA3AF' } }
+                  }
+                }}
+              />
+            </div>
+          </div>
+        )}
+      </div>
+      
       {/* ZONE PRIORITAIRE */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
         
         {/* URGENT & TODAY */}
         <div className="lg:col-span-2 space-y-6">
-          {/* Alertes urgentes */}
           {urgentTasks.length > 0 && (
             <div className="bg-red-950/20 border border-red-500/30 rounded-2xl p-5">
               <div className="flex items-center gap-2 text-red-400 mb-3">
@@ -443,7 +606,6 @@ export default function DashboardPage() {
             </div>
           )}
 
-          {/* Tâches du jour */}
           <div className="bg-white/5 border border-white/10 rounded-2xl p-5">
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-sm font-serif text-gold-500 flex items-center gap-2">
@@ -466,7 +628,6 @@ export default function DashboardPage() {
             )}
           </div>
 
-          {/* Missions actives */}
           <div className="bg-white/5 border border-white/10 rounded-2xl p-5">
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-sm font-serif text-gold-500 flex items-center gap-2">
@@ -488,7 +649,6 @@ export default function DashboardPage() {
 
         {/* FARM PULSE & QUICK ACTIONS */}
         <div className="space-y-6">
-          {/* Farm Pulse */}
           <div className="bg-white/5 border border-white/10 rounded-2xl p-5">
             <div className="flex items-center gap-2 text-emerald-400 mb-3">
               <Sprout className="w-5 h-5" />
@@ -513,7 +673,6 @@ export default function DashboardPage() {
             </Link>
           </div>
 
-          {/* Quick Actions */}
           <div className="bg-white/5 border border-white/10 rounded-2xl p-5">
             <h2 className="text-sm font-serif text-gold-500 mb-3">⚡ Accès rapide</h2>
             <div className="grid grid-cols-2 gap-2">
@@ -529,7 +688,6 @@ export default function DashboardPage() {
       {/* SECTION BASSE - OPPORTUNITÉS & VICTOIRES */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         
-        {/* Opportunités récentes */}
         <div className="bg-white/5 border border-white/10 rounded-2xl p-5">
           <div className="flex justify-between items-center mb-4">
             <h2 className="text-sm font-serif text-gold-500 flex items-center gap-2">
@@ -552,7 +710,6 @@ export default function DashboardPage() {
           )}
         </div>
 
-        {/* Victoires récentes */}
         <div className="bg-white/5 border border-white/10 rounded-2xl p-5">
           <div className="flex justify-between items-center mb-4">
             <h2 className="text-sm font-serif text-gold-500 flex items-center gap-2">
