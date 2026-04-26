@@ -71,6 +71,16 @@ export default function ContentPage() {
     cta: ""
   });
 
+
+ const scrollToForm = () => {
+  setTimeout(() => {
+    const formElement = document.getElementById('form-container');
+    if (formElement) {
+      formElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  }, 150);
+};
+  
 useEffect(() => {
   fetchContent();
   
@@ -146,6 +156,7 @@ useEffect(() => {
       cta: content.cta || ""
     });
     setShowForm(true);
+    scrollToForm(); 
   }
 
   function resetForm() {
@@ -200,7 +211,7 @@ useEffect(() => {
             <Download className="w-5 h-5" />
           </button>
           <button
-            onClick={() => { setShowForm(true); setEditingContent(null); }}
+            onClick={() => {      setShowForm(true);      setEditingContent(null);     scrollToForm();   }}
             className="bg-gold-500 text-midnight px-5 py-2 rounded-full text-sm font-medium flex items-center gap-2 hover:bg-gold-400 transition-colors"
           >
             <Plus className="w-4 h-4" /> Nouveau contenu
@@ -256,7 +267,7 @@ useEffect(() => {
       {/* FORMULAIRE */}
       <AnimatePresence>
         {showForm && (
-          <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-2xl p-6 mb-8">
+          <motion.div id="form-container" initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-2xl p-6 mb-8">
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-lg font-serif text-ivory">{editingContent ? "Modifier" : "Nouveau"} contenu</h3>
               <button onClick={resetForm} className="text-gray-400 hover:text-white"><X className="w-5 h-5" /></button>
