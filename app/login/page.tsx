@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
@@ -11,8 +11,29 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const { signIn, signUp } = useAuth();
+  const { signIn, signUp, user, isLoading: isAuthLoading } = useAuth();
   const router = useRouter();
+
+  // Redirection si déjà connecté
+  useEffect(() => {
+    if (!isAuthLoading && user) {
+      router.push("/");
+    }
+  }, [user, isAuthLoading, router]);
+
+  // Pendant le chargement de l'auth, afficher un loader
+  if (isAuthLoading) {
+    return (
+      <div className="min-h-screen bg-midnight flex items-center justify-center">
+        <Loader2 className="w-8 h-8 text-gold-500 animate-spin" />
+      </div>
+    );
+  }
+
+  // Si déjà connecté, ne rien afficher (la redirection va avoir lieu)
+  if (user) {
+    return null;
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -25,7 +46,7 @@ export default function LoginPage() {
       } else {
         await signUp(email, password);
       }
-      router.push("/");
+      // La redirection se fait via le useEffect
     } catch (err: any) {
       setError(err.message);
     } finally {
