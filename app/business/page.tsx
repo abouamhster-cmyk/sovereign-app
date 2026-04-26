@@ -27,17 +27,19 @@ export default function BusinessPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [filterStatus, setFilterStatus] = useState<string>("all");
 
-  useEffect(() => {
-    fetchMissions();
-    
-    const channel = supabase
-      .channel('missions_business')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'missions' }, () => fetchMissions())
-      .subscribe();
-    
-    return () => channel.unsubscribe();
-  }, []);
-
+useEffect(() => {
+  fetchMissions();
+  
+  const channel = supabase
+    .channel('missions_business')
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'missions' }, () => fetchMissions())
+    .subscribe();
+  
+  return () => {
+    channel.unsubscribe();
+  };
+}, []);
+  
   async function fetchMissions() {
     setIsLoading(true);
     const { data } = await supabase
