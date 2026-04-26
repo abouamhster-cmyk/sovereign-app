@@ -8,6 +8,9 @@ import {
   Clock, AlertCircle, Download
 } from "lucide-react";
 import { exportToPDF } from "@/lib/exportPDF";
+import { toast } from "sonner";
+
+const API_URL = "https://sovereign-bridge.onrender.com";
 
 type DailyBrief = {
   id: string;
@@ -76,7 +79,6 @@ export default function BriefPage() {
     setIsGenerating(true);
     
     try {
-      // Récupérer les données contextuelles
       const [missionsRes, tasksRes, spendingRes, familyRes] = await Promise.all([
         supabase.from("missions").select("*").eq("status", "active"),
         supabase.from("tasks").select("*").neq("status", "done").limit(10),
@@ -91,8 +93,7 @@ export default function BriefPage() {
         familyEvents: familyRes.data || []
       };
       
-      // Appel à l'IA pour générer le brief
-      const response = await fetch("https://sovereign-bridge.onrender.com/chat", {
+      const response = await fetch(`${API_URL}/chat`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -134,9 +135,32 @@ export default function BriefPage() {
       
       if (!error) {
         fetchTodayBrief();
+        toast.success("Brief généré avec succès");
       }
     } catch (error) {
       console.error("Erreur génération brief:", error);
+      toast.error("Erreur lors de la génération du brief");
+    } finally {
+      setIsGenerating(false);
+    }
+  }
+
+  async function generateAutoBrief() {
+    setIsGenerating(true);
+    try {
+      const response = await fetch(`${API_URL}/api/generate-daily-brief`, {
+        method: "POST"
+      });
+      const data = await response.json();
+      if (data.success) {
+        fetchTodayBrief();
+        toast.success("Brief généré automatiquement");
+      } else {
+        toast.info(data.message || "Brief déjà généré aujourd'hui");
+      }
+    } catch (error) {
+      console.error("Erreur:", error);
+      toast.error("Erreur lors de la génération automatique");
     } finally {
       setIsGenerating(false);
     }
@@ -151,8 +175,8 @@ export default function BriefPage() {
 
   return (
     <div className="p-8 lg:p-12 h-full flex flex-col overflow-y-auto bg-midnight">
-      {/* HEADER AVEC BOUTON EXPORT */}
-      <div className="flex justify-between items-center mb-8">
+      {/* HEADER AVEC BOUTONS */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
         <div className="flex items-center gap-4">
           <div>
             <h1 className="text-4xl font-serif text-gold-500 tracking-tight">Daily Brief</h1>
@@ -168,14 +192,24 @@ export default function BriefPage() {
             </button>
           )}
         </div>
-        <button
-          onClick={generateBrief}
-          disabled={isGenerating}
-          className="bg-gold-500/20 text-gold-500 px-5 py-2 rounded-full text-sm font-medium flex items-center gap-2 hover:bg-gold-500/30 transition-colors disabled:opacity-50"
-        >
-          {isGenerating ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
-          {isGenerating ? "Génération..." : "Rafraîchir"}
-        </button>
+        <div className="flex gap-3">
+          <button
+            onClick={generateAutoBrief}
+            disabled={isGenerating}
+            className="bg-gold-500/20 text-gold-500 px-4 py-2 rounded-full text-sm font-medium flex items-center gap-2 hover:bg-gold-500/30 transition-colors disabled:opacity-50"
+          >
+            <Sparkles className="w-4 h-4" />
+            Génération IA
+          </button>
+          <button
+            onClick={generateBrief}
+            disabled={isGenerating}
+            className="bg-gold-500/20 text-gold-500 px-4 py-2 rounded-full text-sm font-medium flex items-center gap-2 hover:bg-gold-500/30 transition-colors disabled:opacity-50"
+          >
+            {isGenerating ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
+            {isGenerating ? "Génération..." : "Rafraîchir"}
+          </button>
+        </div>
       </div>
 
       {isLoading ? (
