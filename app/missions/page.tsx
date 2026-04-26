@@ -79,7 +79,7 @@ export default function MissionsPage() {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'missions' }, () => fetchMissions())
       .subscribe();
     
-    return () => channel.unsubscribe();
+    return () => {   channel.unsubscribe();  
   }, []);
 
   async function fetchMissions() {
