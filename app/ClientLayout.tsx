@@ -148,6 +148,11 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
     );
   };
 
+  // ✅ CORRECTION : Si pas d'utilisateur, on n'affiche PAS le layout
+  if (!user) {
+    return <>{children}</>;
+  }
+
   return (
     <div className="flex h-screen overflow-hidden">
       {/* SIDEBAR DESKTOP */}
