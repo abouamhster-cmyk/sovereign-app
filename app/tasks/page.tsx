@@ -62,16 +62,18 @@ export default function TasksPage() {
   });
 
   useEffect(() => {
-    fetchTasks();
-    
-    const channel = supabase
-      .channel('tasks_changes')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'tasks' }, () => fetchTasks())
-      .subscribe();
-    
-    return () => {   channel.unsubscribe();   
-  }, []);
-
+  fetchTasks();
+  
+  const channel = supabase
+    .channel('tasks_changes')
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'tasks' }, () => fetchTasks())
+    .subscribe();
+  
+  return () => {
+    channel.unsubscribe();
+  };
+}, []);
+  
   async function fetchTasks() {
     setIsLoading(true);
     const { data } = await supabase
