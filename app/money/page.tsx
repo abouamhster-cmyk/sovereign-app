@@ -189,7 +189,7 @@ export default function MoneyPage() {
   const filteredSpending = spending.filter(s => {
     if (filterProject !== "all" && s.project !== filterProject) return false;
     if (filterMonth !== "all") {
-      const month = new Date(s.date).toLocaleString('fr-FR', { month: 'year' });
+      const month = new Date(s.date).toLocaleString('fr-FR', { month: 'long', year: 'numeric' });
       if (month !== filterMonth) return false;
     }
     return true;
