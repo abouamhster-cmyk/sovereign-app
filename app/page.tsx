@@ -7,7 +7,7 @@ import {
   LayoutDashboard, Target, Heart, DollarSign, Briefcase,
   Sprout, AlertCircle, CheckCircle, Clock, TrendingUp,
   Calendar, Sparkles, ArrowRight, MessageSquare, Shield,
-  FileText, Users, Wallet, Globe, Zap, Menu, Lightbulb
+  FileText, Users, Wallet, Globe, Zap, Menu, Lightbulb, Bell
 } from "lucide-react";
 
 type Mission = {
@@ -58,12 +58,32 @@ type Suggestion = {
   action_label: string;
 };
 
+type AiPriority = {
+  id: string;
+  title: string;
+  score: number;
+  due_date: string | null;
+  priority_reason: string;
+  action_url?: string;
+};
+
+type CalmGuidance = {
+  message: string;
+  tone: string;
+  advice: string;
+  load_score: number;
+  specific_advice: string[];
+  time_context: string;
+};
+
 const API_URL = "https://sovereign-bridge.onrender.com";
 
 export default function DashboardPage() {
   const [greeting, setGreeting] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [proactiveSuggestions, setProactiveSuggestions] = useState<Suggestion[]>([]);
+  const [aiPriorities, setAiPriorities] = useState<AiPriority[]>([]);
+  const [calmGuidance, setCalmGuidance] = useState<CalmGuidance | null>(null);
   
   // Données
   const [missions, setMissions] = useState<Mission[]>([]);
@@ -111,7 +131,9 @@ export default function DashboardPage() {
       fetchWins(),
       fetchFarmStats(),
       fetchFinancials(),
-      fetchProactiveSuggestions()
+      fetchAiPriorities(),
+      fetchProactiveSuggestions(),
+      fetchCalmGuidance()
     ]);
     setIsLoading(false);
   }
@@ -123,6 +145,34 @@ export default function DashboardPage() {
       setProactiveSuggestions(data.suggestions || []);
     } catch (error) {
       console.error("Erreur suggestions:", error);
+    }
+  }
+
+  async function fetchAiPriorities() {
+    try {
+      const response = await fetch(`${API_URL}/api/ai-priorities`);
+      const data = await response.json();
+      setAiPriorities(data.priorities || []);
+    } catch (error) {
+      console.error("Erreur récupération priorités:", error);
+    }
+  }
+
+  async function fetchCalmGuidance() {
+    try {
+      const response = await fetch(`${API_URL}/api/calm-guidance`);
+      const data = await response.json();
+      setCalmGuidance(data);
+    } catch (error) {
+      console.error("Erreur récupération calm guidance:", error);
+      setCalmGuidance({
+        message: "🌿 Respire. Une chose à la fois.",
+        tone: "calm",
+        advice: "Prends soin de toi.",
+        load_score: 0,
+        specific_advice: [],
+        time_context: "neutral"
+      });
     }
   }
 
@@ -208,13 +258,6 @@ export default function DashboardPage() {
     return new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'XOF', maximumFractionDigits: 0 }).format(val);
   };
 
-  // Calm guidance dynamique
-  const calmGuidance = urgentTasks.length > 0 
-    ? `⚠️ ${urgentTasks.length} tâche(s) urgente(s). Respire. Traite-les une par une.`
-    : todayTasks.length > 0
-    ? `🎯 Concentre-toi sur tes ${todayTasks.length} priorités du jour. Le reste attendra.`
-    : `🌿 Une journée plus calme. Profites-en pour avancer sur ce qui compte vraiment.`;
-
   return (
     <div className="p-6 lg:p-8 h-full flex flex-col overflow-y-auto bg-midnight">
       
@@ -234,6 +277,86 @@ export default function DashboardPage() {
           <span className="hidden sm:inline">Sovereign</span>
         </Link>
       </div>
+
+      {/* CALM GUIDANCE DYNAMIQUE */}
+      {calmGuidance && (
+        <div className="mb-8 bg-gradient-to-r from-gold-500/10 to-transparent border border-gold-500/20 rounded-2xl p-5">
+          <div className="flex items-center gap-2 mb-2">
+            <Sparkles className="w-5 h-5 text-gold-500" />
+            <span className="text-xs text-gold-500 uppercase tracking-wider">✨ Sovereign ✨</span>
+          </div>
+          <p className="text-ivory text-sm leading-relaxed whitespace-pre-line">
+            {calmGuidance.message}
+          </p>
+          <div className="mt-3 flex items-center justify-between">
+            <p className="text-xs text-gray-500">{calmGuidance.advice}</p>
+            <div className="flex items-center gap-2">
+              <div className="text-xs text-gray-600">Charge: {calmGuidance.load_score}</div>
+              <div className="w-16 bg-white/10 rounded-full h-1">
+                <div 
+                  className="h-1 rounded-full bg-gold-500"
+                  style={{ width: `${Math.min(100, calmGuidance.load_score)}%` }}
+                />
+              </div>
+            </div>
+          </div>
+          {calmGuidance.specific_advice && calmGuidance.specific_advice.length > 0 && (
+            <div className="mt-3 pt-3 border-t border-white/10">
+              {calmGuidance.specific_advice.map((advice, idx) => (
+                <p key={idx} className="text-xs text-gray-400">{advice}</p>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* TOP 3 PRIORITÉS IA */}
+      {aiPriorities.length > 0 && (
+        <div className="mb-8">
+          <div className="flex items-center gap-2 text-gold-500 mb-3">
+            <Target className="w-4 h-4" />
+            <h2 className="text-sm font-serif">🎯 Top priorités du jour (IA)</h2>
+          </div>
+          <div className="space-y-3">
+            {aiPriorities.map((priority, idx) => (
+              <div
+                key={priority.id || idx}
+                className={`p-4 rounded-xl border-l-4 transition-all ${
+                  idx === 0 ? "border-l-red-500 bg-red-950/10" :
+                  idx === 1 ? "border-l-orange-500 bg-orange-950/10" :
+                  "border-l-gold-500 bg-gold-500/5"
+                }`}
+              >
+                <div className="flex justify-between items-start">
+                  <div>
+                    <p className="text-ivory font-medium">{priority.title}</p>
+                    <p className="text-xs text-gray-400 mt-1">{priority.priority_reason}</p>
+                    {priority.due_date && (
+                      <p className="text-xs text-gray-500 mt-1">
+                        📅 {new Date(priority.due_date).toLocaleDateString('fr-FR')}
+                      </p>
+                    )}
+                  </div>
+                  <Link
+                    href={priority.action_url || "/tasks"}
+                    className="text-gold-500 text-sm hover:underline"
+                  >
+                    → Voir
+                  </Link>
+                </div>
+                <div className="mt-2 w-full bg-white/10 rounded-full h-1">
+                  <div 
+                    className={`h-1 rounded-full ${
+                      idx === 0 ? "bg-red-500" : idx === 1 ? "bg-orange-500" : "bg-gold-500"
+                    }`}
+                    style={{ width: `${(priority.score / 40) * 100}%` }}
+                  />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* SUGGESTIONS PROACTIVES */}
       {proactiveSuggestions.length > 0 && (
@@ -363,15 +486,8 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* COLONNE DROITE - CALM GUIDANCE & FARM PULSE */}
+        {/* FARM PULSE & QUICK ACTIONS */}
         <div className="space-y-6">
-          {/* Calm Guidance */}
-          <div className="bg-gradient-to-r from-gold-500/10 to-transparent border border-gold-500/20 rounded-2xl p-5">
-            <Sparkles className="w-5 h-5 text-gold-500 mb-3" />
-            <p className="text-ivory text-sm italic">{calmGuidance}</p>
-            <p className="text-xs text-gray-500 mt-3">✨ Sovereign ✨</p>
-          </div>
-
           {/* Farm Pulse */}
           <div className="bg-white/5 border border-white/10 rounded-2xl p-5">
             <div className="flex items-center gap-2 text-emerald-400 mb-3">
