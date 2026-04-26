@@ -43,19 +43,19 @@ export default function AlignmentPage() {
     return () => clearInterval(interval);
   }, []);
 
- useEffect(() => {
-  fetchWins();
-  
-  const channel = supabase
-    .channel('wins_alignment')
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'wins' }, () => fetchWins())
-    .subscribe();
-  
-  return () => {
-    channel.unsubscribe();
-  };
-}, []);
-  
+  useEffect(() => {
+    fetchWins();
+    
+    const channel = supabase
+      .channel('wins_alignment')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'wins' }, () => fetchWins())
+      .subscribe();
+    
+    return () => {
+      channel.unsubscribe();
+    };
+  }, []);
+
   async function fetchWins() {
     setIsLoading(true);
     const { data } = await supabase
@@ -92,6 +92,7 @@ export default function AlignmentPage() {
 
   return (
     <div className="p-8 lg:p-12 h-full flex flex-col overflow-y-auto bg-midnight">
+      {/* Le reste du JSX reste identique */}
       <header className="mb-10">
         <div className="flex justify-between items-start">
           <div>
@@ -224,7 +225,6 @@ export default function AlignmentPage() {
             </div>
           )}
           
-          {/* Conseil d'ancrage */}
           <div className="mt-6 pt-6 border-t border-white/10">
             <p className="text-xs text-gray-500 italic flex items-center gap-2">
               <Heart className="w-3 h-3 text-gold-500" />
