@@ -71,17 +71,20 @@ export default function MissionsPage() {
     owner: ""
   });
 
-  useEffect(() => {
-    fetchMissions();
-    
-    const channel = supabase
-      .channel('missions_changes')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'missions' }, () => fetchMissions())
-      .subscribe();
-    
-    return () => {   channel.unsubscribe();  
-  }, []);
 
+  useEffect(() => {
+  fetchMissions();
+  
+  const channel = supabase
+    .channel('missions_changes')
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'missions' }, () => fetchMissions())
+    .subscribe();
+  
+  return () => {
+    channel.unsubscribe();
+  };
+}, []);
+  
   async function fetchMissions() {
     setIsLoading(true);
     const { data } = await supabase
