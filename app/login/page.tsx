@@ -10,7 +10,7 @@ export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const { signIn, signUp, user, isLoading: isAuthLoading } = useAuth();
   const router = useRouter();
 
@@ -38,7 +38,7 @@ export default function LoginPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
-    setIsLoading(true);
+    setIsSubmitting(true);
 
     try {
       if (isLogin) {
@@ -50,7 +50,7 @@ export default function LoginPage() {
     } catch (err: any) {
       setError(err.message);
     } finally {
-      setIsLoading(false);
+      setIsSubmitting(false);
     }
   };
 
@@ -89,10 +89,10 @@ export default function LoginPage() {
 
           <button
             type="submit"
-            disabled={isLoading}
+            disabled={isSubmitting}
             className="w-full bg-gold-500 text-midnight py-3 rounded-xl font-medium hover:bg-gold-400 transition-colors disabled:opacity-50"
           >
-            {isLoading ? <Loader2 className="w-5 h-5 animate-spin mx-auto" /> : (isLogin ? "Se connecter" : "Créer un compte")}
+            {isSubmitting ? <Loader2 className="w-5 h-5 animate-spin mx-auto" /> : (isLogin ? "Se connecter" : "Créer un compte")}
           </button>
         </form>
 
