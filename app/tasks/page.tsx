@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
+import LoadingSpinner from "@/components/LoadingSpinner";
 import { motion, AnimatePresence } from "framer-motion";
 import { 
   CheckCircle, Clock, AlertCircle, Plus, Trash2, Edit2, 
@@ -303,9 +304,9 @@ function editTask(task: Task) {
 
       {/* LISTE DES TÂCHES */}
       <div className="space-y-3">
-        {isLoading ? (
-          <div className="text-center py-12 text-gray-500">Chargement...</div>
-        ) : filteredTasks.length === 0 ? (
+          {isLoading ? (
+            <LoadingSpinner />
+          ) : filteredTasks.length === 0 ? (
           <div className="text-center py-12 text-gray-500">Aucune tâche</div>
         ) : (
           filteredTasks.map((task) => {
