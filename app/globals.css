@@ -10,46 +10,45 @@
   --font-sans: var(--font-inter);
 }
 
-/* Scrollbar invisible pour un look App */
-.scrollbar-hide::-webkit-scrollbar {
-  display: none;
-}
-.scrollbar-hide {
-  -ms-overflow-style: none;
-  scrollbar-width: none;
-}
+/* ============================================
+   SCROLLBAR COMPLÈTEMENT INVISIBLE
+   ============================================ */
 
-/* Scrollbar personnalisée globale */
-* {
-  scrollbar-width: thin;
-  scrollbar-color: rgba(212, 175, 55, 0.3) transparent;
+/* Pour tous les éléments scrollables */
+html, body, main, div, aside, nav {
+  scrollbar-width: none !important; /* Firefox */
+  -ms-overflow-style: none !important; /* IE/Edge */
 }
 
-*::-webkit-scrollbar {
-  width: 4px;
-  height: 4px;
+html::-webkit-scrollbar,
+body::-webkit-scrollbar,
+main::-webkit-scrollbar,
+div::-webkit-scrollbar,
+aside::-webkit-scrollbar,
+nav::-webkit-scrollbar {
+  display: none !important; /* Chrome/Safari/Opera */
 }
 
-*::-webkit-scrollbar-track {
-  background: transparent;
+/* Classes utilitaires */
+.scrollbar-none {
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
 }
 
-*::-webkit-scrollbar-thumb {
-  background: rgba(212, 175, 55, 0.3);
-  border-radius: 4px;
+.scrollbar-none::-webkit-scrollbar {
+  display: none !important;
 }
 
-*::-webkit-scrollbar-thumb:hover {
-  background: rgba(212, 175, 55, 0.5);
-}
+/* ============================================
+   STYLES POUR LES SELECTS
+   ============================================ */
 
-
-
-/* Style pour tous les selects */
 select {
   background-color: #1a1a1a !important;
   color: #F5F5F0 !important;
   border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  border-radius: 0.75rem !important;
+  padding: 0.5rem 1rem !important;
 }
 
 select option {
@@ -57,25 +56,17 @@ select option {
   color: #F5F5F0 !important;
 }
 
-/* Pour les selects dans les formulaires */
 select:focus {
   outline: none;
   border-color: #D4AF37 !important;
 }
 
-select,
-select option {
-  background-color: #0A0A0B !important;
-  color: #F5F5F0 !important;
-}
+/* ============================================
+   AUTRES STYLES
+   ============================================ */
 
-select {
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 0.75rem;
-  padding: 0.5rem 1rem;
-}
-
-select:focus {
-  border-color: #D4AF37;
-  outline: none;
+/* Le scroll reste actif mais invisible */
+body {
+  overflow-y: auto;
+  overflow-x: hidden;
 }
