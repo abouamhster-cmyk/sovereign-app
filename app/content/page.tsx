@@ -4,10 +4,10 @@ import { supabase } from "@/lib/supabase";
 import { motion, AnimatePresence } from "framer-motion";
 import { 
   Megaphone, Calendar, Plus, Edit2, Trash2, X,
-  Instagram, Linkedin, Youtube, Twitter, Facebook,
-  Sparkles, Clock, CheckCircle, AlertCircle, Filter
+  Sparkles, Clock, CheckCircle, AlertCircle, Filter,
+  Image, FileText, Video, Music, Download
 } from "lucide-react";
-import { Music, Globe, RefreshCw } from "lucide-react";
+import { exportToPDF } from "@/lib/exportPDF";
 
 type Content = {
   id: string;
@@ -23,12 +23,11 @@ type Content = {
 };
 
 const platformConfig = {
-  instagram: { label: "Instagram", icon: Instagram, color: "bg-gradient-to-r from-pink-500 to-purple-600 text-white" },
-  linkedin: { label: "LinkedIn", icon: Linkedin, color: "bg-blue-600 text-white" },
-  youtube: { label: "YouTube", icon: Youtube, color: "bg-red-600 text-white" },
+  instagram: { label: "Instagram", icon: Image, color: "bg-gradient-to-r from-pink-500 to-purple-600 text-white" },
+  linkedin: { label: "LinkedIn", icon: FileText, color: "bg-blue-600 text-white" },
+  youtube: { label: "YouTube", icon: Video, color: "bg-red-600 text-white" },
   tiktok: { label: "TikTok", icon: Music, color: "bg-black text-white" },
-  facebook: { label: "Facebook", icon: Facebook, color: "bg-blue-700 text-white" },
-  website: { label: "Site Web", icon: Globe, color: "bg-gray-600 text-white" },
+  website: { label: "Site Web", icon: Sparkles, color: "bg-gray-600 text-white" },
   other: { label: "Autre", icon: Sparkles, color: "bg-gray-500 text-white" }
 };
 
@@ -51,8 +50,8 @@ const contentTypeConfig = {
   behind_scenes: "🎬 Behind the Scenes"
 };
 
-// Imports manquants
-import { Music, Globe, RefreshCw } from "lucide-react";
+// Import manquant
+import { RefreshCw } from "lucide-react";
 
 export default function ContentPage() {
   const [contents, setContents] = useState<Content[]>([]);
@@ -181,15 +180,23 @@ export default function ContentPage() {
   };
 
   return (
-    <div className="p-8 lg:p-12 h-full flex flex-col overflow-y-auto bg-midnight">
-      <header className="mb-8">
-        <div className="flex justify-between items-start">
-          <div>
-            <h1 className="text-4xl font-serif text-gold-500 tracking-tight">Content Studio</h1>
-            <p className="text-gray-500 mt-2 italic font-light">
-              Planning éditorial et gestion de contenu
-            </p>
-          </div>
+    <div id="content-report" className="p-8 lg:p-12 h-full flex flex-col overflow-y-auto bg-midnight">
+      {/* HEADER */}
+      <div className="flex justify-between items-center mb-8">
+        <div>
+          <h1 className="text-4xl font-serif text-gold-500 tracking-tight">Content Studio</h1>
+          <p className="text-gray-500 mt-2 italic font-light">
+            Planning éditorial et gestion de contenu
+          </p>
+        </div>
+        <div className="flex gap-3">
+          <button
+            onClick={() => exportToPDF("content-report", `contenu-${new Date().toISOString().split('T')[0]}`)}
+            className="bg-white/10 p-2 rounded-full hover:bg-white/20 transition-colors"
+            title="Exporter en PDF"
+          >
+            <Download className="w-5 h-5" />
+          </button>
           <button
             onClick={() => { setShowForm(true); setEditingContent(null); }}
             className="bg-gold-500 text-midnight px-5 py-2 rounded-full text-sm font-medium flex items-center gap-2 hover:bg-gold-400 transition-colors"
@@ -197,7 +204,7 @@ export default function ContentPage() {
             <Plus className="w-4 h-4" /> Nouveau contenu
           </button>
         </div>
-      </header>
+      </div>
 
       {/* STATISTIQUES */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8">
@@ -307,7 +314,7 @@ export default function ContentPage() {
                 placeholder="Call to Action (optionnel)"
                 value={formData.cta}
                 onChange={(e) => setFormData({ ...formData, cta: e.target.value })}
-                className="bg-white/5 border border-white/10 rounded-xl px-4 py-3 focus:outline-none focus:border-gold-500 text-ivory"
+                className="bg-white/5 border border-white/10 rounded-xl px-4 py-3 focus:outline-none focus:border-gold-500 text-ivory md:col-span-2"
               />
             </div>
             
