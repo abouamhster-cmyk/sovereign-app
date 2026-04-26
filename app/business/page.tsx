@@ -197,13 +197,9 @@ useEffect(() => {
           Vos Projets Stratégiques
         </h2>
         
-        {isLoading ? (
-          <div className="space-y-4">
-            {[1, 2, 3].map(i => (
-              <div key={i} className="animate-pulse h-24 bg-white/5 rounded-2xl" />
-            ))}
-          </div>
-        ) : filteredMissions.length > 0 ? (
+          {isLoading ? (
+            <LoadingSpinner />
+          ) : filteredMissions.length > 0 ? (
           <div className="grid grid-cols-1 gap-4">
             {filteredMissions.map((mission) => {
               const statusConfig = getStatusConfig(mission.status);
