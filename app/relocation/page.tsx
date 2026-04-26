@@ -423,64 +423,64 @@ export default function RelocationPage() {
         )}
       </AnimatePresence>
 
-      {/* LISTE DES TÂCHES PAR CATÉGORIE */}
-        {isLoading ? (
-                  <div className="flex-1 flex items-center justify-center py-20">
-                    <LoadingSpinner />
-                  </div>
-                ) : (
-        <>
-      <div className="space-y-6">
-        {categoriesList.filter(c => c.id !== "all").map(cat => {
-          const categoryTasks = filteredTasks.filter(t => t.category === cat.id);
-          if (categoryTasks.length === 0) return null;
-          
-          return (
-            <div key={cat.id} className="bg-white/5 border border-white/10 rounded-2xl p-5">
-              <h2 className="text-lg font-serif text-ivory mb-4 flex items-center gap-2">
-                {getCategoryIcon(cat.id)}
-                {getCategoryLabel(cat.id)}
-              </h2>
-              <div className="space-y-3">
-                {categoryTasks.map((task) => (
-                  <motion.div
-                    key={task.id}
-                    initial={{ opacity: 0, x: -10 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    className="flex items-center justify-between p-3 bg-midnight rounded-xl border border-white/5 hover:border-gold-500/20 transition-all"
-                  >
-                    <div className="flex items-center gap-3 flex-1">
-                      {getStatusIcon(task.status)}
-                      <span className="text-ivory text-sm">{task.title}</span>
-                      {task.due_date && (
-                        <span className="text-xs text-gray-500 ml-2">{formatDate(task.due_date)}</span>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <select
-                        value={task.status}
-                        onChange={(e) => updateStatus(task.id, e.target.value)}
-                        className="bg-white/10 border border-white/10 rounded-lg px-2 py-1 text-xs focus:outline-none"
-                      >
-                        <option value="not_started">⏳ À faire</option>
-                        <option value="in_progress">🔄 En cours</option>
-                        <option value="completed">✅ Terminé</option>
-                        <option value="urgent">⚠️ Urgent</option>
-                      </select>
-                      <button onClick={() => editTask(task)} className="text-gray-500 hover:text-gold-500">
-                        <Edit2 className="w-4 h-4" />
-                      </button>
-                      <button onClick={() => deleteTask(task.id)} className="text-gray-500 hover:text-red-400">
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </div>
-                  </motion.div>
-                ))}
+         {/* LISTE DES TÂCHES PAR CATÉGORIE */}
+      {isLoading ? (
+        <div className="flex-1 flex items-center justify-center py-20">
+          <LoadingSpinner />
+        </div>
+      ) : (
+        <div className="space-y-6">
+          {categoriesList.filter(c => c.id !== "all").map(cat => {
+            const categoryTasks = filteredTasks.filter(t => t.category === cat.id);
+            if (categoryTasks.length === 0) return null;
+            
+            return (
+              <div key={cat.id} className="bg-white/5 border border-white/10 rounded-2xl p-5">
+                <h2 className="text-lg font-serif text-ivory mb-4 flex items-center gap-2">
+                  {getCategoryIcon(cat.id)}
+                  {getCategoryLabel(cat.id)}
+                </h2>
+                <div className="space-y-3">
+                  {categoryTasks.map((task) => (
+                    <motion.div
+                      key={task.id}
+                      initial={{ opacity: 0, x: -10 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      className="flex items-center justify-between p-3 bg-midnight rounded-xl border border-white/5 hover:border-gold-500/20 transition-all"
+                    >
+                      <div className="flex items-center gap-3 flex-1">
+                        {getStatusIcon(task.status)}
+                        <span className="text-ivory text-sm">{task.title}</span>
+                        {task.due_date && (
+                          <span className="text-xs text-gray-500 ml-2">{formatDate(task.due_date)}</span>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <select
+                          value={task.status}
+                          onChange={(e) => updateStatus(task.id, e.target.value)}
+                          className="bg-white/10 border border-white/10 rounded-lg px-2 py-1 text-xs focus:outline-none"
+                        >
+                          <option value="not_started">⏳ À faire</option>
+                          <option value="in_progress">🔄 En cours</option>
+                          <option value="completed">✅ Terminé</option>
+                          <option value="urgent">⚠️ Urgent</option>
+                        </select>
+                        <button onClick={() => editTask(task)} className="text-gray-500 hover:text-gold-500">
+                          <Edit2 className="w-4 h-4" />
+                        </button>
+                        <button onClick={() => deleteTask(task.id)} className="text-gray-500 hover:text-red-400">
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </motion.div>
+                  ))}
+                </div>
               </div>
-            </div>
-          );
-        })}
-      </div>
+            );
+          })}
+        </div>
+      )}
 
       {/* CONSEIL */}
       <div className="mt-8 p-5 bg-gradient-to-r from-gold-500/10 to-transparent rounded-2xl border border-gold-500/20">
