@@ -30,7 +30,7 @@ export default function ChatPage() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false); // Fermée par défaut sur mobile
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [editingTitleId, setEditingTitleId] = useState<string | null>(null);
@@ -122,7 +122,23 @@ export default function ChatPage() {
     if (data && data.length > 0) {
       setMessages(data);
     } else {
-      setMessages([{ role: "assistant", content: "Bonjour Rebecca. Que veux-tu qu'on attaque aujourd'hui ?" }]);
+      // Récupérer les suggestions proactives pour le message d'accueil
+      let suggestionsText = "";
+      try {
+        const response = await fetch(`${API_URL}/api/proactive-suggestions`);
+        const suggestionsData = await response.json();
+        if (suggestionsData.suggestions && suggestionsData.suggestions.length > 0) {
+          suggestionsText = "\n\n💡 **Suggestions :**\n" + 
+            suggestionsData.suggestions.slice(0, 3).map((s: any) => `• ${s.message}`).join("\n");
+        }
+      } catch (error) {
+        console.error("Erreur suggestions:", error);
+      }
+      
+      setMessages([{ 
+        role: "assistant", 
+        content: `Hello, on dit quoi ?${suggestionsText}`
+      }]);
     }
   }
 
@@ -141,7 +157,7 @@ export default function ChatPage() {
       setConversations(prev => [data, ...prev]);
       setFilteredConversations(prev => [data, ...prev]);
       setCurrentConversationId(data.id);
-      setMessages([{ role: "assistant", content: "Bonjour Rebecca. Que veux-tu qu'on attaque aujourd'hui ?" }]);
+      setMessages([{ role: "assistant", content: "Hello, on dit quoi ?" }]);
       
       if (isMobile) setIsSidebarOpen(false);
     }
@@ -286,7 +302,7 @@ export default function ChatPage() {
           <p className="text-[9px] text-gold-500/60 uppercase tracking-widest">Executive Mode</p>
         </div>
         
-        <div className="w-10" /> {/* Équilibrage */}
+        <div className="w-10" />
       </header>
 
       {/* SIDEBAR OVERLAY */}
