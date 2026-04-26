@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
+import LoadingSpinner from "@/components/LoadingSpinner";
 import { supabase } from "@/lib/supabase";
 import { motion, AnimatePresence } from "framer-motion";
 import { 
@@ -344,7 +345,9 @@ useEffect(() => {
       {/* GRILLE DES CONTENUS */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {isLoading ? (
-          <div className="col-span-2 text-center py-12 text-gray-500">Chargement...</div>
+          <div className="col-span-2">
+            <LoadingSpinner />
+          </div>
         ) : filteredContents.length === 0 ? (
           <div className="col-span-2 text-center py-12 text-gray-500">
             <Megaphone className="w-12 h-12 mx-auto mb-4 opacity-30" />
