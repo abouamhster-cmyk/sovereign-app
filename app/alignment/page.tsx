@@ -43,17 +43,19 @@ export default function AlignmentPage() {
     return () => clearInterval(interval);
   }, []);
 
-  useEffect(() => {
-    fetchWins();
-    
-    const channel = supabase
-      .channel('wins_alignment')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'wins' }, () => fetchWins())
-      .subscribe();
-    
-    return () => channel.unsubscribe();
-  }, []);
-
+ useEffect(() => {
+  fetchWins();
+  
+  const channel = supabase
+    .channel('wins_alignment')
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'wins' }, () => fetchWins())
+    .subscribe();
+  
+  return () => {
+    channel.unsubscribe();
+  };
+}, []);
+  
   async function fetchWins() {
     setIsLoading(true);
     const { data } = await supabase
