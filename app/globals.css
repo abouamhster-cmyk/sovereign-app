@@ -1,0 +1,44 @@
+@import "tailwindcss";
+
+@theme {
+  --color-midnight: #0A0A0B;
+  --color-gold-500: #D4AF37;
+  --color-gold-600: #B8860B;
+  --color-ivory: #F5F5F0;
+  
+  --font-serif: var(--font-serif);
+  --font-sans: var(--font-inter);
+}
+
+/* Scrollbar invisible pour un look App */
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* Scrollbar personnalisée globale */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(212, 175, 55, 0.3) transparent;
+}
+
+*::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+  background: rgba(212, 175, 55, 0.3);
+  border-radius: 4px;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: rgba(212, 175, 55, 0.5);
+}
