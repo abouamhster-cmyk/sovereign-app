@@ -44,7 +44,7 @@ export default function RelocationPage() {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'relocation_tasks' }, () => fetchTasks())
       .subscribe();
     
-    return () => channel.unsubscribe();
+    return () => {   channel.unsubscribe(); 
   }, []);
 
   async function fetchTasks() {
