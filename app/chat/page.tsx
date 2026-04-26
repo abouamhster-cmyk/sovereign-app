@@ -130,7 +130,7 @@ export default function ChatPage() {
     if (!input.trim() || isLoading || !currentConversationId) return;
     
     const userMessage = { role: "user" as const, content: input };
-    const allMessages = [...messages, userMessage];
+    const allMessages = [...messages, userMessage]; // ✅ TOUT l'historique est envoyé
     
     setMessages(prev => [...prev, userMessage]);
     await saveMessage(currentConversationId, "user", input);
