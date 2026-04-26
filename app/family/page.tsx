@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
+import LoadingSpinner from "@/components/LoadingSpinner";
 import { motion, AnimatePresence } from "framer-motion";
 import { 
   Calendar, Plus, Trash2, Edit2, X, Users, 
@@ -347,7 +348,7 @@ useEffect(() => {
       {/* LISTE DES ÉVÉNEMENTS */}
       <div className="space-y-3">
         {isLoading ? (
-          <div className="text-center py-12 text-gray-500">Chargement...</div>
+          <LoadingSpinner />
         ) : filteredEvents.length === 0 ? (
           <div className="text-center py-12 text-gray-500">Aucun événement</div>
         ) : (
