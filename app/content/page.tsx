@@ -71,16 +71,18 @@ export default function ContentPage() {
     cta: ""
   });
 
-  useEffect(() => {
-    fetchContent();
-    
-    const channel = supabase
-      .channel('content_changes')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'content' }, () => fetchContent())
-      .subscribe();
-    
-    return () => channel.unsubscribe();
-  }, []);
+useEffect(() => {
+  fetchContent();
+  
+  const channel = supabase
+    .channel('content_changes')
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'content' }, () => fetchContent())
+    .subscribe();
+  
+  return () => {
+    channel.unsubscribe();
+  };
+}, []);
 
   async function fetchContent() {
     setIsLoading(true);
