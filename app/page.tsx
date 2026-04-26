@@ -120,11 +120,11 @@ async function fetchMissions() {
       .limit(5);
     setTodayTasks(data || []);
     
-    const { data: urgent } = await supabase
-      .from("tasks")
-      .select("*")
-      .eq("priority", "critical")
-      .neq("status", "done");
+const { data: urgent } = await supabase
+  .from("tasks")
+  .select("*")
+  .eq("status", "today")  
+  .neq("status", "done");
     setUrgentTasks(urgent || []);
   }
 
