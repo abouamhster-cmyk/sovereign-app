@@ -329,147 +329,148 @@ export default function RescuePage() {
         </motion.div>
       )}
 
-      {isLoading ? (
+       {isLoading ? (
         <LoadingSpinner />
       ) : (
         <>
-      {/* STATS DE CHARGE */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-        <div className="bg-white/5 border border-white/10 rounded-xl p-4 text-center">
-          <AlertCircle className="w-5 h-5 text-red-400 mx-auto mb-2" />
-          <div className="text-2xl font-serif text-red-400">{urgentTasks.length}</div>
-          <div className="text-xs text-gray-500">Tâches du jour</div>
-        </div>
-        <div className="bg-white/5 border border-white/10 rounded-xl p-4 text-center">
-          <Target className="w-5 h-5 text-blue-400 mx-auto mb-2" />
-          <div className="text-2xl font-serif text-blue-400">{activeMissions.length}</div>
-          <div className="text-xs text-gray-500">Missions actives</div>
-        </div>
-        <div className="bg-white/5 border border-white/10 rounded-xl p-4 text-center">
-          <FileText className="w-5 h-5 text-orange-400 mx-auto mb-2" />
-          <div className="text-2xl font-serif text-orange-400">{pendingDocs.length}</div>
-          <div className="text-xs text-gray-500">Documents en retard</div>
-        </div>
-        <div className="bg-white/5 border border-white/10 rounded-xl p-4 text-center">
-          <Clock className="w-5 h-5 text-yellow-400 mx-auto mb-2" />
-          <div className="text-2xl font-serif text-yellow-400">{todayTasks.length}</div>
-          <div className="text-xs text-gray-500">Tâches aujourd'hui</div>
-        </div>
-      </div>
+          {/* STATS DE CHARGE */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+            <div className="bg-white/5 border border-white/10 rounded-xl p-4 text-center">
+              <AlertCircle className="w-5 h-5 text-red-400 mx-auto mb-2" />
+              <div className="text-2xl font-serif text-red-400">{urgentTasks.length}</div>
+              <div className="text-xs text-gray-500">Tâches du jour</div>
+            </div>
+            <div className="bg-white/5 border border-white/10 rounded-xl p-4 text-center">
+              <Target className="w-5 h-5 text-blue-400 mx-auto mb-2" />
+              <div className="text-2xl font-serif text-blue-400">{activeMissions.length}</div>
+              <div className="text-xs text-gray-500">Missions actives</div>
+            </div>
+            <div className="bg-white/5 border border-white/10 rounded-xl p-4 text-center">
+              <FileText className="w-5 h-5 text-orange-400 mx-auto mb-2" />
+              <div className="text-2xl font-serif text-orange-400">{pendingDocs.length}</div>
+              <div className="text-xs text-gray-500">Documents en retard</div>
+            </div>
+            <div className="bg-white/5 border border-white/10 rounded-xl p-4 text-center">
+              <Clock className="w-5 h-5 text-yellow-400 mx-auto mb-2" />
+              <div className="text-2xl font-serif text-yellow-400">{todayTasks.length}</div>
+              <div className="text-xs text-gray-500">Tâches aujourd'hui</div>
+            </div>
+          </div>
 
-      {/* TÂCHES URGENTES */}
-      {urgentTasks.length > 0 && (
-        <div className="bg-red-950/20 border border-red-500/30 rounded-2xl p-6 mb-8">
-          <h2 className="text-lg font-serif text-red-400 mb-4 flex items-center gap-2">
-            <AlertCircle className="w-5 h-5" />
-            ⚠️ TÂCHES DU JOUR ({urgentTasks.length})
-          </h2>
-          <div className="space-y-3">
-            {urgentTasks.map(task => (
-              <div key={task.id} className="flex items-center justify-between p-3 bg-midnight rounded-xl border border-red-500/30">
-                <div>
-                  <span className="text-ivory text-sm">{task.title}</span>
-                  {task.area && (
-                    <span className="text-xs text-gray-500 ml-2">({task.area})</span>
-                  )}
-                </div>
-                {task.due_date && (
-                  <span className="text-xs text-red-400">
-                    ⚠️ {new Date(task.due_date).toLocaleDateString('fr-FR')}
-                  </span>
-                )}
+          {/* TÂCHES URGENTES */}
+          {urgentTasks.length > 0 && (
+            <div className="bg-red-950/20 border border-red-500/30 rounded-2xl p-6 mb-8">
+              <h2 className="text-lg font-serif text-red-400 mb-4 flex items-center gap-2">
+                <AlertCircle className="w-5 h-5" />
+                ⚠️ TÂCHES DU JOUR ({urgentTasks.length})
+              </h2>
+              <div className="space-y-3">
+                {urgentTasks.map(task => (
+                  <div key={task.id} className="flex items-center justify-between p-3 bg-midnight rounded-xl border border-red-500/30">
+                    <div>
+                      <span className="text-ivory text-sm">{task.title}</span>
+                      {task.area && (
+                        <span className="text-xs text-gray-500 ml-2">({task.area})</span>
+                      )}
+                    </div>
+                    {task.due_date && (
+                      <span className="text-xs text-red-400">
+                        ⚠️ {new Date(task.due_date).toLocaleDateString('fr-FR')}
+                      </span>
+                    )}
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
-        </div>
-      )}
+            </div>
+          )}
 
-      {/* QUICK WINS */}
-      {loadAnalysis?.quickWins && (
-        <div className="bg-gold-500/10 border border-gold-500/20 rounded-2xl p-6 mb-8">
-          <h2 className="text-lg font-serif text-gold-500 mb-4 flex items-center gap-2">
-            <Sparkles className="w-5 h-5" />
-            Quick wins (moins de 5 min)
-          </h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-            {loadAnalysis.quickWins.map((win, i) => (
-              <div key={i} className="flex items-center gap-2 p-2 hover:bg-white/5 rounded-lg transition-colors">
-                <CheckCircle className="w-4 h-4 text-emerald-400" />
-                <span className="text-gray-300 text-sm">{win}</span>
+          {/* QUICK WINS */}
+          {loadAnalysis?.quickWins && (
+            <div className="bg-gold-500/10 border border-gold-500/20 rounded-2xl p-6 mb-8">
+              <h2 className="text-lg font-serif text-gold-500 mb-4 flex items-center gap-2">
+                <Sparkles className="w-5 h-5" />
+                Quick wins (moins de 5 min)
+              </h2>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                {loadAnalysis.quickWins.map((win, i) => (
+                  <div key={i} className="flex items-center gap-2 p-2 hover:bg-white/5 rounded-lg transition-colors">
+                    <CheckCircle className="w-4 h-4 text-emerald-400" />
+                    <span className="text-gray-300 text-sm">{win}</span>
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
-        </div>
-      )}
+            </div>
+          )}
 
-      {/* LIBÉRATION MENTALE */}
-      <div className="bg-white/5 border border-white/10 rounded-2xl p-6 mb-8">
-        <h2 className="text-lg font-serif text-gold-500 mb-3 flex items-center gap-2">
-          <Heart className="w-5 h-5" />
-          Libère ce que tu portes
-        </h2>
-        <p className="text-sm text-gray-500 mb-4">
-          Écris ce que tu veux lâcher pour ce soir. Cela ne disparaîtra pas, mais tu arrêtes de le porter mentalement.
-        </p>
-        
-        <div className="flex flex-col gap-3">
-          <textarea
-            value={releaseNote}
-            onChange={(e) => setReleaseNote(e.target.value)}
-            placeholder="Je libère... la culpabilité de ne pas avoir fini X... l'inquiétude pour Y... la pression de Z..."
-            className="w-full bg-white/10 border border-white/20 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-gold-500 text-ivory placeholder:text-gray-600 resize-none"
-            rows={3}
-          />
-          <button
-            onClick={saveReleaseNote}
-            disabled={!releaseNote.trim() || isSaving}
-            className="self-end bg-gold-500 text-midnight px-4 py-2 rounded-full text-sm font-medium flex items-center gap-2 hover:bg-gold-400 transition-colors disabled:opacity-50"
-          >
-            {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Heart className="w-4 h-4" />}
-            Libérer
-          </button>
-        </div>
-        
-        {savedRelease && (
-          <div className="mt-4 p-3 bg-midnight/50 rounded-xl">
-            <p className="text-xs text-gold-500 mb-1">✍️ Dernière libération :</p>
-            <p className="text-sm text-gray-400 italic">{savedRelease}</p>
-          </div>
-        )}
-      </div>
-
-      {/* VICTOIRES RÉCENTES */}
-      {recentWins.length > 0 && (
-        <div className="bg-white/5 border border-white/10 rounded-2xl p-6 mb-8">
-          <h2 className="text-lg font-serif text-gold-500 mb-4 flex items-center gap-2">
-            <CheckCircle className="w-5 h-5" />
-            Ce que tu as déjà accompli
-          </h2>
-          <div className="space-y-2">
-            {recentWins.map(win => (
-              <div key={win.id} className="flex items-center gap-2 p-2 bg-midnight/30 rounded-lg">
-                <span className="text-xl">{win.celebration_emoji || "🎉"}</span>
-                <span className="text-gray-300 text-sm">{win.title}</span>
-                {win.date && (
-                  <span className="text-xs text-gray-500 ml-auto">{new Date(win.date).toLocaleDateString('fr-FR')}</span>
-                )}
+          {/* LIBÉRATION MENTALE */}
+          <div className="bg-white/5 border border-white/10 rounded-2xl p-6 mb-8">
+            <h2 className="text-lg font-serif text-gold-500 mb-3 flex items-center gap-2">
+              <Heart className="w-5 h-5" />
+              Libère ce que tu portes
+            </h2>
+            <p className="text-sm text-gray-500 mb-4">
+              Écris ce que tu veux lâcher pour ce soir. Cela ne disparaîtra pas, mais tu arrêtes de le porter mentalement.
+            </p>
+            
+            <div className="flex flex-col gap-3">
+              <textarea
+                value={releaseNote}
+                onChange={(e) => setReleaseNote(e.target.value)}
+                placeholder="Je libère... la culpabilité de ne pas avoir fini X... l'inquiétude pour Y... la pression de Z..."
+                className="w-full bg-white/10 border border-white/20 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-gold-500 text-ivory placeholder:text-gray-600 resize-none"
+                rows={3}
+              />
+              <button
+                onClick={saveReleaseNote}
+                disabled={!releaseNote.trim() || isSaving}
+                className="self-end bg-gold-500 text-midnight px-4 py-2 rounded-full text-sm font-medium flex items-center gap-2 hover:bg-gold-400 transition-colors disabled:opacity-50"
+              >
+                {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Heart className="w-4 h-4" />}
+                Libérer
+              </button>
+            </div>
+            
+            {savedRelease && (
+              <div className="mt-4 p-3 bg-midnight/50 rounded-xl">
+                <p className="text-xs text-gold-500 mb-1">✍️ Dernière libération :</p>
+                <p className="text-sm text-gray-400 italic">{savedRelease}</p>
               </div>
-            ))}
+            )}
           </div>
-        </div>
-      )}
 
-      {/* BOUTON RETOUR */}
-      <div className="text-center">
-        <Link 
-          href="/" 
-          className="inline-flex items-center gap-2 px-6 py-3 bg-gold-500 text-midnight rounded-full font-medium hover:bg-gold-400 transition-colors"
-        >
-          <Sun className="w-4 h-4" />
-          Retour au commandement
-        </Link>
-      </div>
+          {/* VICTOIRES RÉCENTES */}
+          {recentWins.length > 0 && (
+            <div className="bg-white/5 border border-white/10 rounded-2xl p-6 mb-8">
+              <h2 className="text-lg font-serif text-gold-500 mb-4 flex items-center gap-2">
+                <CheckCircle className="w-5 h-5" />
+                Ce que tu as déjà accompli
+              </h2>
+              <div className="space-y-2">
+                {recentWins.map(win => (
+                  <div key={win.id} className="flex items-center gap-2 p-2 bg-midnight/30 rounded-lg">
+                    <span className="text-xl">{win.celebration_emoji || "🎉"}</span>
+                    <span className="text-gray-300 text-sm">{win.title}</span>
+                    {win.date && (
+                      <span className="text-xs text-gray-500 ml-auto">{new Date(win.date).toLocaleDateString('fr-FR')}</span>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* BOUTON RETOUR */}
+          <div className="text-center">
+            <Link 
+              href="/" 
+              className="inline-flex items-center gap-2 px-6 py-3 bg-gold-500 text-midnight rounded-full font-medium hover:bg-gold-400 transition-colors"
+            >
+              <Sun className="w-4 h-4" />
+              Retour au commandement
+            </Link>
+          </div>
+        </>
+      )}
     </div>
   );
-  
 }
