@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
+import LoadingSpinner from "@/components/LoadingSpinner";
 import { motion, AnimatePresence } from "framer-motion";
 import { 
   Wallet, TrendingUp, TrendingDown, Plus, Trash2, Edit2, 
@@ -411,7 +412,7 @@ export default function MoneyPage() {
             </div>
             <div className="divide-y divide-white/5 max-h-[500px] overflow-y-auto">
               {isLoading ? (
-                <div className="p-8 text-center text-gray-500">Chargement...</div>
+                <LoadingSpinner />
               ) : filteredSpending.length === 0 ? (
                 <div className="p-8 text-center text-gray-500">Aucune dépense</div>
               ) : (
