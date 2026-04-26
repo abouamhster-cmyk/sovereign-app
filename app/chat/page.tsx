@@ -1,6 +1,9 @@
 "use client";
 import { useState, useRef, useEffect } from "react";
-import { Send, ArrowLeft, Plus, MessageSquare, Trash2, ChevronLeft, ChevronRight } from "lucide-react";
+import { 
+  Send, ArrowLeft, Plus, Trash2, ChevronLeft, ChevronRight, 
+  Search, Edit2, Check, X, MoreHorizontal, Loader2 
+} from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
@@ -23,31 +26,76 @@ type Message = {
 
 export default function ChatPage() {
   const [conversations, setConversations] = useState<Conversation[]>([]);
+  const [filteredConversations, setFilteredConversations] = useState<Conversation[]>([]);
   const [currentConversationId, setCurrentConversationId] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [isMobile, setIsMobile] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [editingTitleId, setEditingTitleId] = useState<string | null>(null);
+  const [editingTitle, setEditingTitle] = useState("");
+  const [isInitialLoad, setIsInitialLoad] = useState(true);
+  
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
 
-  // Charger la liste des conversations
+  // Détecter le mobile
+  useEffect(() => {
+    const checkMobile = () => setIsMobile(window.innerWidth < 768);
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+
+  // Charger les conversations
   useEffect(() => {
     fetchConversations();
   }, []);
 
-  // Charger les messages d'une conversation
+  // Charger les messages quand une conversation change
   useEffect(() => {
     if (currentConversationId) {
       fetchMessages(currentConversationId);
     }
   }, [currentConversationId]);
 
-  // Auto-scroll
+  // Filtrer les conversations par recherche
   useEffect(() => {
-    if (messagesEndRef.current) {
-      messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
+    if (searchTerm.trim() === "") {
+      setFilteredConversations(conversations);
+    } else {
+      const filtered = conversations.filter(conv => 
+        conv.title.toLowerCase().includes(searchTerm.toLowerCase())
+      );
+      setFilteredConversations(filtered);
+    }
+  }, [searchTerm, conversations]);
+
+  // Scroll auto vers le dernier message
+  useEffect(() => {
+    if (!isInitialLoad && messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: "smooth", block: "end" });
+    } else {
+      setIsInitialLoad(false);
     }
   }, [messages]);
+
+  // Focus sur l'input après chargement
+  useEffect(() => {
+    if (currentConversationId && inputRef.current) {
+      inputRef.current.focus();
+    }
+  }, [currentConversationId]);
+
+  // Fermer la sidebar sur mobile quand on change de conversation
+  useEffect(() => {
+    if (isMobile) {
+      setIsSidebarOpen(false);
+    }
+  }, [currentConversationId, isMobile]);
 
   async function fetchConversations() {
     const { data } = await supabase
@@ -56,11 +104,11 @@ export default function ChatPage() {
       .order("updated_at", { ascending: false });
     
     setConversations(data || []);
+    setFilteredConversations(data || []);
     
-    // Si aucune conversation, en créer une nouvelle
     if (!data || data.length === 0) {
       createNewConversation();
-    } else {
+    } else if (!currentConversationId) {
       setCurrentConversationId(data[0].id);
     }
   }
@@ -75,34 +123,59 @@ export default function ChatPage() {
     if (data && data.length > 0) {
       setMessages(data);
     } else {
-      // Message de bienvenue par défaut
       setMessages([{ role: "assistant", content: "Bonjour Rebecca. Que veux-tu qu'on attaque aujourd'hui ?" }]);
     }
   }
 
   async function createNewConversation() {
+    const title = `Nouvelle conversation ${new Date().toLocaleDateString('fr-FR')}`;
     const { data, error } = await supabase
       .from("conversations")
       .insert({
-        title: `Nouvelle conversation ${new Date().toLocaleDateString('fr-FR')}`,
+        title: title,
         user_id: "rebecca"
       })
       .select()
       .single();
     
     if (!error && data) {
-      setConversations([data, ...conversations]);
+      setConversations(prev => [data, ...prev]);
+      setFilteredConversations(prev => [data, ...prev]);
       setCurrentConversationId(data.id);
       setMessages([{ role: "assistant", content: "Bonjour Rebecca. Que veux-tu qu'on attaque aujourd'hui ?" }]);
+      
+      if (isMobile) setIsSidebarOpen(false);
     }
   }
 
+  async function updateConversationTitle(id: string, newTitle: string) {
+    if (!newTitle.trim()) return;
+    
+    const { error } = await supabase
+      .from("conversations")
+      .update({ title: newTitle })
+      .eq("id", id);
+    
+    if (!error) {
+      setConversations(prev => 
+        prev.map(conv => conv.id === id ? { ...conv, title: newTitle } : conv)
+      );
+      setFilteredConversations(prev => 
+        prev.map(conv => conv.id === id ? { ...conv, title: newTitle } : conv)
+      );
+    }
+    setEditingTitleId(null);
+    setEditingTitle("");
+  }
+
   async function deleteConversation(id: string) {
-    if (confirm("Supprimer cette conversation ?")) {
+    if (confirm("Supprimer cette conversation ? Cette action est irréversible.")) {
       const { error } = await supabase.from("conversations").delete().eq("id", id);
       if (!error) {
         const newConversations = conversations.filter(c => c.id !== id);
         setConversations(newConversations);
+        setFilteredConversations(newConversations);
+        
         if (newConversations.length > 0) {
           setCurrentConversationId(newConversations[0].id);
         } else {
@@ -119,7 +192,6 @@ export default function ChatPage() {
       content: content
     });
     
-    // Mettre à jour le updated_at de la conversation
     await supabase
       .from("conversations")
       .update({ updated_at: new Date().toISOString() })
@@ -130,7 +202,7 @@ export default function ChatPage() {
     if (!input.trim() || isLoading || !currentConversationId) return;
     
     const userMessage = { role: "user" as const, content: input };
-    const allMessages = [...messages, userMessage]; // ✅ TOUT l'historique est envoyé
+    const allMessages = [...messages, userMessage];
     
     setMessages(prev => [...prev, userMessage]);
     await saveMessage(currentConversationId, "user", input);
@@ -159,8 +231,11 @@ export default function ChatPage() {
       setMessages(prev => [...prev, { role: "assistant", content: assistantContent }]);
       await saveMessage(currentConversationId, "assistant", assistantContent);
       
-      // Rafraîchir la liste des conversations pour mettre à jour l'ordre
+      // Mettre à jour la liste des conversations pour l'ordre
       fetchConversations();
+      
+      // Remettre le focus sur l'input
+      inputRef.current?.focus();
     } catch (error) {
       console.error("Erreur:", error);
       const errorMessage = "Erreur de connexion. Vérifie que le backend est bien démarré.";
@@ -173,13 +248,30 @@ export default function ChatPage() {
 
   const formatDate = (dateStr: string) => {
     const date = new Date(dateStr);
-    const today = new Date();
-    const yesterday = new Date(today);
-    yesterday.setDate(yesterday.getDate() - 1);
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMs / 3600000);
+    const diffDays = Math.floor(diffMs / 86400000);
     
-    if (date.toDateString() === today.toDateString()) return "Aujourd'hui";
-    if (date.toDateString() === yesterday.toDateString()) return "Hier";
+    if (diffMins < 1) return "À l'instant";
+    if (diffMins < 60) return `Il y a ${diffMins} min`;
+    if (diffHours < 24) return `Il y a ${diffHours} h`;
+    if (diffDays === 1) return "Hier";
+    if (diffDays < 7) return `Il y a ${diffDays} jours`;
     return date.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' });
+  };
+
+  const startEditTitle = (conv: Conversation) => {
+    setEditingTitleId(conv.id);
+    setEditingTitle(conv.title);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSend();
+    }
   };
 
   return (
@@ -187,6 +279,7 @@ export default function ChatPage() {
       {/* SIDEBAR DES CONVERSATIONS */}
       <div className={`${isSidebarOpen ? 'w-80' : 'w-0'} transition-all duration-300 overflow-hidden border-r border-white/10 bg-midnight/50`}>
         <div className="p-4 h-full flex flex-col">
+          {/* En-tête sidebar */}
           <div className="flex justify-between items-center mb-4">
             <h2 className="text-sm font-serif text-gold-500">Conversations</h2>
             <button
@@ -197,6 +290,7 @@ export default function ChatPage() {
             </button>
           </div>
           
+          {/* Bouton nouvelle conversation */}
           <button
             onClick={createNewConversation}
             className="w-full mb-4 flex items-center justify-center gap-2 bg-gold-500/20 hover:bg-gold-500/30 text-gold-500 py-2 rounded-xl transition-colors text-sm"
@@ -205,34 +299,90 @@ export default function ChatPage() {
             Nouvelle conversation
           </button>
           
+          {/* Barre de recherche */}
+          <div className="relative mb-4">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-500" />
+            <input
+              type="text"
+              placeholder="Rechercher..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full pl-9 pr-4 py-2 bg-white/5 border border-white/10 rounded-xl text-sm focus:outline-none focus:border-gold-500 text-ivory placeholder:text-gray-500"
+            />
+          </div>
+          
+          {/* Liste des conversations */}
           <div className="flex-1 overflow-y-auto space-y-2">
-            {conversations.map(conv => (
-              <div
-                key={conv.id}
-                onClick={() => setCurrentConversationId(conv.id)}
-                className={`group p-3 rounded-xl cursor-pointer transition-all ${
-                  currentConversationId === conv.id
-                    ? "bg-gold-500/10 border border-gold-500/30"
-                    : "hover:bg-white/5 border border-transparent"
-                }`}
-              >
-                <div className="flex justify-between items-start">
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm truncate">{conv.title || "Nouvelle conversation"}</p>
-                    <p className="text-xs text-gray-500 mt-1">{formatDate(conv.updated_at)}</p>
-                  </div>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      deleteConversation(conv.id);
-                    }}
-                    className="opacity-0 group-hover:opacity-100 p-1 text-gray-500 hover:text-red-400 transition-all"
-                  >
-                    <Trash2 className="w-3 h-3" />
-                  </button>
-                </div>
+            {filteredConversations.length === 0 ? (
+              <div className="text-center py-8 text-gray-500 text-sm">
+                {searchTerm ? "Aucune conversation trouvée" : "Aucune conversation"}
               </div>
-            ))}
+            ) : (
+              filteredConversations.map(conv => (
+                <div
+                  key={conv.id}
+                  className={`group p-2 rounded-xl cursor-pointer transition-all ${
+                    currentConversationId === conv.id
+                      ? "bg-gold-500/10 border border-gold-500/30"
+                      : "hover:bg-white/5 border border-transparent"
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <div 
+                      onClick={() => setCurrentConversationId(conv.id)}
+                      className="flex-1 min-w-0 p-1"
+                    >
+                      {editingTitleId === conv.id ? (
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="text"
+                            value={editingTitle}
+                            onChange={(e) => setEditingTitle(e.target.value)}
+                            className="flex-1 bg-white/10 border border-gold-500 rounded-md px-2 py-1 text-sm focus:outline-none"
+                            autoFocus
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') updateConversationTitle(conv.id, editingTitle);
+                              if (e.key === 'Escape') setEditingTitleId(null);
+                            }}
+                          />
+                          <button onClick={() => updateConversationTitle(conv.id, editingTitle)} className="text-emerald-400">
+                            <Check className="w-3 h-3" />
+                          </button>
+                          <button onClick={() => setEditingTitleId(null)} className="text-red-400">
+                            <X className="w-3 h-3" />
+                          </button>
+                        </div>
+                      ) : (
+                        <>
+                          <p className="text-sm truncate">{conv.title || "Nouvelle conversation"}</p>
+                          <p className="text-xs text-gray-500 mt-1">{formatDate(conv.updated_at)}</p>
+                        </>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          startEditTitle(conv);
+                        }}
+                        className="p-1 text-gray-500 hover:text-gold-500 transition-colors"
+                      >
+                        <Edit2 className="w-3 h-3" />
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          deleteConversation(conv.id);
+                        }}
+                        className="p-1 text-gray-500 hover:text-red-400 transition-colors"
+                      >
+                        <Trash2 className="w-3 h-3" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))
+            )}
           </div>
         </div>
       </div>
@@ -263,7 +413,10 @@ export default function ChatPage() {
         </header>
 
         {/* ZONE DES MESSAGES */}
-        <div className="flex-1 overflow-y-auto p-6 space-y-4">
+        <div 
+          ref={messagesContainerRef}
+          className="flex-1 overflow-y-auto p-6 space-y-4"
+        >
           {messages.map((m, i) => (
             <motion.div
               key={i}
@@ -290,9 +443,7 @@ export default function ChatPage() {
             >
               <div className="bg-white/10 p-4 rounded-2xl rounded-bl-none">
                 <div className="flex gap-1">
-                  <span className="w-2 h-2 bg-gold-500 rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
-                  <span className="w-2 h-2 bg-gold-500 rounded-full animate-bounce" style={{ animationDelay: "150ms" }} />
-                  <span className="w-2 h-2 bg-gold-500 rounded-full animate-bounce" style={{ animationDelay: "300ms" }} />
+                  <Loader2 className="w-4 h-4 text-gold-500 animate-spin" />
                 </div>
               </div>
             </motion.div>
@@ -305,11 +456,12 @@ export default function ChatPage() {
         <div className="shrink-0 p-4 border-t border-white/10 bg-midnight/80 backdrop-blur-lg">
           <div className="relative max-w-4xl mx-auto flex items-center gap-2">
             <input
+              ref={inputRef}
               type="text"
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && handleSend()}
-              placeholder="Écris ton message..."
+              onKeyDown={handleKeyDown}
+              placeholder="Écris ton message... (Entrée pour envoyer)"
               className="flex-1 bg-white/10 border border-white/20 rounded-full py-3 px-5 pr-12 text-sm focus:outline-none focus:border-gold-500 transition-all text-ivory placeholder:text-gray-500"
             />
             <button 
