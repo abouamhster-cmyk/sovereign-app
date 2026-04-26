@@ -69,7 +69,7 @@ export default function TasksPage() {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'tasks' }, () => fetchTasks())
       .subscribe();
     
-    return () => channel.unsubscribe();
+    return () => {   channel.unsubscribe();   
   }, []);
 
   async function fetchTasks() {
