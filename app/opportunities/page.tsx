@@ -285,17 +285,12 @@ export default function OpportunitiesPage() {
   return (
     <div className="p-8 lg:p-12 h-full flex flex-col overflow-y-auto bg-midnight">
       {/* HEADER */}
-      <div className="flex justify-between items-center mb-8">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
         <div>
-          <h1 className="text-4xl font-serif text-gold-500 tracking-tight">Opportunities</h1>
-          <p className="text-gray-500 mt-2 italic font-light">
-            Suivi des deals, contrats et opportunités financières
-          </p>
+          <h1 className="text-3xl md:text-4xl font-serif text-gold-500 tracking-tight">Opportunities</h1>
+          <p className="text-gray-500 mt-1 text-sm">Suivi des deals, contrats et opportunités financières</p>
         </div>
-        <button
-          onClick={() => { setShowForm(true); setEditingId(null); scrollToForm(); }}
-          className="bg-gold-500 text-midnight px-5 py-2 rounded-full text-sm font-medium flex items-center gap-2 hover:bg-gold-400 transition-colors"
-        >
+        <button className="bg-gold-500 text-midnight px-4 py-2 rounded-full text-sm font-medium flex items-center justify-center gap-2 w-full md:w-auto">
           <Plus className="w-4 h-4" /> Nouvelle opportunité
         </button>
       </div>
