@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
+import LoadingSpinner from "@/components/LoadingSpinner";
 import { supabase } from "@/lib/supabase";
 import { motion, AnimatePresence } from "framer-motion";
 import { 
@@ -273,9 +274,9 @@ useEffect(() => {
 
       {/* LISTE DES ENTREES */}
       <div className="space-y-3">
-        {isLoading ? (
-          <div className="text-center py-12 text-gray-500">Chargement...</div>
-        ) : filteredItems.length === 0 ? (
+          {isLoading ? (
+            <LoadingSpinner />
+          ) : filteredItems.length === 0 ? (
           <div className="text-center py-12 text-gray-500">
             <Inbox className="w-12 h-12 mx-auto mb-4 opacity-30" />
             <p>Ton inbox est vide</p>
