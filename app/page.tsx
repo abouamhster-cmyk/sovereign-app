@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { motion } from "framer-motion";
+import LoadingSpinner from "@/components/LoadingSpinner";
 import Link from "next/link";
 import { 
   LayoutDashboard, Target, Heart, DollarSign, Briefcase,
@@ -345,6 +346,10 @@ export default function DashboardPage() {
     return new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'XOF', maximumFractionDigits: 0 }).format(val);
   };
 
+  if (isLoading) {
+  return <LoadingSpinner />;
+}
+  
   return (
     <div className="p-6 lg:p-8 h-full flex flex-col overflow-y-auto bg-midnight">
       
