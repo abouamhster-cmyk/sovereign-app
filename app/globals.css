@@ -10,89 +10,72 @@
   --font-sans: var(--font-inter);
 }
 
-/* ============================================
-   SCROLLBAR COMPLÈTEMENT INVISIBLE
-   ============================================ */
-
-/* Cacher sur Firefox */
-* {
-  scrollbar-width: none;
-}
-
-/* Cacher sur Chrome/Safari/Edge */
-*::-webkit-scrollbar {
+/* Scrollbar invisible pour un look App */
+.scrollbar-hide::-webkit-scrollbar {
   display: none;
 }
-
-/* Cacher sur IE */
-* {
+.scrollbar-hide {
   -ms-overflow-style: none;
-}
-
-/* Les éléments restent scrollables */
-body,
-main,
-div,
-section,
-.overflow-y-auto,
-.overflow-auto {
-  overflow-y: auto;
   scrollbar-width: none;
 }
 
-body::-webkit-scrollbar,
-main::-webkit-scrollbar,
-div::-webkit-scrollbar,
-.overflow-y-auto::-webkit-scrollbar,
-.overflow-auto::-webkit-scrollbar {
-  display: none;
+/* Scrollbar personnalisée globale */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(212, 175, 55, 0.3) transparent;
 }
 
-/* ============================================
-   STYLES POUR LES SELECTS
-   ============================================ */
+*::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
 
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+  background: rgba(212, 175, 55, 0.3);
+  border-radius: 4px;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: rgba(212, 175, 55, 0.5);
+}
+
+
+
+/* Style pour tous les selects */
 select {
-  background-color: #0A0A0B !important;
+  background-color: #1a1a1a !important;
   color: #F5F5F0 !important;
   border: 1px solid rgba(255, 255, 255, 0.1) !important;
-  border-radius: 0.75rem !important;
-  padding: 0.5rem 1rem !important;
 }
 
 select option {
-  background-color: #0A0A0B !important;
+  background-color: #1a1a1a !important;
   color: #F5F5F0 !important;
 }
 
+/* Pour les selects dans les formulaires */
 select:focus {
   outline: none;
   border-color: #D4AF37 !important;
 }
 
-/* ============================================
-   CLASSES UTILITAIRES (optionnelles)
-   ============================================ */
-
-.scrollbar-none {
-  scrollbar-width: none;
-  -ms-overflow-style: none;
+select,
+select option {
+  background-color: #0A0A0B !important;
+  color: #F5F5F0 !important;
 }
 
-.scrollbar-none::-webkit-scrollbar {
-  display: none;
+select {
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 0.75rem;
+  padding: 0.5rem 1rem;
 }
 
-/* Animation de pulse pour les points de chargement */
-@keyframes bounce {
-  0%, 60%, 100% {
-    transform: translateY(0);
-  }
-  30% {
-    transform: translateY(-10px);
-  }
-}
-
-.animate-bounce {
-  animation: bounce 1.4s infinite ease-in-out;
+select:focus {
+  border-color: #D4AF37;
+  outline: none;
 }
