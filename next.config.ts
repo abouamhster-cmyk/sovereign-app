@@ -1,10 +1,11 @@
-import type { NextConfig } from "next";
-
-const nextConfig: NextConfig = {
-  // output: "export",  // ← COMMENTE CETTE LIGNE pour l'instant
+/** @type {import('next').NextConfig} */
+const nextConfig = {
+  output: 'standalone', // <--- AJOUTE CECI
   images: {
     unoptimized: true,
   },
+  // Important pour éviter les timeouts sur Render
+  staticPageGenerationTimeout: 120,
 };
 
-export default nextConfig;
+module.exports = nextConfig;
