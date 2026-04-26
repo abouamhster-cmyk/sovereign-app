@@ -40,6 +40,20 @@ export default function MoneyPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [filterProject, setFilterProject] = useState<string>("all");
   const [filterMonth, setFilterMonth] = useState<string>("all");
+
+
+  
+  // Ajoute cette fonction après les useState (vers ligne 55)
+  const scrollToForm = () => {
+    setTimeout(() => {
+      const formElement = document.getElementById('form-container');
+      if (formElement) {
+        formElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    }, 150);
+  };
+  
+
   
   // Formulaire
   const [formData, setFormData] = useState({
@@ -93,6 +107,11 @@ export default function MoneyPage() {
     };
   }, []);
 
+
+
+
+
+  
   async function fetchData() {
     setIsLoading(true);
     
@@ -158,19 +177,21 @@ export default function MoneyPage() {
     }
   }
 
+
   function editEntry(entry: Spending | Revenue, type: "spending" | "revenue") {
-    setFormType(type);
-    setFormData({
-      title: "title" in entry ? entry.title : entry.source,
-      amount: entry.amount.toString(),
-      category: "category" in entry ? entry.category : "other",
-      project: entry.project,
-      date: entry.date,
-      notes: entry.notes || ""
-    });
-    setEditingId(entry.id);
-    setShowForm(true);
-  }
+  setFormType(type);
+  setFormData({
+    title: "title" in entry ? entry.title : entry.source,
+    amount: entry.amount.toString(),
+    category: "category" in entry ? entry.category : "other",
+    project: entry.project,
+    date: entry.date,
+    notes: entry.notes || ""
+  });
+  setEditingId(entry.id);
+  setShowForm(true);
+  scrollToForm();  
+}
 
   function resetForm() {
     setShowForm(false);
@@ -411,13 +432,18 @@ export default function MoneyPage() {
       {/* BOUTONS D'AJOUT (hors zone export) */}
       <div className="flex gap-4 mt-6">
         <button
-          onClick={() => { setFormType("spending"); setShowForm(true); setEditingId(null); }}
+            onClick={() => { 
+              setFormType("spending"); 
+              setShowForm(true); 
+              setEditingId(null);
+              scrollToForm();
+            }}
           className="bg-red-500/20 text-red-400 px-5 py-2 rounded-full text-sm font-medium hover:bg-red-500/30 transition-all flex items-center gap-2"
         >
           <Plus className="w-4 h-4" /> Dépense
         </button>
         <button
-          onClick={() => { setFormType("revenue"); setShowForm(true); setEditingId(null); }}
+          onClick={() => {      setFormType("revenue");      setShowForm(true);      setEditingId(null);     scrollToForm();   }}
           className="bg-emerald-500/20 text-emerald-400 px-5 py-2 rounded-full text-sm font-medium hover:bg-emerald-500/30 transition-all flex items-center gap-2"
         >
           <Plus className="w-4 h-4" /> Revenu
@@ -426,9 +452,9 @@ export default function MoneyPage() {
 
       {/* FORMULAIRE MODAL (hors zone export) */}
       <AnimatePresence>
-        {showForm && (
-          <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-2xl p-6 mt-6">
-            <div className="flex justify-between items-center mb-4">
+    {showForm && (
+      <motion.div id="form-container" initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-2xl p-6 mt-6">      
+        <div className="flex justify-between items-center mb-4">
               <h3 className="text-lg font-serif text-ivory">
                 {editingId ? "Modifier" : "Nouvelle"} {formType === "spending" ? "dépense" : "revenu"}
               </h3>
