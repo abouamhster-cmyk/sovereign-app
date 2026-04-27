@@ -572,55 +572,74 @@ export default function ChatPage() {
           </div>
         )}
         
-        {/* Barre de saisie principale */}
-        <div className="flex items-center gap-2">
-          {/* Groupe des boutons à gauche (upload + micro) */}
-          <div className="flex items-center gap-2">
-            {/* Bouton upload */}
-            <div {...getRootProps()} className="cursor-pointer">
-              <input {...getInputProps()} />
-              <button type="button" className={`p-2 rounded-full transition-all ${isDragActive ? "bg-gold-500 text-midnight" : "bg-white/10 text-gray-400 hover:bg-white/20"}`}>
-                <Paperclip className="w-5 h-5" />
-              </button>
+             {/* Barre de saisie principale */}
+            <div className="flex items-center gap-2">
+              {/* Select pour choisir entre upload et micro */}
+              <div className="relative">
+                <select
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    if (value === "upload") {
+                      document.getElementById('file-upload-input')?.click();
+                    } else if (value === "micro") {
+                      startListening();
+                    }
+                    // Remettre la valeur par défaut
+                    e.target.value = "";
+                  }}
+                  className="bg-white/10 border border-white/20 rounded-full px-3 py-2 text-sm text-gold-500 focus:outline-none focus:border-gold-500 cursor-pointer"
+                  defaultValue=""
+                >
+                  <option value="" disabled>📎 Actions</option>
+                  <option value="upload">📎 Joindre un fichier</option>
+                  {browserSupportsSpeechRecognition && (
+                    <option value="micro">🎤 Dictée vocale</option>
+                  )}
+                </select>
+                
+                {/* Input file caché */}
+                <input
+                  id="file-upload-input"
+                  type="file"
+                  {...getInputProps()}
+                  className="hidden"
+                  onChange={(e) => {
+                    if (e.target.files) {
+                      onDrop(Array.from(e.target.files));
+                    }
+                  }}
+                />
+              </div>
+              
+              {/* Champ de saisie */}
+              <div className="relative flex-1">
+                <input
+                  ref={inputRef}
+                  type="text"
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  onKeyDown={handleKeyDown}
+                  placeholder="Écris ton message..."
+                  className={`w-full bg-white/10 border rounded-full py-3 px-4 pr-12 text-sm focus:outline-none focus:border-gold-500 text-ivory placeholder:text-gray-500 ${listening ? "border-red-500" : "border-white/20"}`}
+                />
+                
+                {/* Bouton envoyer */}
+                <button
+                  onClick={handleSend}
+                  disabled={(!input.trim() && uploadedFiles.length === 0) || isLoading}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 bg-gold-500 rounded-full disabled:opacity-50 transition-all"
+                >
+                  <Send className="w-4 h-4 text-midnight" />
+                </button>
+              </div>
             </div>
             
-            {/* Bouton micro - déplacé ici */}
-            {browserSupportsSpeechRecognition && (
-              <button
-                onTouchStart={startListening}
-                onTouchEnd={stopListening}
-                onMouseDown={startListening}
-                onMouseUp={stopListening}
-                className={`p-2 rounded-full transition-all ${listening ? "bg-red-500 text-white animate-pulse" : "bg-white/10 text-gray-400 hover:bg-white/20"}`}
-                title="Appuyer et maintenir pour parler"
-              >
-                <Mic className="w-5 h-5" />
-              </button>
+            {/* Indicateur d'enregistrement vocal */}
+            {listening && (
+              <div className="text-center text-xs text-red-400 animate-pulse mt-2">
+                🎤 Enregistrement en cours... relâchez le micro pour envoyer
+              </div>
             )}
-          </div>
-          
-          {/* Champ de saisie */}
-          <div className="relative flex-1">
-            <input
-              ref={inputRef}
-              type="text"
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={handleKeyDown}
-              placeholder="Écris ton message..."
-              className={`w-full bg-white/10 border rounded-full py-3 px-4 pr-12 text-sm focus:outline-none focus:border-gold-500 text-ivory placeholder:text-gray-500 ${listening ? "border-red-500" : "border-white/20"}`}
-            />
-            
-            {/* Bouton envoyer - seul à droite */}
-            <button
-              onClick={handleSend}
-              disabled={(!input.trim() && uploadedFiles.length === 0) || isLoading}
-              className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 bg-gold-500 rounded-full disabled:opacity-50 transition-all"
-            >
-              <Send className="w-4 h-4 text-midnight" />
-            </button>
-          </div>
-        </div>
         
       </div>
     </div>
