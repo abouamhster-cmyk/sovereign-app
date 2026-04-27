@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { Bell, BellRing, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
-const VAPID_PUBLIC_KEY = "BCfXQm5XjlHxTxPtDoZEo2SgntoSwNTlo0Wy1xNTUWItFIp59oTTSV-hQgrn54BkNQAQa7-pusO3oZP_BquN33w";
+const VAPID_PUBLIC_KEY = "BDUcDcYzvCTHHOFrTWxHDL9627woyJeAzKqQ8AQ2cDLOH8LJF82oJTfOP75RGlfx_izAOEMeuombR6Tv-2fYuJE";
 
 // Fonction pour convertir la clé VAPID
 function urlBase64ToUint8Array(base64String: string) {
