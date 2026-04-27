@@ -477,35 +477,57 @@ export default function ChatPage() {
       </AnimatePresence>
 
       {/* ZONE DES MESSAGES */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-4">
-        {messages.map((m, i) => (
-          <motion.div key={i} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
-            <div className={`max-w-[80%] p-4 rounded-2xl text-sm ${m.role === "user" ? "bg-gold-500 text-midnight rounded-br-none" : "bg-white/10 text-ivory border border-white/5 rounded-bl-none"}`}>
-              <div className="whitespace-pre-wrap break-words">{m.content}</div>
-              {m.files && m.files.length > 0 && (
-                <div className="mt-2 pt-2 border-t border-white/10">
-                  {m.files.map((file, idx) => (
-                    <a key={idx} href={file.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-xs text-gold-500 hover:underline mt-1">
-                      {file.type.startsWith('image/') ? <ImageIcon className="w-3 h-3" /> : <File className="w-3 h-3" />}
-                      {file.name}
-                    </a>
-                  ))}
+            <div className="flex-1 overflow-y-auto p-4 space-y-4">
+              {messages.map((m, i) => (
+                <motion.div key={i} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
+                  <div className={`max-w-[85%] p-4 rounded-2xl text-sm ${m.role === "user" ? "bg-gold-500 text-midnight rounded-br-none" : "bg-white/10 text-ivory border border-white/5 rounded-bl-none"}`}>
+                    
+                    {/* Message texte */}
+                    <div className="whitespace-pre-wrap break-words">{m.content}</div>
+                    
+                    {/* Images affichées directement */}
+                    {m.files && m.files.length > 0 && (
+                      <div className="mt-3">
+                        {/* Images - affichées en aperçu */}
+                        <div className="grid grid-cols-2 gap-2">
+                          {m.files.filter(f => f.type.startsWith('image/')).map((file, idx) => (
+                            <a key={idx} href={file.url} target="_blank" rel="noopener noreferrer" className="block">
+                              <img 
+                                src={file.url} 
+                                alt={file.name}
+                                className="rounded-xl w-full h-auto max-h-48 object-cover border border-white/10 hover:border-gold-500 transition-all"
+                              />
+                            </a>
+                          ))}
+                        </div>
+                        
+                        {/* Autres fichiers (PDF, etc.) - liens */}
+                        {m.files.filter(f => !f.type.startsWith('image/')).length > 0 && (
+                          <div className="mt-2 pt-2 border-t border-white/10">
+                            {m.files.filter(f => !f.type.startsWith('image/')).map((file, idx) => (
+                              <a key={idx} href={file.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-xs text-gold-500 hover:underline mt-1">
+                                <File className="w-3 h-3" />
+                                {file.name}
+                              </a>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </motion.div>
+              ))}
+              
+              {isLoading && (
+                <div className="flex justify-start">
+                  <div className="bg-white/10 p-4 rounded-2xl">
+                    <Loader2 className="w-4 h-4 text-gold-500 animate-spin" />
+                  </div>
                 </div>
               )}
+              
+              <div ref={messagesEndRef} />
             </div>
-          </motion.div>
-        ))}
-        
-        {isLoading && (
-          <div className="flex justify-start">
-            <div className="bg-white/10 p-4 rounded-2xl">
-              <Loader2 className="w-4 h-4 text-gold-500 animate-spin" />
-            </div>
-          </div>
-        )}
-        
-        <div ref={messagesEndRef} />
-      </div>
 
       {/* BARRE DE SAISIE - VERSION MOBILE OPTIMISÉE */}
       <div className="shrink-0 p-3 border-t border-white/10 bg-midnight/90 backdrop-blur-lg">
