@@ -472,46 +472,56 @@ const scrollToForm = () => {
             <div className="text-center py-12 text-gray-500">Aucun membre dans l'équipe</div>
           ) : (
             <>
-              {activeTab === "infrastructure" && infrastructure.map(item => {
-                const Icon = infraTypeConfig[item.type].icon;
-                return (
-                  <div key={item.id} className="bg-white/5 border border-white/10 rounded-xl p-4 hover:bg-white/10 transition-colors">
-                    <div className="flex justify-between items-start">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-3 flex-wrap mb-2">
-                          <h3 className="text-ivory font-medium">{item.name}</h3>
-                          <span className={`text-xs px-2 py-0.5 rounded-full ${infraTypeConfig[item.type].color}`}>
-                            <Icon className="w-3 h-3 inline mr-1" /> {infraTypeConfig[item.type].label}
-                          </span>
-                          <span className={`text-xs px-2 py-0.5 rounded-full ${statusConfig[item.status].color}`}>
-                            {statusConfig[item.status].label}
-                          </span>
+            {activeTab === "infrastructure" && infrastructure.map(item => {
+                      const config = infraTypeConfig[item.type] || {
+                        label: item.type,
+                        icon: Building2,
+                        color: "bg-gray-500/20 text-gray-400"
+                      };
+                      const Icon = config.icon;
+                      return (
+                        <div key={item.id} className="bg-white/5 border border-white/10 rounded-xl p-4 hover:bg-white/10 transition-colors">
+                          <div className="flex justify-between items-start">
+                            <div className="flex-1">
+                              <div className="flex items-center gap-3 flex-wrap mb-2">
+                                <h3 className="text-ivory font-medium">{item.name}</h3>
+                                <span className={`text-xs px-2 py-0.5 rounded-full ${config.color}`}>
+                                  <Icon className="w-3 h-3 inline mr-1" /> {config.label}
+                                </span>
+                                <span className={`text-xs px-2 py-0.5 rounded-full ${statusConfig[item.status]?.color || "bg-gray-500/20 text-gray-400"}`}>
+                                  {statusConfig[item.status]?.label || item.status}
+                                </span>
+                              </div>
+                              <div className="text-xs text-gray-500">📍 {item.location_on_site}</div>
+                              {item.responsible_person && <div className="text-xs text-gray-500">👤 {item.responsible_person}</div>}
+                            </div>
+                            <div className="flex gap-2">
+                              <button onClick={() => editItem(item, "infrastructure")} className="text-gray-500 hover:text-gold-500"><Edit2 className="w-4 h-4" /></button>
+                              <button onClick={() => deleteItem("farm_infrastructure", item.id)} className="text-gray-500 hover:text-red-400"><Trash2 className="w-4 h-4" /></button>
+                            </div>
+                          </div>
                         </div>
-                        <div className="text-xs text-gray-500">📍 {item.location_on_site}</div>
-                        {item.responsible_person && <div className="text-xs text-gray-500">👤 {item.responsible_person}</div>}
-                      </div>
-                      <div className="flex gap-2">
-                        <button onClick={() => editItem(item, "infrastructure")} className="text-gray-500 hover:text-gold-500"><Edit2 className="w-4 h-4" /></button>
-                        <button onClick={() => deleteItem("farm_infrastructure", item.id)} className="text-gray-500 hover:text-red-400"><Trash2 className="w-4 h-4" /></button>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
+                      );
+                    })}
 
               {activeTab === "production" && production.map(item => {
-                const Icon = productionCategoryConfig[item.category].icon;
+                const config = productionCategoryConfig[item.category] || {
+                  label: item.category,
+                  icon: Sprout,
+                  color: "bg-gray-500/20 text-gray-400"
+                };
+                const Icon = config.icon;
                 return (
                   <div key={item.id} className="bg-white/5 border border-white/10 rounded-xl p-4 hover:bg-white/10 transition-colors">
                     <div className="flex justify-between items-start">
                       <div className="flex-1">
                         <div className="flex items-center gap-3 flex-wrap mb-2">
                           <h3 className="text-ivory font-medium">{item.name}</h3>
-                          <span className={`text-xs px-2 py-0.5 rounded-full ${productionCategoryConfig[item.category].color}`}>
-                            <Icon className="w-3 h-3 inline mr-1" /> {productionCategoryConfig[item.category].label}
+                          <span className={`text-xs px-2 py-0.5 rounded-full ${config.color}`}>
+                            <Icon className="w-3 h-3 inline mr-1" /> {config.label}
                           </span>
-                          <span className={`text-xs px-2 py-0.5 rounded-full ${statusConfig[item.status].color}`}>
-                            {statusConfig[item.status].label}
+                          <span className={`text-xs px-2 py-0.5 rounded-full ${statusConfig[item.status]?.color || "bg-gray-500/20 text-gray-400"}`}>
+                            {statusConfig[item.status]?.label || item.status}
                           </span>
                         </div>
                         <div className="text-xs text-gray-500">📦 Capacité: {item.current_capacity}</div>
