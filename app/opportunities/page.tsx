@@ -28,7 +28,7 @@ type Mission = {
   name: string;
 };
 
-const typeConfig = {
+const typeConfig: Record<string, { label: string; icon: any; color: string }> = {
   client: { label: "🤝 Client", icon: Briefcase, color: "bg-blue-500/20 text-blue-400" },
   grant: { label: "🎯 Subvention", icon: Target, color: "bg-emerald-500/20 text-emerald-400" },
   contract: { label: "📄 Contrat", icon: FileText, color: "bg-purple-500/20 text-purple-400" },
@@ -39,7 +39,7 @@ const typeConfig = {
   other: { label: "📁 Autre", icon: Briefcase, color: "bg-gray-500/20 text-gray-400" }
 };
 
-const stageConfig = {
+const stageConfig: Record<string, { label: string; color: string; icon: any; order: number }> = {
   idea: { label: "💡 Idée", color: "bg-gray-500/20 text-gray-400", icon: Sparkles, order: 1 },
   researching: { label: "🔍 Recherche", color: "bg-blue-500/20 text-blue-400", icon: Search, order: 2 },
   preparing: { label: "📝 Préparation", color: "bg-purple-500/20 text-purple-400", icon: Edit2, order: 3 },
@@ -55,12 +55,7 @@ const probabilityConfig = {
   high: { label: "🔴 Haute", color: "text-emerald-400", value: 75 }
 };
 
-// Imports supplémentaires
 import { FileText, Package, Send } from "lucide-react";
-
-// ============================================
-// FONCTIONS DE SCORING
-// ============================================
 
 function getScoreColor(score: number): string {
   if (score >= 20) return "text-emerald-400 bg-emerald-500/10";
@@ -80,24 +75,19 @@ function getScoreStars(score: number): string {
 function calculateOpportunityScore(opp: Opportunity): number {
   let score = 0;
   
-  // 1. Valeur estimée (0-10 points)
   if (opp.estimated_value) {
-    if (opp.estimated_value >= 10000000) score += 10;      // > 10M CFA
-    else if (opp.estimated_value >= 5000000) score += 8;   // > 5M CFA
-    else if (opp.estimated_value >= 2000000) score += 6;   // > 2M CFA
-    else if (opp.estimated_value >= 1000000) score += 4;   // > 1M CFA
-    else if (opp.estimated_value >= 500000) score += 2;    // > 500k CFA
+    if (opp.estimated_value >= 10000000) score += 10;
+    else if (opp.estimated_value >= 5000000) score += 8;
+    else if (opp.estimated_value >= 2000000) score += 6;
+    else if (opp.estimated_value >= 1000000) score += 4;
+    else if (opp.estimated_value >= 500000) score += 2;
     else score += 1;
-  } else {
-    score += 0;
   }
   
-  // 2. Probabilité (0-8 points)
   if (opp.probability === "high") score += 8;
   else if (opp.probability === "medium") score += 5;
   else if (opp.probability === "low") score += 2;
   
-  // 3. Stade d'avancement (0-7 points)
   if (opp.stage === "won") score += 7;
   else if (opp.stage === "follow_up") score += 6;
   else if (opp.stage === "submitted") score += 5;
@@ -105,7 +95,6 @@ function calculateOpportunityScore(opp: Opportunity): number {
   else if (opp.stage === "researching") score += 2;
   else if (opp.stage === "idea") score += 1;
   
-  // 4. Deadline (0-5 points)
   if (opp.deadline) {
     const daysUntil = Math.ceil((new Date(opp.deadline).getTime() - new Date().getTime()) / (1000 * 3600 * 24));
     if (daysUntil <= 3) score += 5;
@@ -140,28 +129,27 @@ export default function OpportunitiesPage() {
     notes: ""
   });
 
-
   const scrollToForm = () => {
-  setTimeout(() => {
-    const formElement = document.getElementById('form-container');
-    if (formElement) {
-      formElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }
-  }, 150);
-};
+    setTimeout(() => {
+      const formElement = document.getElementById('form-container');
+      if (formElement) {
+        formElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    }, 150);
+  };
 
   useEffect(() => {
-  fetchData();
-  
-  const channel = supabase
-    .channel('opportunities_changes')
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'opportunities' }, () => fetchOpportunities())
-    .subscribe();
-  
-  return () => {
-    channel.unsubscribe();
-  };
-}, []);
+    fetchData();
+    
+    const channel = supabase
+      .channel('opportunities_changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'opportunities' }, () => fetchOpportunities())
+      .subscribe();
+    
+    return () => {
+      channel.unsubscribe();
+    };
+  }, []);
     
   async function fetchData() {
     setIsLoading(true);
@@ -227,23 +215,22 @@ export default function OpportunitiesPage() {
     }
   }
 
-
   function editOpportunity(opp: Opportunity) {
-  setEditingId(opp.id);
-  setFormData({
-    title: opp.title,
-    type: opp.type,
-    mission_id: opp.mission_id || "",
-    estimated_value: opp.estimated_value?.toString() || "",
-    stage: opp.stage,
-    deadline: opp.deadline || "",
-    probability: opp.probability,
-    next_action: opp.next_action || "",
-    notes: opp.notes || ""
-  });
-  setShowForm(true);
-  scrollToForm(); 
-}
+    setEditingId(opp.id);
+    setFormData({
+      title: opp.title,
+      type: opp.type,
+      mission_id: opp.mission_id || "",
+      estimated_value: opp.estimated_value?.toString() || "",
+      stage: opp.stage,
+      deadline: opp.deadline || "",
+      probability: opp.probability,
+      next_action: opp.next_action || "",
+      notes: opp.notes || ""
+    });
+    setShowForm(true);
+    scrollToForm(); 
+  }
 
   function resetForm() {
     setShowForm(false);
@@ -442,11 +429,11 @@ export default function OpportunitiesPage() {
         )}
       </AnimatePresence>
 
-      {/* LISTE DES OPPORTUNITÉS AVEC SCORE */}
+      {/* LISTE DES OPPORTUNITÉS */}
       <div className="space-y-3">
-          {isLoading ? (
-            <LoadingSpinner />
-          ) : sortedOpportunities.length === 0 ? (
+        {isLoading ? (
+          <LoadingSpinner />
+        ) : sortedOpportunities.length === 0 ? (
           <div className="text-center py-12 text-gray-500">
             <TrendingUp className="w-12 h-12 mx-auto mb-4 opacity-30" />
             <p>Aucune opportunité</p>
@@ -454,9 +441,11 @@ export default function OpportunitiesPage() {
           </div>
         ) : (
           sortedOpportunities.map((opp) => {
-            const TypeIcon = typeConfig[opp.type].icon;
-            const StageIcon = stageConfig[opp.stage].icon;
-            const probabilityInfo = probabilityConfig[opp.probability];
+            const typeData = typeConfig[opp.type] || { icon: Briefcase, label: opp.type || "Autre", color: "bg-gray-500/20 text-gray-400" };
+            const TypeIcon = typeData.icon;
+            const stageData = stageConfig[opp.stage] || { icon: Clock, label: opp.stage || "En cours", color: "bg-gray-500/20 text-gray-400", order: 3 };
+            const StageIcon = stageData.icon;
+            const probabilityInfo = probabilityConfig[opp.probability] || { label: "Moyenne", color: "text-yellow-400", value: 50 };
             const score = calculateOpportunityScore(opp);
             
             return (
@@ -470,11 +459,11 @@ export default function OpportunitiesPage() {
                   <div className="flex-1">
                     <div className="flex items-center gap-3 flex-wrap mb-2">
                       <h3 className="text-ivory font-medium text-lg">{opp.title}</h3>
-                      <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs ${typeConfig[opp.type].color}`}>
-                        <TypeIcon className="w-3 h-3" /> {typeConfig[opp.type].label}
+                      <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs ${typeData.color}`}>
+                        <TypeIcon className="w-3 h-3" /> {typeData.label}
                       </span>
-                      <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs ${stageConfig[opp.stage].color}`}>
-                        <StageIcon className="w-3 h-3" /> {stageConfig[opp.stage].label}
+                      <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs ${stageData.color}`}>
+                        <StageIcon className="w-3 h-3" /> {stageData.label}
                       </span>
                     </div>
                     
@@ -495,7 +484,6 @@ export default function OpportunitiesPage() {
                       )}
                     </div>
                     
-                    {/* SCORE DE PRIORITÉ */}
                     <div className="flex items-center gap-2 mt-3">
                       <div className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs ${getScoreColor(score)}`}>
                         <span className="text-xs">{getScoreStars(score)}</span>
@@ -534,11 +522,10 @@ export default function OpportunitiesPage() {
                   </div>
                 </div>
                 
-                {/* Barre de progression visuelle */}
                 <div className="mt-3 w-full bg-white/10 rounded-full h-1">
                   <div 
                     className={`h-1 rounded-full ${opp.stage === "won" ? "bg-emerald-500" : "bg-gold-500"}`}
-                    style={{ width: `${(stageConfig[opp.stage].order / 7) * 100}%` }}
+                    style={{ width: `${(stageData.order / 7) * 100}%` }}
                   />
                 </div>
               </motion.div>
