@@ -290,7 +290,10 @@ export default function OpportunitiesPage() {
           <h1 className="text-3xl md:text-4xl font-serif text-gold-500 tracking-tight">Opportunities</h1>
           <p className="text-gray-500 mt-1 text-sm">Suivi des deals, contrats et opportunités financières</p>
         </div>
-        <button className="bg-gold-500 text-midnight px-4 py-2 rounded-full text-sm font-medium flex items-center justify-center gap-2 w-full md:w-auto">
+        <button
+          onClick={() => { setShowForm(true); setEditingId(null); scrollToForm(); }}
+          className="bg-gold-500 text-midnight px-4 py-2 rounded-full text-sm font-medium flex items-center justify-center gap-2 w-full md:w-auto"
+        >
           <Plus className="w-4 h-4" /> Nouvelle opportunité
         </button>
       </div>
