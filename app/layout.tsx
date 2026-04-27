@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Inter, Playfair_Display } from "next/font/google";
+import "regenerator-runtime/runtime";
 import "./globals.css";
 import { Toaster } from "sonner";
 import ClientLayout from "./ClientLayout";
