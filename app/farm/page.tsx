@@ -5,10 +5,11 @@ import LoadingSpinner from "@/components/LoadingSpinner";
 import { motion, AnimatePresence } from "framer-motion";
 import { 
   Sprout, Plus, Trash2, Edit2, X, Calendar, 
-  DollarSign, Tractor, Fish, LayoutGrid, TrendingUp,
+  DollarSign, Tractor, Fish, TrendingUp,
   CheckCircle, Clock, AlertCircle, Droplets, 
-  Sun, Shield, Users as UsersIcon, Building2,
-  Package, Truck, Leaf, Home, Download, Activity, Pause
+  Shield, Users as UsersIcon, Building2,
+  Package, Truck, Leaf, Download, Activity, Pause,
+  Home
 } from "lucide-react";
 import { exportToPDF } from "@/lib/exportPDF";
 
@@ -16,8 +17,8 @@ import { exportToPDF } from "@/lib/exportPDF";
 type FarmInfrastructure = {
   id: string;
   name: string;
-  type: "building" | "utility" | "security" | "production" | "landscape";
-  status: "planned" | "in_progress" | "complete" | "needs_repair";
+  type: string;
+  status: string;
   location_on_site: string;
   completed_date: string | null;
   responsible_person: string | null;
@@ -27,8 +28,8 @@ type FarmInfrastructure = {
 type FarmProductionUnit = {
   id: string;
   name: string;
-  category: "fish" | "chicken" | "around" | "snail" | "coconut" | "garden";
-  status: "planned" | "setup" | "active" | "harvest" | "paused";
+  category: string;
+  status: string;
   current_capacity: string;
   start_date: string | null;
   expected_first_revenue: string | null;
@@ -41,7 +42,7 @@ type FarmSpending = {
   title: string;
   amount: number;
   currency: string;
-  category: "forage" | "construction" | "labor" | "equipment" | "materials" | "livestock" | "crops" | "transport" | "security";
+  category: string;
   project_area: string;
   verified: boolean;
   notes: string | null;
@@ -53,13 +54,18 @@ type FarmTeam = {
   name: string;
   role: string;
   area: string;
-  status: "active" | "occasional" | "pending";
+  status: string;
   phone: string;
   notes: string | null;
 };
 
-// Configurations
-const infraTypeConfig = {
+// Fonction utilitaire pour obtenir une icône avec fallback
+const getIconSafe = (iconMap: Record<string, any>, key: string, fallback: any) => {
+  return iconMap[key] || fallback;
+};
+
+// Configurations avec fallbacks intégrés
+const infraTypeConfig: Record<string, { label: string; icon: any; color: string }> = {
   building: { label: "Bâtiment", icon: Building2, color: "bg-blue-500/20 text-blue-400" },
   utility: { label: "Utilitaire", icon: Droplets, color: "bg-cyan-500/20 text-cyan-400" },
   security: { label: "Sécurité", icon: Shield, color: "bg-red-500/20 text-red-400" },
@@ -67,7 +73,7 @@ const infraTypeConfig = {
   landscape: { label: "Paysage", icon: Leaf, color: "bg-green-500/20 text-green-400" }
 };
 
-const productionCategoryConfig = {
+const productionCategoryConfig: Record<string, { label: string; icon: any; color: string }> = {
   fish: { label: "Poisson", icon: Fish, color: "bg-blue-500/20 text-blue-400" },
   chicken: { label: "Poulet", icon: UsersIcon, color: "bg-yellow-500/20 text-yellow-400" },
   around: { label: "Okra", icon: Leaf, color: "bg-green-500/20 text-green-400" },
@@ -76,7 +82,7 @@ const productionCategoryConfig = {
   garden: { label: "Jardin", icon: Sprout, color: "bg-emerald-500/20 text-emerald-400" }
 };
 
-const statusConfig = {
+const statusConfig: Record<string, { label: string; icon: any; color: string }> = {
   planned: { label: "Planifié", icon: Calendar, color: "bg-gray-500/20 text-gray-400" },
   in_progress: { label: "En cours", icon: Clock, color: "bg-blue-500/20 text-blue-400" },
   setup: { label: "Installation", icon: Package, color: "bg-orange-500/20 text-orange-400" },
@@ -87,7 +93,7 @@ const statusConfig = {
   paused: { label: "En pause", icon: Pause, color: "bg-yellow-500/20 text-yellow-400" }
 };
 
-const spendingCategoryConfig = {
+const spendingCategoryConfig: Record<string, { label: string; icon: any }> = {
   forage: { label: "Forage", icon: Droplets },
   construction: { label: "Construction", icon: Building2 },
   labor: { label: "Main d'œuvre", icon: UsersIcon },
@@ -98,9 +104,6 @@ const spendingCategoryConfig = {
   transport: { label: "Transport", icon: Truck },
   security: { label: "Sécurité", icon: Shield }
 };
-
-// Imports manquants
-import { Activity, Pause } from "lucide-react";
 
 export default function FarmPage() {
   const [activeTab, setActiveTab] = useState<"infrastructure" | "production" | "spending" | "team">("infrastructure");
@@ -115,15 +118,14 @@ export default function FarmPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [formData, setFormData] = useState<any>({});
 
-
-const scrollToForm = () => {
-  setTimeout(() => {
-    const formElement = document.getElementById('form-container');
-    if (formElement) {
-      formElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }
-  }, 150);
-};
+  const scrollToForm = () => {
+    setTimeout(() => {
+      const formElement = document.getElementById('form-container');
+      if (formElement) {
+        formElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    }, 150);
+  };
 
   useEffect(() => {
     fetchAllData();
@@ -308,6 +310,164 @@ const scrollToForm = () => {
   const completedInfra = infrastructure.filter(i => i.status === "complete").length;
   const totalInfra = infrastructure.length;
 
+  // Fonctions de rendu sécurisées avec fallbacks
+  const renderInfrastructure = () => {
+    if (infrastructure.length === 0) {
+      return <div className="text-center py-12 text-gray-500">Aucune infrastructure</div>;
+    }
+    
+    return infrastructure.map(item => {
+      const config = infraTypeConfig[item.type] || { 
+        label: item.type || "Infrastructure", 
+        icon: Building2, 
+        color: "bg-gray-500/20 text-gray-400" 
+      };
+      const Icon = config.icon;
+      const statusData = statusConfig[item.status] || { 
+        label: item.status || "Statut inconnu", 
+        color: "bg-gray-500/20 text-gray-400" 
+      };
+      
+      return (
+        <div key={item.id} className="bg-white/5 border border-white/10 rounded-xl p-4 hover:bg-white/10 transition-colors">
+          <div className="flex justify-between items-start">
+            <div className="flex-1">
+              <div className="flex items-center gap-3 flex-wrap mb-2">
+                <h3 className="text-ivory font-medium">{item.name}</h3>
+                <span className={`text-xs px-2 py-0.5 rounded-full ${config.color}`}>
+                  <Icon className="w-3 h-3 inline mr-1" /> {config.label}
+                </span>
+                <span className={`text-xs px-2 py-0.5 rounded-full ${statusData.color}`}>
+                  {statusData.label}
+                </span>
+              </div>
+              <div className="text-xs text-gray-500">📍 {item.location_on_site}</div>
+              {item.responsible_person && <div className="text-xs text-gray-500">👤 {item.responsible_person}</div>}
+            </div>
+            <div className="flex gap-2">
+              <button onClick={() => editItem(item, "infrastructure")} className="text-gray-500 hover:text-gold-500"><Edit2 className="w-4 h-4" /></button>
+              <button onClick={() => deleteItem("farm_infrastructure", item.id)} className="text-gray-500 hover:text-red-400"><Trash2 className="w-4 h-4" /></button>
+            </div>
+          </div>
+        </div>
+      );
+    });
+  };
+
+  const renderProduction = () => {
+    if (production.length === 0) {
+      return <div className="text-center py-12 text-gray-500">Aucune unité de production</div>;
+    }
+    
+    return production.map(item => {
+      const config = productionCategoryConfig[item.category] || { 
+        label: item.category || "Unité", 
+        icon: Sprout, 
+        color: "bg-gray-500/20 text-gray-400" 
+      };
+      const Icon = config.icon;
+      const statusData = statusConfig[item.status] || { 
+        label: item.status || "Statut inconnu", 
+        color: "bg-gray-500/20 text-gray-400" 
+      };
+      
+      return (
+        <div key={item.id} className="bg-white/5 border border-white/10 rounded-xl p-4 hover:bg-white/10 transition-colors">
+          <div className="flex justify-between items-start">
+            <div className="flex-1">
+              <div className="flex items-center gap-3 flex-wrap mb-2">
+                <h3 className="text-ivory font-medium">{item.name}</h3>
+                <span className={`text-xs px-2 py-0.5 rounded-full ${config.color}`}>
+                  <Icon className="w-3 h-3 inline mr-1" /> {config.label}
+                </span>
+                <span className={`text-xs px-2 py-0.5 rounded-full ${statusData.color}`}>
+                  {statusData.label}
+                </span>
+              </div>
+              <div className="text-xs text-gray-500">📦 Capacité: {item.current_capacity}</div>
+              {item.technical_lead && <div className="text-xs text-gray-500">🔧 Lead: {item.technical_lead}</div>}
+            </div>
+            <div className="flex gap-2">
+              <button onClick={() => editItem(item, "production")} className="text-gray-500 hover:text-gold-500"><Edit2 className="w-4 h-4" /></button>
+              <button onClick={() => deleteItem("farm_production_units", item.id)} className="text-gray-500 hover:text-red-400"><Trash2 className="w-4 h-4" /></button>
+            </div>
+          </div>
+        </div>
+      );
+    });
+  };
+
+  const renderSpending = () => {
+    if (spending.length === 0) {
+      return <div className="text-center py-12 text-gray-500">Aucune dépense</div>;
+    }
+    
+    return spending.map(item => {
+      const spendConfig = spendingCategoryConfig[item.category] || { 
+        label: item.category || "Dépense", 
+        icon: Package 
+      };
+      
+      return (
+        <div key={item.id} className="bg-white/5 border border-white/10 rounded-xl p-4 hover:bg-white/10 transition-colors">
+          <div className="flex justify-between items-start">
+            <div className="flex-1">
+              <div className="flex items-center gap-3 flex-wrap mb-2">
+                <h3 className="text-ivory font-medium">{item.title}</h3>
+                <span className="text-sm text-red-400 font-medium">{item.amount.toLocaleString()} CFA</span>
+                <span className={`text-xs px-2 py-0.5 rounded-full ${item.verified ? "bg-emerald-500/20 text-emerald-400" : "bg-yellow-500/20 text-yellow-400"}`}>
+                  {item.verified ? "✓ Vérifié" : "⏳ En attente"}
+                </span>
+              </div>
+              <div className="text-xs text-gray-500">📂 {spendConfig.label} • 📍 {item.project_area}</div>
+            </div>
+            <div className="flex gap-2">
+              <button onClick={() => editItem(item, "spending")} className="text-gray-500 hover:text-gold-500"><Edit2 className="w-4 h-4" /></button>
+              <button onClick={() => deleteItem("farm_spending", item.id)} className="text-gray-500 hover:text-red-400"><Trash2 className="w-4 h-4" /></button>
+            </div>
+          </div>
+        </div>
+      );
+    });
+  };
+
+  const renderTeam = () => {
+    if (team.length === 0) {
+      return <div className="text-center py-12 text-gray-500">Aucun membre dans l'équipe</div>;
+    }
+    
+    return team.map(item => {
+      const statusColor = item.status === "active" ? "bg-emerald-500/20 text-emerald-400" : 
+                          item.status === "occasional" ? "bg-blue-500/20 text-blue-400" : 
+                          "bg-yellow-500/20 text-yellow-400";
+      const statusLabel = item.status === "active" ? "Actif" : 
+                          item.status === "occasional" ? "Occasionnel" : 
+                          "En attente";
+      
+      return (
+        <div key={item.id} className="bg-white/5 border border-white/10 rounded-xl p-4 hover:bg-white/10 transition-colors">
+          <div className="flex justify-between items-start">
+            <div className="flex-1">
+              <div className="flex items-center gap-3 flex-wrap mb-2">
+                <h3 className="text-ivory font-medium">{item.name}</h3>
+                <span className="text-xs text-gold-500">{item.role}</span>
+                <span className={`text-xs px-2 py-0.5 rounded-full ${statusColor}`}>
+                  {statusLabel}
+                </span>
+              </div>
+              <div className="text-xs text-gray-500">📍 {item.area}</div>
+              {item.phone && <div className="text-xs text-gray-500">📞 {item.phone}</div>}
+            </div>
+            <div className="flex gap-2">
+              <button onClick={() => editItem(item, "team")} className="text-gray-500 hover:text-gold-500"><Edit2 className="w-4 h-4" /></button>
+              <button onClick={() => deleteItem("farm_team", item.id)} className="text-gray-500 hover:text-red-400"><Trash2 className="w-4 h-4" /></button>
+            </div>
+          </div>
+        </div>
+      );
+    });
+  };
+
   return (
     <div className="p-6 lg:p-10 h-full flex flex-col overflow-y-auto bg-midnight">
       {/* HEADER AVEC BOUTON EXPORT */}
@@ -350,10 +510,10 @@ const scrollToForm = () => {
         {/* TABS */}
         <div className="flex flex-wrap gap-2 border-b border-white/10 mb-6">
           {[
-            { id: "infrastructure", label: "🏗️ Infrastructures", icon: Building2 },
-            { id: "production", label: "🌾 Production", icon: Sprout },
-            { id: "spending", label: "💰 Dépenses", icon: DollarSign },
-            { id: "team", label: "👥 Équipe", icon: UsersIcon }
+            { id: "infrastructure", label: "🏗️ Infrastructures" },
+            { id: "production", label: "🌾 Production" },
+            { id: "spending", label: "💰 Dépenses" },
+            { id: "team", label: "👥 Équipe" }
           ].map(tab => (
             <button
               key={tab.id}
@@ -458,129 +618,17 @@ const scrollToForm = () => {
           )}
         </AnimatePresence>
 
-        {/* LISTES PAR TAB */}
-        <div className="space-y-3">
-          {isLoading ? (
-            <LoadingSpinner />
-          ) : activeTab === "infrastructure" && infrastructure.length === 0 ? (
-            <div className="text-center py-12 text-gray-500">Aucune infrastructure</div>
-          ) : activeTab === "production" && production.length === 0 ? (
-            <div className="text-center py-12 text-gray-500">Aucune unité de production</div>
-          ) : activeTab === "spending" && spending.length === 0 ? (
-            <div className="text-center py-12 text-gray-500">Aucune dépense</div>
-          ) : activeTab === "team" && team.length === 0 ? (
-            <div className="text-center py-12 text-gray-500">Aucun membre dans l'équipe</div>
-          ) : (
-            <>
-            {activeTab === "infrastructure" && infrastructure.map(item => {
-                      const config = infraTypeConfig[item.type] || {
-                        label: item.type,
-                        icon: Building2,
-                        color: "bg-gray-500/20 text-gray-400"
-                      };
-                      const Icon = config.icon;
-                      return (
-                        <div key={item.id} className="bg-white/5 border border-white/10 rounded-xl p-4 hover:bg-white/10 transition-colors">
-                          <div className="flex justify-between items-start">
-                            <div className="flex-1">
-                              <div className="flex items-center gap-3 flex-wrap mb-2">
-                                <h3 className="text-ivory font-medium">{item.name}</h3>
-                                <span className={`text-xs px-2 py-0.5 rounded-full ${config.color}`}>
-                                  <Icon className="w-3 h-3 inline mr-1" /> {config.label}
-                                </span>
-                                <span className={`text-xs px-2 py-0.5 rounded-full ${statusConfig[item.status]?.color || "bg-gray-500/20 text-gray-400"}`}>
-                                  {statusConfig[item.status]?.label || item.status}
-                                </span>
-                              </div>
-                              <div className="text-xs text-gray-500">📍 {item.location_on_site}</div>
-                              {item.responsible_person && <div className="text-xs text-gray-500">👤 {item.responsible_person}</div>}
-                            </div>
-                            <div className="flex gap-2">
-                              <button onClick={() => editItem(item, "infrastructure")} className="text-gray-500 hover:text-gold-500"><Edit2 className="w-4 h-4" /></button>
-                              <button onClick={() => deleteItem("farm_infrastructure", item.id)} className="text-gray-500 hover:text-red-400"><Trash2 className="w-4 h-4" /></button>
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    })}
-
-              {activeTab === "production" && production.map(item => {
-                const config = productionCategoryConfig[item.category] || {
-                  label: item.category,
-                  icon: Sprout,
-                  color: "bg-gray-500/20 text-gray-400"
-                };
-                const Icon = config.icon;
-                return (
-                  <div key={item.id} className="bg-white/5 border border-white/10 rounded-xl p-4 hover:bg-white/10 transition-colors">
-                    <div className="flex justify-between items-start">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-3 flex-wrap mb-2">
-                          <h3 className="text-ivory font-medium">{item.name}</h3>
-                          <span className={`text-xs px-2 py-0.5 rounded-full ${config.color}`}>
-                            <Icon className="w-3 h-3 inline mr-1" /> {config.label}
-                          </span>
-                          <span className={`text-xs px-2 py-0.5 rounded-full ${statusConfig[item.status]?.color || "bg-gray-500/20 text-gray-400"}`}>
-                            {statusConfig[item.status]?.label || item.status}
-                          </span>
-                        </div>
-                        <div className="text-xs text-gray-500">📦 Capacité: {item.current_capacity}</div>
-                        {item.technical_lead && <div className="text-xs text-gray-500">🔧 Lead: {item.technical_lead}</div>}
-                      </div>
-                      <div className="flex gap-2">
-                        <button onClick={() => editItem(item, "production")} className="text-gray-500 hover:text-gold-500"><Edit2 className="w-4 h-4" /></button>
-                        <button onClick={() => deleteItem("farm_production_units", item.id)} className="text-gray-500 hover:text-red-400"><Trash2 className="w-4 h-4" /></button>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-
-              {activeTab === "spending" && spending.map(item => (
-                <div key={item.id} className="bg-white/5 border border-white/10 rounded-xl p-4 hover:bg-white/10 transition-colors">
-                  <div className="flex justify-between items-start">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-3 flex-wrap mb-2">
-                        <h3 className="text-ivory font-medium">{item.title}</h3>
-                        <span className="text-sm text-red-400 font-medium">{item.amount.toLocaleString()} CFA</span>
-                        <span className={`text-xs px-2 py-0.5 rounded-full ${item.verified ? "bg-emerald-500/20 text-emerald-400" : "bg-yellow-500/20 text-yellow-400"}`}>
-                          {item.verified ? "✓ Vérifié" : "⏳ En attente"}
-                        </span>
-                      </div>
-                      <div className="text-xs text-gray-500">📂 {spendingCategoryConfig[item.category]?.label || item.category} • 📍 {item.project_area}</div>
-                    </div>
-                    <div className="flex gap-2">
-                      <button onClick={() => editItem(item, "spending")} className="text-gray-500 hover:text-gold-500"><Edit2 className="w-4 h-4" /></button>
-                      <button onClick={() => deleteItem("farm_spending", item.id)} className="text-gray-500 hover:text-red-400"><Trash2 className="w-4 h-4" /></button>
-                    </div>
-                  </div>
-                </div>
-              ))}
-
-              {activeTab === "team" && team.map(item => (
-                <div key={item.id} className="bg-white/5 border border-white/10 rounded-xl p-4 hover:bg-white/10 transition-colors">
-                  <div className="flex justify-between items-start">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-3 flex-wrap mb-2">
-                        <h3 className="text-ivory font-medium">{item.name}</h3>
-                        <span className="text-xs text-gold-500">{item.role}</span>
-                        <span className={`text-xs px-2 py-0.5 rounded-full ${item.status === "active" ? "bg-emerald-500/20 text-emerald-400" : item.status === "occasional" ? "bg-blue-500/20 text-blue-400" : "bg-yellow-500/20 text-yellow-400"}`}>
-                          {item.status === "active" ? "Actif" : item.status === "occasional" ? "Occasionnel" : "En attente"}
-                        </span>
-                      </div>
-                      <div className="text-xs text-gray-500">📍 {item.area}</div>
-                      {item.phone && <div className="text-xs text-gray-500">📞 {item.phone}</div>}
-                    </div>
-                    <div className="flex gap-2">
-                      <button onClick={() => editItem(item, "team")} className="text-gray-500 hover:text-gold-500"><Edit2 className="w-4 h-4" /></button>
-                      <button onClick={() => deleteItem("farm_team", item.id)} className="text-gray-500 hover:text-red-400"><Trash2 className="w-4 h-4" /></button>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </>
-          )}
-        </div>
+        {/* LISTES PAR TAB - AVEC RENDU SÉCURISÉ */}
+        {isLoading ? (
+          <LoadingSpinner />
+        ) : (
+          <>
+            {activeTab === "infrastructure" && renderInfrastructure()}
+            {activeTab === "production" && renderProduction()}
+            {activeTab === "spending" && renderSpending()}
+            {activeTab === "team" && renderTeam()}
+          </>
+        )}
       </div>
     </div>
   );
