@@ -1,7 +1,7 @@
 "use client";
+import "regenerator-runtime/runtime";
 import { useState, useRef, useEffect } from "react";
 import ReactMarkdown from 'react-markdown';
-import "regenerator-runtime/runtime";
 import { 
   Send, ArrowLeft, Plus, Trash2, ChevronLeft, ChevronRight, 
   Search, Edit2, Check, X, Loader2, Menu, Mic, Paperclip, 
