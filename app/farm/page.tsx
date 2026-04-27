@@ -8,7 +8,7 @@ import {
   DollarSign, Tractor, Fish, LayoutGrid, TrendingUp,
   CheckCircle, Clock, AlertCircle, Droplets, 
   Sun, Shield, Users as UsersIcon, Building2,
-  Package, Truck, Leaf, Home, Download
+  Package, Truck, Leaf, Home, Download, Activity, Pause
 } from "lucide-react";
 import { exportToPDF } from "@/lib/exportPDF";
 
@@ -72,7 +72,7 @@ const productionCategoryConfig = {
   chicken: { label: "Poulet", icon: UsersIcon, color: "bg-yellow-500/20 text-yellow-400" },
   around: { label: "Okra", icon: Leaf, color: "bg-green-500/20 text-green-400" },
   snail: { label: "Escargot", icon: Sprout, color: "bg-purple-500/20 text-purple-400" },
-  coconut: { label: "Coco", icon: TreePine, color: "bg-orange-500/20 text-orange-400" },
+  coconut: { label: "Coco", icon: Sprout, color: "bg-orange-500/20 text-orange-400" },
   garden: { label: "Jardin", icon: Sprout, color: "bg-emerald-500/20 text-emerald-400" }
 };
 
@@ -100,7 +100,7 @@ const spendingCategoryConfig = {
 };
 
 // Imports manquants
-import { Activity, Pause, TreePine } from "lucide-react";
+import { Activity, Pause } from "lucide-react";
 
 export default function FarmPage() {
   const [activeTab, setActiveTab] = useState<"infrastructure" | "production" | "spending" | "team">("infrastructure");
