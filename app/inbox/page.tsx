@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import LoadingSpinner from "@/components/LoadingSpinner";
+import VoiceInput from "@/components/VoiceInput";
 import { supabase } from "@/lib/supabase";
 import { motion, AnimatePresence } from "framer-motion";
 import { 
@@ -236,6 +237,13 @@ useEffect(() => {
               }
             }}
           />
+          <div className="relative">
+          <textarea ... />
+          <VoiceInput 
+            onTranscript={(text) => setInput(prev => prev + " " + text)}
+            buttonClassName="absolute bottom-3 right-3"
+          />
+        </div>
           <button
             onClick={addItem}
             disabled={!input.trim()}
