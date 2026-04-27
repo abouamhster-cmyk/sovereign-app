@@ -2,11 +2,14 @@
 import { useState, useRef, useEffect } from "react";
 import { 
   Send, ArrowLeft, Plus, Trash2, ChevronLeft, ChevronRight, 
-  Search, Edit2, Check, X, Loader2, Menu
+  Search, Edit2, Check, X, Loader2, Menu, Mic, Paperclip, 
+  Image, File, XCircle, Upload
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
+import { useDropzone } from "react-dropzone";
+import SpeechRecognition, { useSpeechRecognition } from "react-speech-recognition";
 
 const API_URL = "https://sovereign-bridge.onrender.com";
 
@@ -21,6 +24,7 @@ type Message = {
   id?: string;
   role: "user" | "assistant";
   content: string;
+  files?: { name: string; url: string; type: string }[];
   created_at?: string;
 };
 
@@ -31,16 +35,27 @@ export default function ChatPage() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false); // ← Fermée par défaut sur mobile
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [editingTitleId, setEditingTitleId] = useState<string | null>(null);
   const [editingTitle, setEditingTitle] = useState("");
   const [isInitialLoad, setIsInitialLoad] = useState(true);
+  const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
+  const [isUploading, setIsUploading] = useState(false);
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Speech recognition
+  const {
+    transcript,
+    listening,
+    resetTranscript,
+    browserSupportsSpeechRecognition
+  } = useSpeechRecognition();
 
   // Détecter le mobile
   useEffect(() => {
@@ -49,6 +64,13 @@ export default function ChatPage() {
     window.addEventListener('resize', checkMobile);
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
+
+  // Mettre à jour l'input quand le transcript change
+  useEffect(() => {
+    if (transcript) {
+      setInput(transcript);
+    }
+  }, [transcript]);
 
   // Charger les conversations
   useEffect(() => {
@@ -97,6 +119,51 @@ export default function ChatPage() {
     }
   }, [currentConversationId, isMobile]);
 
+  // Dropzone pour les fichiers
+  const onDrop = (acceptedFiles: File[]) => {
+    setUploadedFiles(prev => [...prev, ...acceptedFiles]);
+  };
+
+  const { getRootProps, getInputProps, isDragActive } = useDropzone({
+    onDrop,
+    accept: {
+      'image/*': ['.png', '.jpg', '.jpeg', '.gif', '.webp'],
+      'application/pdf': ['.pdf'],
+      'text/plain': ['.txt'],
+      'application/msword': ['.doc', '.docx'],
+      'application/vnd.ms-excel': ['.xls', '.xlsx']
+    },
+    maxSize: 10 * 1024 * 1024 // 10MB
+  });
+
+  async function uploadFilesToStorage() {
+    if (uploadedFiles.length === 0) return [];
+    
+    const uploaded = [];
+    for (const file of uploadedFiles) {
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
+      const filePath = `chat/${currentConversationId}/${fileName}`;
+      
+      const { error: uploadError } = await supabase.storage
+        .from('chat-files')
+        .upload(filePath, file);
+      
+      if (!uploadError) {
+        const { data: { publicUrl } } = supabase.storage
+          .from('chat-files')
+          .getPublicUrl(filePath);
+        
+        uploaded.push({
+          name: file.name,
+          url: publicUrl,
+          type: file.type
+        });
+      }
+    }
+    return uploaded;
+  }
+
   async function fetchConversations() {
     const { data } = await supabase
       .from("conversations")
@@ -121,7 +188,16 @@ export default function ChatPage() {
       .order("created_at", { ascending: true });
     
     if (data && data.length > 0) {
-      setMessages(data);
+      // Parser les messages pour extraire les fichiers
+      const parsedMessages = data.map(msg => {
+        try {
+          const parsed = JSON.parse(msg.content);
+          return { ...msg, content: parsed.content, files: parsed.files };
+        } catch {
+          return msg;
+        }
+      });
+      setMessages(parsedMessages);
     } else {
       setMessages([{ role: "assistant", content: "Bonjour Rebecca. Que veux-tu qu'on attaque aujourd'hui ?" }]);
     }
@@ -185,11 +261,12 @@ export default function ChatPage() {
     }
   }
 
-  async function saveMessage(conversationId: string, role: string, content: string) {
+  async function saveMessage(conversationId: string, role: string, content: string, files?: any[]) {
+    const messageData = files ? { content, files } : { content };
     await supabase.from("conversation_messages").insert({
       conversation_id: conversationId,
       role: role,
-      content: content
+      content: JSON.stringify(messageData)
     });
     
     await supabase
@@ -199,22 +276,40 @@ export default function ChatPage() {
   }
 
   const handleSend = async () => {
-    if (!input.trim() || isLoading || !currentConversationId) return;
+    if ((!input.trim() && uploadedFiles.length === 0) || isLoading || !currentConversationId) return;
     
-    const userMessage = { role: "user" as const, content: input };
+    setIsUploading(true);
+    const uploadedFilesData = await uploadFilesToStorage();
+    setIsUploading(false);
+    
+    const userMessageContent = input.trim() || "Fichier(s) joint(s)";
+    const userMessage: Message = { 
+      role: "user", 
+      content: userMessageContent,
+      files: uploadedFilesData.length > 0 ? uploadedFilesData : undefined
+    };
+    
     const allMessages = [...messages, userMessage];
     
     setMessages(prev => [...prev, userMessage]);
-    await saveMessage(currentConversationId, "user", input);
+    await saveMessage(currentConversationId, "user", userMessageContent, uploadedFilesData);
     setInput("");
+    setUploadedFiles([]);
     setIsLoading(true);
+    resetTranscript();
 
     try {
+      // Construire le message à envoyer à l'API
+      let messageContent = userMessageContent;
+      if (uploadedFilesData.length > 0) {
+        messageContent += "\n\n📎 Fichiers joints:\n" + uploadedFilesData.map(f => `- ${f.name}: ${f.url}`).join("\n");
+      }
+      
       const response = await fetch(`${API_URL}/chat`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ 
-          messages: allMessages.map(msg => ({
+          messages: [...allMessages.slice(0, -1), { role: "user", content: messageContent }].map(msg => ({
             role: msg.role,
             content: msg.content
           }))
@@ -243,6 +338,15 @@ export default function ChatPage() {
     }
   };
 
+  const startListening = () => {
+    resetTranscript();
+    SpeechRecognition.startListening({ continuous: true, language: 'fr-FR' });
+  };
+
+  const stopListening = () => {
+    SpeechRecognition.stopListening();
+  };
+
   const formatDate = (dateStr: string) => {
     const date = new Date(dateStr);
     const now = new Date();
@@ -265,15 +369,19 @@ export default function ChatPage() {
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
+    if (e.key === 'Enter' && !e.shiftKey && !listening) {
       e.preventDefault();
       handleSend();
     }
   };
 
+  const removeFile = (index: number) => {
+    setUploadedFiles(prev => prev.filter((_, i) => i !== index));
+  };
+
   return (
     <div className="fixed inset-0 bg-midnight flex flex-col">
-      {/* HEADER DU CHAT - AVEC BOUTON MENU */}
+      {/* HEADER */}
       <header className="sticky top-0 z-10 h-14 border-b border-white/10 flex items-center px-4 bg-midnight/90 backdrop-blur-lg shrink-0">
         <button
           onClick={() => setIsSidebarOpen(true)}
@@ -295,7 +403,7 @@ export default function ChatPage() {
         </button>
       </header>
 
-      {/* SIDEBAR OVERLAY */}
+      {/* SIDEBAR - identique à avant */}
       <AnimatePresence>
         {isSidebarOpen && (
           <>
@@ -315,10 +423,7 @@ export default function ChatPage() {
             >
               <div className="p-4 border-b border-white/10 flex justify-between items-center">
                 <h2 className="text-sm font-serif text-gold-500">Conversations</h2>
-                <button
-                  onClick={() => setIsSidebarOpen(false)}
-                  className="p-1 text-gray-500 hover:text-gold-500 transition-colors"
-                >
+                <button onClick={() => setIsSidebarOpen(false)} className="p-1 text-gray-500 hover:text-gold-500">
                   <ChevronLeft className="w-5 h-5" />
                 </button>
               </div>
@@ -347,140 +452,125 @@ export default function ChatPage() {
               </div>
               
               <div className="flex-1 overflow-y-auto px-4 pb-4 space-y-2">
-                {filteredConversations.length === 0 ? (
-                  <div className="text-center py-8 text-gray-500 text-sm">
-                    {searchTerm ? "Aucune conversation trouvée" : "Aucune conversation"}
-                  </div>
-                ) : (
-                  filteredConversations.map(conv => (
-                    <div
-                      key={conv.id}
-                      className={`group p-3 rounded-xl cursor-pointer transition-all ${
-                        currentConversationId === conv.id
-                          ? "bg-gold-500/10 border border-gold-500/30"
-                          : "hover:bg-white/5 border border-transparent"
-                      }`}
-                    >
-                      <div className="flex items-center justify-between">
-                        <div 
-                          onClick={() => setCurrentConversationId(conv.id)}
-                          className="flex-1 min-w-0"
-                        >
-                          {editingTitleId === conv.id ? (
-                            <div className="flex items-center gap-2">
-                              <input
-                                type="text"
-                                value={editingTitle}
-                                onChange={(e) => setEditingTitle(e.target.value)}
-                                className="flex-1 bg-white/10 border border-gold-500 rounded-md px-2 py-1 text-sm focus:outline-none"
-                                autoFocus
-                                onKeyDown={(e) => {
-                                  if (e.key === 'Enter') updateConversationTitle(conv.id, editingTitle);
-                                  if (e.key === 'Escape') setEditingTitleId(null);
-                                }}
-                              />
-                              <button onClick={() => updateConversationTitle(conv.id, editingTitle)} className="text-emerald-400">
-                                <Check className="w-3 h-3" />
-                              </button>
-                              <button onClick={() => setEditingTitleId(null)} className="text-red-400">
-                                <X className="w-3 h-3" />
-                              </button>
-                            </div>
-                          ) : (
-                            <>
-                              <p className="text-sm truncate">{conv.title || "Nouvelle conversation"}</p>
-                              <p className="text-xs text-gray-500 mt-1">{formatDate(conv.updated_at)}</p>
-                            </>
-                          )}
-                        </div>
-                        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              startEditTitle(conv);
-                            }}
-                            className="p-1 text-gray-500 hover:text-gold-500 transition-colors"
-                          >
-                            <Edit2 className="w-3 h-3" />
-                          </button>
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              deleteConversation(conv.id);
-                            }}
-                            className="p-1 text-gray-500 hover:text-red-400 transition-colors"
-                          >
-                            <Trash2 className="w-3 h-3" />
-                          </button>
-                        </div>
+                {filteredConversations.map(conv => (
+                  <div key={conv.id} className={`group p-3 rounded-xl cursor-pointer transition-all ${currentConversationId === conv.id ? "bg-gold-500/10 border border-gold-500/30" : "hover:bg-white/5 border border-transparent"}`}>
+                    <div className="flex items-center justify-between">
+                      <div onClick={() => setCurrentConversationId(conv.id)} className="flex-1 min-w-0">
+                        {editingTitleId === conv.id ? (
+                          <div className="flex items-center gap-2">
+                            <input type="text" value={editingTitle} onChange={(e) => setEditingTitle(e.target.value)} className="flex-1 bg-white/10 border border-gold-500 rounded-md px-2 py-1 text-sm focus:outline-none" autoFocus onKeyDown={(e) => { if (e.key === 'Enter') updateConversationTitle(conv.id, editingTitle); if (e.key === 'Escape') setEditingTitleId(null); }} />
+                            <button onClick={() => updateConversationTitle(conv.id, editingTitle)} className="text-emerald-400"><Check className="w-3 h-3" /></button>
+                            <button onClick={() => setEditingTitleId(null)} className="text-red-400"><X className="w-3 h-3" /></button>
+                          </div>
+                        ) : (
+                          <>
+                            <p className="text-sm truncate">{conv.title || "Nouvelle conversation"}</p>
+                            <p className="text-xs text-gray-500 mt-1">{formatDate(conv.updated_at)}</p>
+                          </>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button onClick={(e) => { e.stopPropagation(); startEditTitle(conv); }} className="p-1 text-gray-500 hover:text-gold-500"><Edit2 className="w-3 h-3" /></button>
+                        <button onClick={(e) => { e.stopPropagation(); deleteConversation(conv.id); }} className="p-1 text-gray-500 hover:text-red-400"><Trash2 className="w-3 h-3" /></button>
                       </div>
                     </div>
-                  ))
-                )}
+                  </div>
+                ))}
               </div>
             </motion.aside>
           </>
         )}
       </AnimatePresence>
 
-      {/* ZONE DES MESSAGES - SCROLLABLE */}
-      <div 
-        ref={messagesContainerRef}
-        className="flex-1 overflow-y-auto p-4 space-y-4"
-      >
+      {/* ZONE DES MESSAGES */}
+      <div ref={messagesContainerRef} className="flex-1 overflow-y-auto p-4 space-y-4">
         {messages.map((m, i) => (
-          <motion.div
-            key={i}
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.3 }}
-            className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}
-          >
-            <div className={`max-w-[85%] p-4 rounded-2xl text-sm leading-relaxed ${
-              m.role === "user" 
-                ? "bg-gold-500 text-midnight rounded-br-none" 
-                : "bg-white/10 text-ivory border border-white/5 rounded-bl-none"
-            }`}>
+          <motion.div key={i} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
+            <div className={`max-w-[85%] p-4 rounded-2xl text-sm leading-relaxed ${m.role === "user" ? "bg-gold-500 text-midnight rounded-br-none" : "bg-white/10 text-ivory border border-white/5 rounded-bl-none"}`}>
               {m.content}
+              {m.files && m.files.length > 0 && (
+                <div className="mt-2 pt-2 border-t border-white/10">
+                  {m.files.map((file, idx) => (
+                    <a key={idx} href={file.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-xs text-gold-500 hover:underline">
+                      <File className="w-3 h-3" /> {file.name}
+                    </a>
+                  ))}
+                </div>
+              )}
             </div>
           </motion.div>
         ))}
         
         {isLoading && (
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="flex justify-start"
-          >
-            <div className="bg-white/10 p-4 rounded-2xl rounded-bl-none">
-              <Loader2 className="w-4 h-4 text-gold-500 animate-spin" />
-            </div>
+          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="flex justify-start">
+            <div className="bg-white/10 p-4 rounded-2xl rounded-bl-none"><Loader2 className="w-4 h-4 text-gold-500 animate-spin" /></div>
           </motion.div>
         )}
         
         <div ref={messagesEndRef} />
       </div>
 
-      {/* BARRE DE SAISIE - FIXE EN BAS */}
+      {/* ZONE DE SAISIE AVEC UPLOAD ET MICRO */}
       <div className="shrink-0 p-4 border-t border-white/10 bg-midnight/90 backdrop-blur-lg">
+        {/* Fichiers en attente d'upload */}
+        {uploadedFiles.length > 0 && (
+          <div className="flex flex-wrap gap-2 mb-2">
+            {uploadedFiles.map((file, idx) => (
+              <div key={idx} className="flex items-center gap-2 bg-white/10 rounded-full px-3 py-1 text-xs">
+                <File className="w-3 h-3" />
+                <span className="truncate max-w-[150px]">{file.name}</span>
+                <button onClick={() => removeFile(idx)} className="text-gray-400 hover:text-red-400"><XCircle className="w-3 h-3" /></button>
+              </div>
+            ))}
+          </div>
+        )}
+        
+        {/* Barre de saisie principale */}
         <div className="relative max-w-4xl mx-auto flex items-center gap-2">
+          {/* Bouton upload de fichier */}
+          <div {...getRootProps()} className="cursor-pointer">
+            <input {...getInputProps()} />
+            <button type="button" className="p-2 bg-white/10 rounded-full hover:bg-white/20 transition-colors" title="Joindre un fichier">
+              <Paperclip className="w-5 h-5 text-gray-400" />
+            </button>
+          </div>
+          
           <input
             ref={inputRef}
             type="text"
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="Écris ton message... (Entrée pour envoyer)"
-            className="flex-1 bg-white/10 border border-white/20 rounded-full py-3 px-5 pr-12 text-sm focus:outline-none focus:border-gold-500 transition-all text-ivory placeholder:text-gray-500"
+            placeholder={listening ? "🎤 Écoute en cours..." : "Écris ton message... (Entrée pour envoyer)"}
+            className="flex-1 bg-white/10 border border-white/20 rounded-full py-3 px-5 pr-24 text-sm focus:outline-none focus:border-gold-500 transition-all text-ivory placeholder:text-gray-500"
           />
+          
+          {/* Bouton micro */}
+          {browserSupportsSpeechRecognition && (
+            <button
+              onMouseDown={startListening}
+              onMouseUp={stopListening}
+              onTouchStart={startListening}
+              onTouchEnd={stopListening}
+              className={`p-2 rounded-full transition-colors ${listening ? "bg-red-500 text-white animate-pulse" : "bg-white/10 text-gray-400 hover:bg-white/20"}`}
+              title="Appuyer et maintenir pour parler"
+            >
+              <Mic className="w-5 h-5" />
+            </button>
+          )}
+          
+          {/* Bouton envoyer */}
           <button 
             onClick={handleSend}
-            disabled={isLoading || !input.trim()}
+            disabled={(isLoading || (!input.trim() && uploadedFiles.length === 0))}
             className="absolute right-2 p-2 bg-gold-500 rounded-full text-midnight hover:scale-105 transition-transform disabled:opacity-50 disabled:hover:scale-100"
           >
             <Send className="w-4 h-4" />
           </button>
         </div>
+        {listening && (
+          <p className="text-center text-xs text-gold-500 mt-2 animate-pulse">🎤 Parle maintenant... (relâche pour envoyer)</p>
+        )}
       </div>
     </div>
   );
