@@ -3,11 +3,9 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { 
-  LayoutDashboard, Users, Wallet, Building2, 
-  Megaphone, FileText, Globe, Zap, Menu, X,
-  CheckSquare, Target, Sprout, Trophy, Home,
-  Briefcase, Calendar, FileCheck, Layers, MessageSquare,
-  LogOut, TrendingUp, Inbox, ShieldAlert, Clock,
+  LayoutDashboard, MessageSquare, Inbox, CheckSquare, Calendar,
+  Wallet, TrendingUp, FileText, Target, Briefcase, Sprout, Globe,
+  Trophy, Heart, Users, Zap, ShieldAlert, Menu, X, LogOut,
   ChevronDown, ChevronRight
 } from "lucide-react";
 import Link from "next/link";
@@ -15,65 +13,55 @@ import { usePathname, useRouter } from "next/navigation";
 import NotificationBell from "@/components/NotificationBell";
 import { useAuth } from "@/contexts/AuthContext";
 
-// Structure des menus avec sous-menus
-const menuStructure = [
+// Structure du menu principale (simplifiée)
+const menuGroups = [
   {
-    section: "core",
-    title: "COMMAND CENTER",
+    title: null,
     items: [
       { name: "Dashboard", icon: LayoutDashboard, href: "/" },
-      { name: "Brain Dump", icon: Inbox, href: "/inbox" },
-      { name: "Daily Brief", icon: Calendar, href: "/brief" },
-      { name: "Weekly Review", icon: Clock, href: "/weekly" },
       { name: "Chat", icon: MessageSquare, href: "/chat" },
     ]
   },
   {
-    section: "business",
-    title: "BUSINESS & PROJECTS",
+    title: "COMMAND CENTER",
+    icon: "🧠",
     items: [
-      { name: "Missions", icon: Target, href: "/missions" },
+      { name: "Brain Dump", icon: Inbox, href: "/inbox" },
       { name: "Tasks", icon: CheckSquare, href: "/tasks" },
       { name: "Calendar", icon: Calendar, href: "/calendar" },
-      { name: "Business", icon: Briefcase, href: "/business" },
     ]
   },
   {
-    section: "finances",
     title: "FINANCES",
+    icon: "💰",
     items: [
       { name: "Money", icon: Wallet, href: "/money" },
       { name: "Opportunities", icon: TrendingUp, href: "/opportunities" },
-    ]
-  },
-  {
-    section: "content",
-    title: "CONTENT & DOCS",
-    items: [
-      { name: "Content", icon: Megaphone, href: "/content" },
       { name: "Documents", icon: FileText, href: "/documents" },
     ]
   },
   {
-    section: "life",
-    title: "FAMILY & LIFE",
+    title: "PROJETS",
+    icon: "🌾",
     items: [
-      { name: "Motherhood", icon: Users, href: "/motherhood" },
-      { name: "Family", icon: Calendar, href: "/family" },
-      { name: "Wins", icon: Trophy, href: "/wins" },
-    ]
-  },
-  {
-    section: "projects",
-    title: "ACTIVE PROJECTS",
-    items: [
+      { name: "Missions", icon: Target, href: "/missions" },
+      { name: "Business", icon: Briefcase, href: "/business" },
       { name: "Ifè Farm", icon: Sprout, href: "/farm" },
       { name: "Relocation", icon: Globe, href: "/relocation" },
     ]
   },
   {
-    section: "alignment",
-    title: "ALIGNMENT",
+    title: "VIE",
+    icon: "❤️",
+    items: [
+      { name: "Wins", icon: Trophy, href: "/wins" },
+      { name: "Family", icon: Heart, href: "/family" },
+      { name: "Motherhood", icon: Users, href: "/motherhood" },
+    ]
+  },
+  {
+    title: "ALIGNEMENT",
+    icon: "🛡️",
     items: [
       { name: "Alignment", icon: Zap, href: "/alignment" },
       { name: "Rescue Mode", icon: ShieldAlert, href: "/rescue" },
@@ -83,14 +71,12 @@ const menuStructure = [
 
 export default function ClientLayout({ children }: { children: React.ReactNode }) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [openSections, setOpenSections] = useState<Record<string, boolean>>({
-    core: true,
-    business: true,
-    finances: true,
-    content: true,
-    life: true,
-    projects: true,
-    alignment: true
+  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({
+    "COMMAND CENTER": true,
+    "FINANCES": false,
+    "PROJETS": false,
+    "VIE": false,
+    "ALIGNEMENT": false
   });
   const pathname = usePathname();
   const router = useRouter();
@@ -109,153 +95,143 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
     router.push("/login");
   };
 
-  const toggleSection = (section: string) => {
-    setOpenSections(prev => ({ ...prev, [section]: !prev[section] }));
+  const toggleGroup = (title: string) => {
+    setOpenGroups(prev => ({ ...prev, [title]: !prev[title] }));
   };
 
   const SidebarContent = () => (
-    <div className="flex flex-col h-full p-6">
-      <div className="text-2xl font-serif tracking-[0.2em] text-gold-500 mb-8 text-center">
+    <div className="flex flex-col h-full p-5">
+      {/* Logo */}
+      <div className="text-xl font-serif tracking-[0.2em] text-gold-500 text-center mb-6">
         SOVEREIGN
       </div>
       
-      <nav className="flex-1 space-y-2 overflow-y-auto scrollbar-none">
-        {menuStructure.map((section) => (
-          <div key={section.section} className="mb-4">
-            {/* En-tête de section avec accordéon */}
-            <button
-              onClick={() => toggleSection(section.section)}
-              className="w-full flex items-center justify-between text-[9px] text-gray-500 uppercase tracking-[0.2em] py-2 hover:text-gold-500 transition-colors"
-            >
-              <span>{section.title}</span>
-              {openSections[section.section] ? (
-                <ChevronDown className="w-3 h-3" />
-              ) : (
-                <ChevronRight className="w-3 h-3" />
-              )}
-            </button>
+      {/* Navigation */}
+      <nav className="flex-1 overflow-y-auto">
+        {menuGroups.map((group) => (
+          <div key={group.title || "root"} className="mb-4">
+            {group.title ? (
+              <button
+                onClick={() => toggleGroup(group.title)}
+                className="w-full flex items-center justify-between text-[10px] text-gray-500 uppercase tracking-wider py-2 hover:text-gold-500 transition-colors"
+              >
+                <span className="flex items-center gap-2">
+                  <span>{group.icon}</span>
+                  <span>{group.title}</span>
+                </span>
+                {openGroups[group.title] ? (
+                  <ChevronDown className="w-3 h-3" />
+                ) : (
+                  <ChevronRight className="w-3 h-3" />
+                )}
+              </button>
+            ) : null}
             
-            {/* Items du menu (accordéon) */}
-            <AnimatePresence>
-              {openSections[section.section] && (
-                <motion.div
-                  initial={{ opacity: 0, height: 0 }}
-                  animate={{ opacity: 1, height: "auto" }}
-                  exit={{ opacity: 0, height: 0 }}
-                  transition={{ duration: 0.2 }}
-                  className="overflow-hidden"
-                >
-                  <div className="space-y-1 mt-1">
-                    {section.items.map((item) => {
-                      const isActive = pathname === item.href;
-                      return (
-                        <Link 
-                          key={item.href}
-                          href={item.href}
-                          onClick={() => setIsMobileMenuOpen(false)}
-                          className={`flex items-center space-x-3 p-3 rounded-xl transition-all duration-300 group ${
-                            isActive 
-                              ? "bg-gold-500/10 text-gold-500" 
-                              : "text-gray-400 hover:bg-white/5 hover:text-ivory"
-                          }`}
-                        >
-                          <item.icon className={`w-5 h-5 ${isActive ? "text-gold-500" : "text-gray-500 group-hover:text-gold-500"}`} />
-                          <span className="text-sm font-medium tracking-wide">{item.name}</span>
-                          {isActive && (
-                            <motion.div layoutId="activeNav" className="absolute left-0 w-1 h-6 bg-gold-500 rounded-r-full" />
-                          )}
-                        </Link>
-                      );
-                    })}
-                  </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
+            {(!group.title || openGroups[group.title]) && (
+              <div className="space-y-1">
+                {group.items.map((item) => {
+                  const isActive = pathname === item.href;
+                  return (
+                    <Link
+                      key={item.href}
+                      href={item.href}
+                      onClick={() => setIsMobileMenuOpen(false)}
+                      className={`flex items-center gap-3 px-3 py-2 rounded-xl transition-all ${
+                        isActive 
+                          ? "bg-gold-500/10 text-gold-500" 
+                          : "text-gray-400 hover:bg-white/5 hover:text-ivory"
+                      }`}
+                    >
+                      <item.icon className="w-4 h-4" />
+                      <span className="text-sm">{item.name}</span>
+                    </Link>
+                  );
+                })}
+              </div>
+            )}
           </div>
         ))}
       </nav>
 
-      {/* ZONE BAS DE SIDEBAR */}
-      <div className="border-t border-white/10 pt-6 mt-6">
-        <div className="flex justify-between items-center mb-4">
+      {/* Footer */}
+      <div className="border-t border-white/10 pt-4 mt-4">
+        <div className="flex justify-between items-center mb-3">
           <div>
-            <div className="text-[10px] text-gray-500 uppercase tracking-[0.2em] mb-2">Empire Status</div>
-            <div className="flex items-center space-x-2">
-              <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse" />
-              <span className="text-xs text-gold-600 font-medium tracking-widest">REBECCA ONE</span>
+            <div className="text-[9px] text-gray-500 uppercase tracking-wider">Empire Status</div>
+            <div className="flex items-center gap-2 mt-1">
+              <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse" />
+              <span className="text-xs text-gold-500">REBECCA ONE</span>
             </div>
           </div>
           <NotificationBell />
         </div>
         
-        {/* Déconnexion */}
         <button
           onClick={handleSignOut}
-          className="w-full flex items-center gap-3 p-3 rounded-xl text-gray-500 hover:bg-red-500/10 hover:text-red-400 transition-all duration-300 mt-2"
+          className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-gray-500 hover:bg-red-500/10 hover:text-red-400 transition-all"
         >
-          <LogOut className="w-5 h-5" />
-          <span className="text-sm font-medium">Déconnexion</span>
+          <LogOut className="w-4 h-4" />
+          <span className="text-sm">Déconnexion</span>
         </button>
       </div>
     </div>
   );
 
-  // Si pas d'utilisateur, on n'affiche pas le layout
   if (!user) {
     return <>{children}</>;
   }
 
   return (
     <div className="flex h-screen overflow-hidden">
-      {/* SIDEBAR DESKTOP - à gauche */}
-      <aside className="hidden lg:flex w-72 border-r border-white/5 bg-midnight/50 backdrop-blur-xl overflow-y-auto scrollbar-none">
-        <SidebarContent />
+      {/* Sidebar Desktop */}
+      <aside className="hidden lg:flex w-64 border-r border-white/5 bg-midnight/50 backdrop-blur-xl flex-col overflow-hidden">
+        <div className="flex-1 overflow-y-auto scrollbar-none">
+          <SidebarContent />
+        </div>
       </aside>
 
-      {/* MOBILE HEADER - Hamburger à droite */}
+      {/* Mobile Header */}
       <div className="lg:hidden fixed top-0 left-0 right-0 z-50 p-4 bg-midnight/80 backdrop-blur-lg border-b border-white/5 flex justify-between items-center">
         <span className="font-serif text-gold-500 tracking-widest">SOVEREIGN</span>
-        <button 
-          onClick={() => setIsMobileMenuOpen(true)}
-          className="p-2 text-gold-500"
-        >
-          <Menu className="w-6 h-6" />
+        <button onClick={() => setIsMobileMenuOpen(true)} className="p-2">
+          <Menu className="w-6 h-6 text-gold-500" />
         </button>
       </div>
 
-      {/* MOBILE MENU OVERLAY - Sort du côté droit */}
+      {/* Mobile Menu */}
       <AnimatePresence>
         {isMobileMenuOpen && (
           <>
-            <motion.div 
+            <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={() => setIsMobileMenuOpen(false)}
-              className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[60] lg:hidden"
+              className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 lg:hidden"
             />
-            <motion.aside 
+            <motion.aside
               initial={{ x: "100%" }}
               animate={{ x: 0 }}
               exit={{ x: "100%" }}
-              transition={{ type: "spring", damping: 25, stiffness: 200 }}
-              className="fixed inset-y-0 right-0 w-72 bg-midnight z-[70] lg:hidden border-l border-white/10 overflow-y-auto scrollbar-none"
+              transition={{ type: "spring", damping: 25 }}
+              className="fixed inset-y-0 right-0 w-72 bg-midnight z-50 border-l border-white/10 flex flex-col"
             >
-              <button 
-                onClick={() => setIsMobileMenuOpen(false)}
-                className="absolute top-6 right-6 text-gray-500 hover:text-gold-500"
-              >
-                <X className="w-6 h-6" />
-              </button>
-              <SidebarContent />
+              <div className="flex justify-end p-4">
+                <button onClick={() => setIsMobileMenuOpen(false)} className="p-2">
+                  <X className="w-5 h-5 text-gray-500" />
+                </button>
+              </div>
+              <div className="flex-1 overflow-y-auto">
+                <SidebarContent />
+              </div>
             </motion.aside>
           </>
         )}
       </AnimatePresence>
 
-      {/* CONTENU PRINCIPAL */}
+      {/* Main Content */}
       <main className="flex-1 overflow-y-auto bg-midnight relative pt-20 lg:pt-0 scrollbar-none">
-        <div className="max-w-7xl mx-auto h-full">
+        <div className="max-w-7xl mx-auto">
           {children}
         </div>
       </main>
