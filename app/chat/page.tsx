@@ -1,10 +1,11 @@
 "use client";
 import { useState, useRef, useEffect } from "react";
 import { 
-  Send, Plus, Trash2, ChevronLeft, ChevronRight, 
+  Send, ArrowLeft, Plus, Trash2, ChevronLeft, ChevronRight, 
   Search, Edit2, Check, X, Loader2, Menu
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 
 const API_URL = "https://sovereign-bridge.onrender.com";
@@ -30,7 +31,7 @@ export default function ChatPage() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false); // ← Fermée par défaut sur mobile
   const [isMobile, setIsMobile] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [editingTitleId, setEditingTitleId] = useState<string | null>(null);
@@ -122,23 +123,7 @@ export default function ChatPage() {
     if (data && data.length > 0) {
       setMessages(data);
     } else {
-      // Récupérer les suggestions proactives pour le message d'accueil
-      let suggestionsText = "";
-      try {
-        const response = await fetch(`${API_URL}/api/proactive-suggestions`);
-        const suggestionsData = await response.json();
-        if (suggestionsData.suggestions && suggestionsData.suggestions.length > 0) {
-          suggestionsText = "\n\n💡 **Suggestions :**\n" + 
-            suggestionsData.suggestions.slice(0, 3).map((s: any) => `• ${s.message}`).join("\n");
-        }
-      } catch (error) {
-        console.error("Erreur suggestions:", error);
-      }
-      
-      setMessages([{ 
-        role: "assistant", 
-        content: `Hello, on dit quoi ?${suggestionsText}`
-      }]);
+      setMessages([{ role: "assistant", content: "Bonjour Rebecca. Que veux-tu qu'on attaque aujourd'hui ?" }]);
     }
   }
 
@@ -157,7 +142,7 @@ export default function ChatPage() {
       setConversations(prev => [data, ...prev]);
       setFilteredConversations(prev => [data, ...prev]);
       setCurrentConversationId(data.id);
-      setMessages([{ role: "assistant", content: "Hello, on dit quoi ?" }]);
+      setMessages([{ role: "assistant", content: "Bonjour Rebecca. Que veux-tu qu'on attaque aujourd'hui ?" }]);
       
       if (isMobile) setIsSidebarOpen(false);
     }
@@ -184,7 +169,7 @@ export default function ChatPage() {
   }
 
   async function deleteConversation(id: string) {
-    if (confirm("Supprimer cette conversation ? Cette action est irréversible.")) {
+    if (confirm("Supprimer cette conversation ?")) {
       const { error } = await supabase.from("conversations").delete().eq("id", id);
       if (!error) {
         const newConversations = conversations.filter(c => c.id !== id);
@@ -288,7 +273,7 @@ export default function ChatPage() {
 
   return (
     <div className="fixed inset-0 bg-midnight flex flex-col">
-      {/* HEADER DU CHAT - FIXE EN HAUT */}
+      {/* HEADER DU CHAT - AVEC BOUTON MENU */}
       <header className="sticky top-0 z-10 h-14 border-b border-white/10 flex items-center px-4 bg-midnight/90 backdrop-blur-lg shrink-0">
         <button
           onClick={() => setIsSidebarOpen(true)}
@@ -299,10 +284,15 @@ export default function ChatPage() {
         
         <div className="flex-1 text-center">
           <h1 className="text-base font-serif text-gold-500">SOVEREIGN AI</h1>
-          <p className="text-[9px] text-gold-500/60 uppercase tracking-widest">Executive Mode</p>
+          <p className="text-[9px] text-gold-500/60 uppercase tracking-widest hidden sm:block">Executive Mode</p>
         </div>
         
-        <div className="w-10" />
+        <button
+          onClick={() => window.location.href = "/"}
+          className="p-2 text-gray-400 hover:text-gold-500 transition-colors rounded-lg hover:bg-white/5"
+        >
+          <ArrowLeft className="w-5 h-5" />
+        </button>
       </header>
 
       {/* SIDEBAR OVERLAY */}
@@ -436,7 +426,7 @@ export default function ChatPage() {
       {/* ZONE DES MESSAGES - SCROLLABLE */}
       <div 
         ref={messagesContainerRef}
-        className="flex-1 overflow-y-auto p-6 space-y-4"
+        className="flex-1 overflow-y-auto p-4 space-y-4"
       >
         {messages.map((m, i) => (
           <motion.div
@@ -446,7 +436,7 @@ export default function ChatPage() {
             transition={{ duration: 0.3 }}
             className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}
           >
-            <div className={`max-w-[80%] p-4 rounded-2xl text-sm leading-relaxed ${
+            <div className={`max-w-[85%] p-4 rounded-2xl text-sm leading-relaxed ${
               m.role === "user" 
                 ? "bg-gold-500 text-midnight rounded-br-none" 
                 : "bg-white/10 text-ivory border border-white/5 rounded-bl-none"
