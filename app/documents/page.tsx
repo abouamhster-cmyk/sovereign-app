@@ -26,7 +26,7 @@ type Document = {
   created_at: string;
 };
 
-const documentTypeConfig = {
+const documentTypeConfig: Record<string, { label: string; color: string }> = {
   proposal: { label: "📄 Proposition", color: "bg-blue-500/20 text-blue-400" },
   contract: { label: "📑 Contrat", color: "bg-purple-500/20 text-purple-400" },
   grant: { label: "🎯 Subvention", color: "bg-emerald-500/20 text-emerald-400" },
@@ -36,7 +36,7 @@ const documentTypeConfig = {
   other: { label: "📁 Autre", color: "bg-gray-500/20 text-gray-400" }
 };
 
-const statusConfig = {
+const statusConfig: Record<string, { label: string; icon: any; color: string }> = {
   draft: { label: "📝 Brouillon", icon: Edit2, color: "bg-yellow-500/20 text-yellow-400" },
   review: { label: "🔍 En relecture", icon: Clock, color: "bg-blue-500/20 text-blue-400" },
   ready: { label: "✅ Prêt", icon: CheckCircle, color: "bg-emerald-500/20 text-emerald-400" },
@@ -66,28 +66,27 @@ export default function DocumentsPage() {
     notes: ""
   });
 
-
   const scrollToForm = () => {
-  setTimeout(() => {
-    const formElement = document.getElementById('form-container');
-    if (formElement) {
-      formElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }
-  }, 150);
-};
+    setTimeout(() => {
+      const formElement = document.getElementById('form-container');
+      if (formElement) {
+        formElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    }, 150);
+  };
   
   useEffect(() => {
-  fetchDocuments();
-  
-  const channel = supabase
-    .channel('documents_changes')
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'documents' }, () => fetchDocuments())
-    .subscribe();
-  
-  return () => {
-    channel.unsubscribe();
-  };
-}, []);
+    fetchDocuments();
+    
+    const channel = supabase
+      .channel('documents_changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'documents' }, () => fetchDocuments())
+      .subscribe();
+    
+    return () => {
+      channel.unsubscribe();
+    };
+  }, []);
   
   async function fetchDocuments() {
     setIsLoading(true);
@@ -99,7 +98,6 @@ export default function DocumentsPage() {
     setIsLoading(false);
   }
 
-  // Upload de fichier vers Supabase Storage
   const onDrop = useCallback(async (acceptedFiles: File[]) => {
     const file = acceptedFiles[0];
     if (!file) return;
@@ -249,6 +247,13 @@ export default function DocumentsPage() {
     return <File className="w-4 h-4" />;
   };
 
+  // Fonction pour ouvrir le formulaire
+  const handleOpenForm = () => {
+    setShowForm(true);
+    setEditingDoc(null);
+    scrollToForm();
+  };
+
   return (
     <div className="p-8 lg:p-12 h-full flex flex-col overflow-y-auto bg-midnight">
       {/* HEADER */}
@@ -258,7 +263,7 @@ export default function DocumentsPage() {
           <p className="text-gray-500 mt-1 text-sm">Gestion des contrats, factures et documents</p>
         </div>
         <button
-          onClick={() => { setShowForm(true); setEditingDoc(null); scrollToForm(); }}
+          onClick={handleOpenForm}
           className="bg-gold-500 text-midnight px-4 py-2 rounded-full text-sm font-medium flex items-center justify-center gap-2 w-full md:w-auto"
         >
           <Plus className="w-4 h-4" /> Nouveau document
@@ -472,7 +477,7 @@ export default function DocumentsPage() {
                 </tr>
               ) : filteredDocuments.length > 0 ? (
                 filteredDocuments.map((doc) => {
-                  const statusConf = statusConfig[doc.status as keyof typeof statusConfig] || statusConfig.draft;
+                  const statusConf = statusConfig[doc.status] || statusConfig.draft;
                   const StatusIcon = statusConf.icon;
                   
                   return (
@@ -506,8 +511,8 @@ export default function DocumentsPage() {
                         ) : "—"}
                       </td>
                       <td className="p-4">
-                        <span className={`inline-flex px-2 py-1 rounded-full text-xs ${documentTypeConfig[doc.type as keyof typeof documentTypeConfig]?.color || "bg-gray-500/20 text-gray-400"}`}>
-                          {documentTypeConfig[doc.type as keyof typeof documentTypeConfig]?.label.split(" ")[1] || doc.type}
+                        <span className={`inline-flex px-2 py-1 rounded-full text-xs ${documentTypeConfig[doc.type]?.color || "bg-gray-500/20 text-gray-400"}`}>
+                          {documentTypeConfig[doc.type]?.label.split(" ")[1] || doc.type}
                         </span>
                       </td>
                       <td className="p-4">
