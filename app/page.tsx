@@ -345,10 +345,6 @@ export default function DashboardPage() {
   const formatCurrency = (val: number) => {
     return new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'XOF', maximumFractionDigits: 0 }).format(val);
   };
-
-  if (isLoading) {
-  return <LoadingSpinner />;
-}
   
   return (
     <div className="p-6 lg:p-8 h-full flex flex-col overflow-y-auto bg-midnight">
