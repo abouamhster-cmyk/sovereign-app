@@ -19,8 +19,8 @@ self.addEventListener('push', (event) => {
     title: 'SOVEREIGN',
     body: 'Nouvelle notification',
     url: '/',
-    icon: '/icons/icon-192x192.png',
-    badge: '/icons/icon-96x96.png'
+    icon: '/favicon.ico',
+    badge: '/favicon.ico'
   };
   
   if (event.data) {
