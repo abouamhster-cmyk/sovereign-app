@@ -237,13 +237,19 @@ useEffect(() => {
               }
             }}
           />
-          <div className="relative">
-          <textarea ... />
-          <VoiceInput 
-            onTranscript={(text) => setInput(prev => prev + " " + text)}
-            buttonClassName="absolute bottom-3 right-3"
-          />
-        </div>
+            <div className="relative">
+              <textarea
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                placeholder="Écris tes pensées ici..."
+                className="w-full bg-white/10 border border-white/20 rounded-xl px-4 py-3 focus:outline-none focus:border-gold-500 text-ivory"
+                rows={3}
+              />
+              <VoiceInput 
+                onTranscript={(text) => setInput(prev => prev + " " + text)}
+                buttonClassName="absolute bottom-3 right-3"
+              />
+            </div>
           <button
             onClick={addItem}
             disabled={!input.trim()}
