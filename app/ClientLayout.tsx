@@ -13,10 +13,11 @@ import { usePathname, useRouter } from "next/navigation";
 import NotificationBell from "@/components/NotificationBell";
 import { useAuth } from "@/contexts/AuthContext";
 
-// Structure du menu principale (simplifiée)
+// Structure du menu
 const menuGroups = [
   {
     title: null,
+    key: "root",
     items: [
       { name: "Dashboard", icon: LayoutDashboard, href: "/" },
       { name: "Chat", icon: MessageSquare, href: "/chat" },
@@ -24,6 +25,7 @@ const menuGroups = [
   },
   {
     title: "COMMAND CENTER",
+    key: "command",
     icon: "🧠",
     items: [
       { name: "Brain Dump", icon: Inbox, href: "/inbox" },
@@ -33,6 +35,7 @@ const menuGroups = [
   },
   {
     title: "FINANCES",
+    key: "finances",
     icon: "💰",
     items: [
       { name: "Money", icon: Wallet, href: "/money" },
@@ -42,6 +45,7 @@ const menuGroups = [
   },
   {
     title: "PROJETS",
+    key: "projects",
     icon: "🌾",
     items: [
       { name: "Missions", icon: Target, href: "/missions" },
@@ -52,6 +56,7 @@ const menuGroups = [
   },
   {
     title: "VIE",
+    key: "life",
     icon: "❤️",
     items: [
       { name: "Wins", icon: Trophy, href: "/wins" },
@@ -61,6 +66,7 @@ const menuGroups = [
   },
   {
     title: "ALIGNEMENT",
+    key: "alignment",
     icon: "🛡️",
     items: [
       { name: "Alignment", icon: Zap, href: "/alignment" },
@@ -69,18 +75,39 @@ const menuGroups = [
   }
 ];
 
+// État par défaut des groupes
+const DEFAULT_OPEN_GROUPS: Record<string, boolean> = {
+  "command": true,
+  "finances": false,
+  "projects": false,
+  "life": false,
+  "alignment": false
+};
+
 export default function ClientLayout({ children }: { children: React.ReactNode }) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({
-    "COMMAND CENTER": true,
-    "FINANCES": false,
-    "PROJETS": false,
-    "VIE": false,
-    "ALIGNEMENT": false
-  });
+  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>(DEFAULT_OPEN_GROUPS);
   const pathname = usePathname();
   const router = useRouter();
   const { user, signOut } = useAuth();
+
+  // Charger les préférences sauvegardées au démarrage
+  useEffect(() => {
+    const saved = localStorage.getItem("sidebar-open-groups");
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        setOpenGroups({ ...DEFAULT_OPEN_GROUPS, ...parsed });
+      } catch (e) {
+        console.error("Erreur chargement préférences:", e);
+      }
+    }
+  }, []);
+
+  // Sauvegarder les préférences quand elles changent
+  useEffect(() => {
+    localStorage.setItem("sidebar-open-groups", JSON.stringify(openGroups));
+  }, [openGroups]);
 
   useEffect(() => {
     if ("serviceWorker" in navigator && window.Notification) {
@@ -95,31 +122,29 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
     router.push("/login");
   };
 
-  const toggleGroup = (title: string) => {
-    setOpenGroups(prev => ({ ...prev, [title]: !prev[title] }));
+  const toggleGroup = (key: string) => {
+    setOpenGroups(prev => ({ ...prev, [key]: !prev[key] }));
   };
 
   const SidebarContent = () => (
     <div className="flex flex-col h-full p-5">
-      {/* Logo */}
       <div className="text-xl font-serif tracking-[0.2em] text-gold-500 text-center mb-6">
         SOVEREIGN
       </div>
       
-      {/* Navigation */}
-      <nav className="flex-1 overflow-y-auto">
+      <nav className="flex-1 overflow-y-auto scrollbar-none">
         {menuGroups.map((group) => (
-          <div key={group.title || "root"} className="mb-4">
+          <div key={group.key} className="mb-4">
             {group.title ? (
               <button
-                onClick={() => toggleGroup(group.title)}
+                onClick={() => toggleGroup(group.key)}
                 className="w-full flex items-center justify-between text-[10px] text-gray-500 uppercase tracking-wider py-2 hover:text-gold-500 transition-colors"
               >
                 <span className="flex items-center gap-2">
                   <span>{group.icon}</span>
                   <span>{group.title}</span>
                 </span>
-                {openGroups[group.title] ? (
+                {openGroups[group.key] ? (
                   <ChevronDown className="w-3 h-3" />
                 ) : (
                   <ChevronRight className="w-3 h-3" />
@@ -127,7 +152,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
               </button>
             ) : null}
             
-            {(!group.title || openGroups[group.title]) && (
+            {(!group.title || openGroups[group.key]) && (
               <div className="space-y-1">
                 {group.items.map((item) => {
                   const isActive = pathname === item.href;
@@ -153,7 +178,6 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
         ))}
       </nav>
 
-      {/* Footer */}
       <div className="border-t border-white/10 pt-4 mt-4">
         <div className="flex justify-between items-center mb-3">
           <div>
@@ -183,14 +207,12 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
 
   return (
     <div className="flex h-screen overflow-hidden">
-      {/* Sidebar Desktop */}
       <aside className="hidden lg:flex w-64 border-r border-white/5 bg-midnight/50 backdrop-blur-xl flex-col overflow-hidden">
         <div className="flex-1 overflow-y-auto scrollbar-none">
           <SidebarContent />
         </div>
       </aside>
 
-      {/* Mobile Header */}
       <div className="lg:hidden fixed top-0 left-0 right-0 z-50 p-4 bg-midnight/80 backdrop-blur-lg border-b border-white/5 flex justify-between items-center">
         <span className="font-serif text-gold-500 tracking-widest">SOVEREIGN</span>
         <button onClick={() => setIsMobileMenuOpen(true)} className="p-2">
@@ -198,7 +220,6 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
         </button>
       </div>
 
-      {/* Mobile Menu */}
       <AnimatePresence>
         {isMobileMenuOpen && (
           <>
@@ -229,7 +250,6 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
         )}
       </AnimatePresence>
 
-      {/* Main Content */}
       <main className="flex-1 overflow-y-auto bg-midnight relative pt-20 lg:pt-0 scrollbar-none">
         <div className="max-w-7xl mx-auto">
           {children}
