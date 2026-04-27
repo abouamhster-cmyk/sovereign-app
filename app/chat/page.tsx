@@ -382,26 +382,28 @@ export default function ChatPage() {
   return (
     <div className="fixed inset-0 bg-midnight flex flex-col">
       {/* HEADER */}
-      <header className="sticky top-0 z-10 h-14 border-b border-white/10 flex items-center px-4 bg-midnight/90 backdrop-blur-lg shrink-0">
-        <button
-          onClick={() => setIsSidebarOpen(true)}
-          className="p-2 text-gray-400 hover:text-gold-500 transition-colors rounded-lg hover:bg-white/5"
-        >
-          <Menu className="w-5 h-5" />
-        </button>
-        
-        <div className="flex-1 text-center">
-          <h1 className="text-base font-serif text-gold-500">SOVEREIGN AI</h1>
-          <p className="text-[9px] text-gold-500/60 uppercase tracking-widest hidden sm:block">Executive Mode</p>
-        </div>
-        
-        <button
-          onClick={() => window.location.href = "/"}
-          className="p-2 text-gray-400 hover:text-gold-500 transition-colors rounded-lg hover:bg-white/5"
-        >
-          <ArrowLeft className="w-5 h-5" />
-        </button>
-      </header>
+        <header className="sticky top-0 z-10 h-14 border-b border-white/10 flex items-center px-4 bg-midnight/90 backdrop-blur-lg shrink-0">
+          <button
+            onClick={() => setIsSidebarOpen(true)}
+            className="p-2 text-gray-400 hover:text-gold-500 transition-colors rounded-lg hover:bg-white/5"
+            aria-label="Ouvrir l'historique des conversations"
+          >
+            <Menu className="w-5 h-5" />
+          </button>
+          
+          <div className="flex-1 text-center">
+            <h1 className="text-base font-serif text-gold-500">SOVEREIGN AI</h1>
+            <p className="text-[9px] text-gold-500/60 uppercase tracking-widest hidden sm:block">Executive Mode</p>
+          </div>
+          
+          <Link 
+            href="/" 
+            className="p-2 text-gray-400 hover:text-gold-500 transition-colors rounded-lg hover:bg-white/5"
+            aria-label="Retour au tableau de bord"
+          >
+            <ArrowLeft className="w-5 h-5" />
+          </Link>
+        </header>
 
       {/* SIDEBAR - identique à avant */}
       <AnimatePresence>
