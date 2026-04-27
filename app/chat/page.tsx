@@ -45,6 +45,12 @@ export default function ChatPage() {
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
   const [isUploading, setIsUploading] = useState(false);
   
+  // États pour le micro intégré
+  const [isRecording, setIsRecording] = useState(false);
+  const [isVoiceLocked, setIsVoiceLocked] = useState(false);
+  const [pressTimer, setPressTimer] = useState<NodeJS.Timeout | null>(null);
+  const [pressStartTime, setPressStartTime] = useState(0);
+  
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -115,6 +121,13 @@ export default function ChatPage() {
       setIsSidebarOpen(false);
     }
   }, [currentConversationId, isMobile]);
+
+  // Nettoyer le timer au démontage
+  useEffect(() => {
+    return () => {
+      if (pressTimer) clearTimeout(pressTimer);
+    };
+  }, [pressTimer]);
 
   // Dropzone pour les fichiers
   const onDrop = (acceptedFiles: File[]) => {
@@ -267,23 +280,20 @@ export default function ChatPage() {
       .eq("id", conversationId);
   }
 
-  const handleSend = async () => {
+  const sendMessage = async () => {
     if ((!input.trim() && uploadedFiles.length === 0) || isLoading || !currentConversationId) return;
     
     setIsUploading(true);
     const uploadedFilesData = await uploadFilesToStorage();
     setIsUploading(false);
     
-    // Construire le message avec les fichiers
     let userMessageContent = input.trim() || "📎 Fichier(s) joint(s)";
     
-    // Ajouter les URLs des images pour que l'IA puisse les "voir"
     const imageFiles = uploadedFilesData.filter(f => f.type.startsWith('image/'));
     if (imageFiles.length > 0) {
       userMessageContent += "\n\n📸 Images jointes:\n" + imageFiles.map(f => f.url).join("\n");
     }
     
-    // Ajouter les autres fichiers
     const otherFiles = uploadedFilesData.filter(f => !f.type.startsWith('image/'));
     if (otherFiles.length > 0) {
       userMessageContent += "\n\n📎 Autres fichiers:\n" + otherFiles.map(f => `- ${f.name}: ${f.url}`).join("\n");
@@ -338,13 +348,70 @@ export default function ChatPage() {
     }
   };
 
-  const startListening = () => {
+  const startVoiceRecording = () => {
     resetTranscript();
-    SpeechRecognition.startListening({ continuous: false, language: 'fr-FR' });
+    SpeechRecognition.startListening({ continuous: true, language: 'fr-FR' });
   };
 
-  const stopListening = () => {
+  const stopVoiceRecording = () => {
     SpeechRecognition.stopListening();
+  };
+
+  // Gestion du clic prolongé sur le bouton envoyer
+  const handleSendButtonMouseDown = () => {
+    setPressStartTime(Date.now());
+    
+    const timer = setTimeout(() => {
+      const pressDuration = Date.now() - pressStartTime;
+      
+      if (pressDuration >= 3000 && pressDuration < 10000) {
+        // Mode vocal maintenu (3-10s)
+        setIsRecording(true);
+        startVoiceRecording();
+      } else if (pressDuration >= 10000) {
+        // Mode vocal locké (≥10s)
+        setIsRecording(true);
+        setIsVoiceLocked(true);
+        startVoiceRecording();
+      }
+    }, 3000);
+    
+    setPressTimer(timer);
+  };
+
+  const handleSendButtonMouseUp = () => {
+    const pressDuration = Date.now() - pressStartTime;
+    
+    if (pressTimer) {
+      clearTimeout(pressTimer);
+      setPressTimer(null);
+    }
+    
+    if (pressDuration < 3000) {
+      // Clic court → envoyer le message
+      if (isVoiceLocked) {
+        // Si locké, on arrête le vocal et on envoie
+        setIsVoiceLocked(false);
+        setIsRecording(false);
+        stopVoiceRecording();
+      }
+      sendMessage();
+    } else if (pressDuration >= 3000 && pressDuration < 10000) {
+      // Appui long maintenu → arrêter et envoyer
+      setIsRecording(false);
+      stopVoiceRecording();
+      sendMessage();
+    }
+    // Si ≥ 10s, on reste en mode locké, ne rien faire
+  };
+
+  const stopVoiceLock = () => {
+    if (isVoiceLocked) {
+      setIsVoiceLocked(false);
+      setIsRecording(false);
+      stopVoiceRecording();
+      sendMessage();
+    }
   };
 
   const formatDate = (dateStr: string) => {
@@ -369,9 +436,9 @@ export default function ChatPage() {
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !e.shiftKey && !listening) {
+    if (e.key === 'Enter' && !e.shiftKey && !isRecording && !isVoiceLocked) {
       e.preventDefault();
-      handleSend();
+      sendMessage();
     }
   };
 
@@ -411,12 +478,7 @@ export default function ChatPage() {
               onClick={() => setIsSidebarOpen(false)}
               className="fixed inset-0 bg-black/80 backdrop-blur-sm z-40"
             />
-            <motion.aside
-              initial={{ x: "-100%" }}
-              animate={{ x: 0 }}
-              exit={{ x: "-100%" }}
-              className="fixed inset-y-0 left-0 w-80 bg-midnight z-50 border-r border-white/10 flex flex-col"
-            >
+            <motion.aside className="fixed inset-y-0 left-0 w-80 bg-midnight z-50 border-r border-white/10 flex flex-col">
               <div className="p-4 border-b border-white/10 flex justify-between items-center">
                 <h2 className="text-sm font-serif text-gold-500">Conversations</h2>
                 <button onClick={() => setIsSidebarOpen(false)} className="p-1 text-gray-500 hover:text-gold-500">
@@ -479,77 +541,64 @@ export default function ChatPage() {
       </AnimatePresence>
 
       {/* ZONE DES MESSAGES */}
-            <div className="flex-1 overflow-y-auto p-4 space-y-4">
-              {messages.map((m, i) => (
-                <motion.div key={i} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
-                  <div className={`max-w-[85%] p-4 rounded-2xl text-sm ${m.role === "user" ? "bg-gold-500 text-midnight rounded-br-none" : "bg-white/10 text-ivory border border-white/5 rounded-bl-none"}`}>
-                    
-                    {/* Message texte */}
-                    <ReactMarkdown
-                      components={{
-                        img: ({ node, ...props }) => (
-                          <img 
-                            {...props} 
-                            className="rounded-xl max-w-full max-h-96 object-contain my-2 border border-white/10" 
-                            loading="lazy"
-                          />
-                        ),
-                        a: ({ node, ...props }) => (
-                          <a {...props} className="text-gold-500 hover:underline" target="_blank" rel="noopener noreferrer" />
-                        ),
-                        p: ({ node, ...props }) => (
-                          <p className="mb-2 last:mb-0" {...props} />
-                        ),
-                      }}
-                    >
-                      {m.content}
-                    </ReactMarkdown>                    
-                    {/* Images affichées directement */}
-                    {m.files && m.files.length > 0 && (
-                      <div className="mt-3">
-                        {/* Images - affichées en aperçu */}
-                        <div className="grid grid-cols-2 gap-2">
-                          {m.files.filter(f => f.type.startsWith('image/')).map((file, idx) => (
-                            <a key={idx} href={file.url} target="_blank" rel="noopener noreferrer" className="block">
-                              <img 
-                                src={file.url} 
-                                alt={file.name}
-                                className="rounded-xl w-full h-auto max-h-48 object-cover border border-white/10 hover:border-gold-500 transition-all"
-                              />
-                            </a>
-                          ))}
-                        </div>
-                        
-                        {/* Autres fichiers (PDF, etc.) - liens */}
-                        {m.files.filter(f => !f.type.startsWith('image/')).length > 0 && (
-                          <div className="mt-2 pt-2 border-t border-white/10">
-                            {m.files.filter(f => !f.type.startsWith('image/')).map((file, idx) => (
-                              <a key={idx} href={file.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-xs text-gold-500 hover:underline mt-1">
-                                <File className="w-3 h-3" />
-                                {file.name}
-                              </a>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                </motion.div>
-              ))}
+      <div className="flex-1 overflow-y-auto p-4 space-y-4">
+        {messages.map((m, i) => (
+          <motion.div key={i} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
+            <div className={`max-w-[85%] p-4 rounded-2xl text-sm ${m.role === "user" ? "bg-gold-500 text-midnight rounded-br-none" : "bg-white/10 text-ivory border border-white/5 rounded-bl-none"}`}>
+              <ReactMarkdown
+                components={{
+                  img: ({ node, ...props }) => (
+                    <img {...props} className="rounded-xl max-w-full max-h-96 object-contain my-2 border border-white/10" loading="lazy" />
+                  ),
+                  a: ({ node, ...props }) => (
+                    <a {...props} className="text-gold-500 hover:underline" target="_blank" rel="noopener noreferrer" />
+                  ),
+                  p: ({ node, ...props }) => (
+                    <p className="mb-2 last:mb-0" {...props} />
+                  ),
+                }}
+              >
+                {m.content}
+              </ReactMarkdown>
               
-              {isLoading && (
-                <div className="flex justify-start">
-                  <div className="bg-white/10 p-4 rounded-2xl">
-                    <Loader2 className="w-4 h-4 text-gold-500 animate-spin" />
+              {m.files && m.files.length > 0 && (
+                <div className="mt-3">
+                  <div className="grid grid-cols-2 gap-2">
+                    {m.files.filter(f => f.type.startsWith('image/')).map((file, idx) => (
+                      <a key={idx} href={file.url} target="_blank" rel="noopener noreferrer" className="block">
+                        <img src={file.url} alt={file.name} className="rounded-xl w-full h-auto max-h-48 object-cover border border-white/10 hover:border-gold-500 transition-all" />
+                      </a>
+                    ))}
                   </div>
+                  
+                  {m.files.filter(f => !f.type.startsWith('image/')).length > 0 && (
+                    <div className="mt-2 pt-2 border-t border-white/10">
+                      {m.files.filter(f => !f.type.startsWith('image/')).map((file, idx) => (
+                        <a key={idx} href={file.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-xs text-gold-500 hover:underline mt-1">
+                          <File className="w-3 h-3" /> {file.name}
+                        </a>
+                      ))}
+                    </div>
+                  )}
                 </div>
               )}
-              
-              <div ref={messagesEndRef} />
             </div>
+          </motion.div>
+        ))}
+        
+        {isLoading && (
+          <div className="flex justify-start">
+            <div className="bg-white/10 p-4 rounded-2xl">
+              <Loader2 className="w-4 h-4 text-gold-500 animate-spin" />
+            </div>
+          </div>
+        )}
+        
+        <div ref={messagesEndRef} />
+      </div>
 
-      {/* BARRE DE SAISIE - VERSION MOBILE OPTIMISÉE */}
-      <div className="shrink-0 p-3 border-t border-white/10 bg-midnight/90 backdrop-blur-lg">
+      {/* BARRE DE SAISIE - VERSION STABLE AVEC MICRO INTÉGRÉ */}
+      <div className="shrink-0 border-t border-white/10 bg-midnight/90 backdrop-blur-lg p-3">
         {/* Fichiers en attente */}
         {uploadedFiles.length > 0 && (
           <div className="flex flex-wrap gap-2 mb-2">
@@ -566,81 +615,79 @@ export default function ChatPage() {
         )}
         
         {/* Indicateur d'enregistrement vocal */}
-        {listening && (
+        {(isRecording || isVoiceLocked) && (
           <div className="text-center text-xs text-red-400 animate-pulse mb-2">
-            🎤 Parle... relâche pour envoyer
+            {isVoiceLocked ? "🔒 Enregistrement vocal en cours... recliquez pour arrêter" : "🎤 Parlez... relâchez pour envoyer"}
           </div>
         )}
         
-             {/* Barre de saisie principale */}
-            <div className="flex items-center gap-2">
-              {/* Select pour choisir entre upload et micro */}
-              <div className="relative">
-                <select
-                  onChange={(e) => {
-                    const value = e.target.value;
-                    if (value === "upload") {
-                      document.getElementById('file-upload-input')?.click();
-                    } else if (value === "micro") {
-                      startListening();
-                    }
-                    // Remettre la valeur par défaut
-                    e.target.value = "";
-                  }}
-                  className="bg-white/10 border border-white/20 rounded-full px-3 py-2 text-sm text-gold-500 focus:outline-none focus:border-gold-500 cursor-pointer"
-                  defaultValue=""
-                >
-                  <option value="" disabled>📎 Actions</option>
-                  <option value="upload">📎 Joindre un fichier</option>
-                  {browserSupportsSpeechRecognition && (
-                    <option value="micro">🎤 Dictée vocale</option>
-                  )}
-                </select>
-                
-                {/* Input file caché */}
-                <input
-                  id="file-upload-input"
-                  type="file"
-                  {...getInputProps()}
-                  className="hidden"
-                  onChange={(e) => {
-                    if (e.target.files) {
-                      onDrop(Array.from(e.target.files));
-                    }
-                  }}
-                />
-              </div>
-              
-              {/* Champ de saisie */}
-              <div className="relative flex-1">
-                <input
-                  ref={inputRef}
-                  type="text"
-                  value={input}
-                  onChange={(e) => setInput(e.target.value)}
-                  onKeyDown={handleKeyDown}
-                  placeholder="Écris ton message..."
-                  className={`w-full bg-white/10 border rounded-full py-3 px-4 pr-12 text-sm focus:outline-none focus:border-gold-500 text-ivory placeholder:text-gray-500 ${listening ? "border-red-500" : "border-white/20"}`}
-                />
-                
-                {/* Bouton envoyer */}
-                <button
-                  onClick={handleSend}
-                  disabled={(!input.trim() && uploadedFiles.length === 0) || isLoading}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 bg-gold-500 rounded-full disabled:opacity-50 transition-all"
-                >
-                  <Send className="w-4 h-4 text-midnight" />
-                </button>
-              </div>
-            </div>
-            
-            {/* Indicateur d'enregistrement vocal */}
-            {listening && (
-              <div className="text-center text-xs text-red-400 animate-pulse mt-2">
-                🎤 Enregistrement en cours... relâchez le micro pour envoyer
-              </div>
+        {/* Barre de saisie principale */}
+        <div className="flex items-center gap-2">
+          {/* Bouton Paperclip */}
+          <button
+            onClick={() => document.getElementById('file-upload-input')?.click()}
+            className="p-2 rounded-full bg-white/10 text-gray-400 hover:bg-white/20 transition-colors flex-shrink-0"
+            title="Joindre un fichier"
+          >
+            <Paperclip className="w-5 h-5" />
+          </button>
+          
+          <input
+            id="file-upload-input"
+            type="file"
+            {...getInputProps()}
+            className="hidden"
+            onChange={(e) => {
+              if (e.target.files) {
+                onDrop(Array.from(e.target.files));
+              }
+            }}
+          />
+          
+          {/* Champ de saisie */}
+          <input
+            ref={inputRef}
+            type="text"
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={handleKeyDown}
+            placeholder={isRecording || isVoiceLocked ? "🎤 Enregistrement vocal..." : "Écris ton message..."}
+            className="flex-1 bg-white/10 border border-white/20 rounded-full py-3 px-4 text-sm focus:outline-none focus:border-gold-500 text-ivory placeholder:text-gray-500"
+          />
+          
+          {/* Bouton Envoyer / Micro intégré */}
+          <button
+            onMouseDown={handleSendButtonMouseDown}
+            onMouseUp={handleSendButtonMouseUp}
+            onMouseLeave={() => {
+              if (isRecording && !isVoiceLocked) {
+                setIsRecording(false);
+                stopVoiceRecording();
+                sendMessage();
+              }
+            }}
+            onTouchStart={handleSendButtonMouseDown}
+            onTouchEnd={handleSendButtonMouseUp}
+            onClick={() => {
+              if (isVoiceLocked) {
+                stopVoiceLock();
+              }
+            }}
+            disabled={(!input.trim() && uploadedFiles.length === 0 && !isRecording && !isVoiceLocked) || isLoading}
+            className={`p-2 rounded-full transition-all flex-shrink-0 ${
+              isRecording || isVoiceLocked
+                ? "bg-red-500 text-white animate-pulse"
+                : "bg-gold-500 text-midnight hover:scale-105"
+            } disabled:opacity-50 disabled:hover:scale-100`}
+            title={isRecording || isVoiceLocked ? "Enregistrement vocal" : "Envoyer (appui long pour vocal)"}
+          >
+            {isRecording || isVoiceLocked ? (
+              <Mic className="w-5 h-5" />
+            ) : (
+              <Send className="w-5 h-5" />
             )}
-        
+          </button>
+        </div>
       </div>
     </div>
   );
