@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
+import "regenerator-runtime/runtime";
 import { supabase } from "@/lib/supabase";
 import { motion } from "framer-motion";
 import LoadingSpinner from "@/components/LoadingSpinner";
