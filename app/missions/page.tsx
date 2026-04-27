@@ -26,7 +26,7 @@ type Mission = {
   created_at: string;
 };
 
-const categoryConfig = {
+const categoryConfig: Record<string, { label: string; color: string; icon: any }> = {
   business: { label: "Business", color: "bg-blue-500/20 text-blue-400", icon: Briefcase },
   farm: { label: "Ferme", color: "bg-green-500/20 text-green-400", icon: Sprout },
   family: { label: "Famille", color: "bg-pink-500/20 text-pink-400", icon: Heart },
@@ -36,7 +36,7 @@ const categoryConfig = {
   documents: { label: "Documents", color: "bg-cyan-500/20 text-cyan-400", icon: FileText }
 };
 
-const statusConfig = {
+const statusConfig: Record<string, { label: string; icon: any; color: string }> = {
   idea: { label: "Idée", icon: Lightbulb, color: "bg-gray-500/20 text-gray-400" },
   planning: { label: "Planification", icon: Calendar, color: "bg-blue-500/20 text-blue-400" },
   active: { label: "Active", icon: Activity, color: "bg-emerald-500/20 text-emerald-400" },
@@ -45,7 +45,7 @@ const statusConfig = {
   complete: { label: "Terminée", icon: CheckCircle, color: "bg-gray-500/20 text-gray-400" }
 };
 
-const priorityConfig = {
+const priorityConfig: Record<string, { label: string; color: string; score: number }> = {
   critical: { label: "Critique", color: "bg-red-500/20 text-red-400", score: 5 },
   high: { label: "Haute", color: "bg-orange-500/20 text-orange-400", score: 4 },
   normal: { label: "Normale", color: "bg-blue-500/20 text-blue-400", score: 3 },
@@ -73,26 +73,26 @@ export default function MissionsPage() {
   });
 
   const scrollToForm = () => {
-  setTimeout(() => {
-    const formElement = document.getElementById('form-container');
-    if (formElement) {
-      formElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }
-  }, 150);
-};
+    setTimeout(() => {
+      const formElement = document.getElementById('form-container');
+      if (formElement) {
+        formElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    }, 150);
+  };
 
   useEffect(() => {
-  fetchMissions();
-  
-  const channel = supabase
-    .channel('missions_changes')
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'missions' }, () => fetchMissions())
-    .subscribe();
-  
-  return () => {
-    channel.unsubscribe();
-  };
-}, []);
+    fetchMissions();
+    
+    const channel = supabase
+      .channel('missions_changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'missions' }, () => fetchMissions())
+      .subscribe();
+    
+    return () => {
+      channel.unsubscribe();
+    };
+  }, []);
   
   async function fetchMissions() {
     setIsLoading(true);
@@ -141,22 +141,22 @@ export default function MissionsPage() {
     }
   }
 
-function editMission(mission: Mission) {
-  setFormData({
-    name: mission.name,
-    category: mission.category,
-    status: mission.status,
-    priority: mission.priority,
-    revenue_potential: mission.revenue_potential,
-    strategic_value: mission.strategic_value,
-    energy_cost: mission.energy_cost,
-    deadline: mission.deadline || "",
-    owner: mission.owner || ""
-  });
-  setEditingId(mission.id);
-  setShowForm(true);
-  scrollToForm(); 
-}
+  function editMission(mission: Mission) {
+    setFormData({
+      name: mission.name,
+      category: mission.category,
+      status: mission.status,
+      priority: mission.priority,
+      revenue_potential: mission.revenue_potential,
+      strategic_value: mission.strategic_value,
+      energy_cost: mission.energy_cost,
+      deadline: mission.deadline || "",
+      owner: mission.owner || ""
+    });
+    setEditingId(mission.id);
+    setShowForm(true);
+    scrollToForm(); 
+  }
 
   function resetForm() {
     setShowForm(false);
@@ -175,7 +175,13 @@ function editMission(mission: Mission) {
   }
 
   function getPriorityScore(mission: Mission) {
-    const priorityScore = mission.priority === "critical" ? 5 : mission.priority === "high" ? 4 : mission.priority === "normal" ? 3 : 2;
+    const priorityScoreMap: Record<string, number> = {
+      critical: 5,
+      high: 4,
+      normal: 3,
+      low: 2
+    };
+    const priorityScore = priorityScoreMap[mission.priority] || 3;
     return mission.revenue_potential + mission.strategic_value + priorityScore - mission.energy_cost;
   }
 
@@ -343,9 +349,26 @@ function editMission(mission: Mission) {
           </div>
         ) : (
           sortedMissions.map((mission) => {
-            const StatusIcon = statusConfig[mission.status].icon;
-            const priorityConfigData = priorityConfig[mission.priority];
-            const CategoryIcon = categoryConfig[mission.category].icon;
+            // Fallbacks pour éviter les erreurs undefined
+            const categoryData = categoryConfig[mission.category] || { 
+              label: mission.category || "Autre", 
+              icon: Target, 
+              color: "bg-gray-500/20 text-gray-400" 
+            };
+            const CategoryIcon = categoryData.icon;
+            
+            const statusData = statusConfig[mission.status] || { 
+              label: mission.status || "En cours", 
+              icon: Clock, 
+              color: "bg-gray-500/20 text-gray-400" 
+            };
+            const StatusIcon = statusData.icon;
+            
+            const priorityData = priorityConfig[mission.priority] || { 
+              label: "Normale", 
+              color: "bg-blue-500/20 text-blue-400", 
+              score: 3 
+            };
             
             return (
               <motion.div
@@ -358,16 +381,16 @@ function editMission(mission: Mission) {
                   <div className="flex-1">
                     <div className="flex items-center gap-3 flex-wrap mb-2">
                       <h3 className="text-ivory font-medium text-lg">{mission.name}</h3>
-                      <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs ${priorityConfigData.color}`}>
-                        {priorityConfigData.label}
+                      <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs ${priorityData.color}`}>
+                        {priorityData.label}
                       </span>
-                      <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs ${categoryConfig[mission.category].color}`}>
+                      <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs ${categoryData.color}`}>
                         <CategoryIcon className="w-3 h-3" />
-                        {categoryConfig[mission.category].label}
+                        {categoryData.label}
                       </span>
-                      <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs ${statusConfig[mission.status].color}`}>
+                      <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs ${statusData.color}`}>
                         <StatusIcon className="w-3 h-3" />
-                        {statusConfig[mission.status].label}
+                        {statusData.label}
                       </span>
                     </div>
                     
