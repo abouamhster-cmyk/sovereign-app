@@ -1,5 +1,6 @@
 "use client";
 import { useState, useRef, useEffect } from "react";
+import ReactMarkdown from 'react-markdown';
 import { 
   Send, ArrowLeft, Plus, Trash2, ChevronLeft, ChevronRight, 
   Search, Edit2, Check, X, Loader2, Menu, Mic, Paperclip, 
@@ -483,8 +484,25 @@ export default function ChatPage() {
                   <div className={`max-w-[85%] p-4 rounded-2xl text-sm ${m.role === "user" ? "bg-gold-500 text-midnight rounded-br-none" : "bg-white/10 text-ivory border border-white/5 rounded-bl-none"}`}>
                     
                     {/* Message texte */}
-                    <div className="whitespace-pre-wrap break-words">{m.content}</div>
-                    
+                    <ReactMarkdown
+                      components={{
+                        img: ({ node, ...props }) => (
+                          <img 
+                            {...props} 
+                            className="rounded-xl max-w-full max-h-96 object-contain my-2 border border-white/10" 
+                            loading="lazy"
+                          />
+                        ),
+                        a: ({ node, ...props }) => (
+                          <a {...props} className="text-gold-500 hover:underline" target="_blank" rel="noopener noreferrer" />
+                        ),
+                        p: ({ node, ...props }) => (
+                          <p className="mb-2 last:mb-0" {...props} />
+                        ),
+                      }}
+                    >
+                      {m.content}
+                    </ReactMarkdown>                    
                     {/* Images affichées directement */}
                     {m.files && m.files.length > 0 && (
                       <div className="mt-3">
