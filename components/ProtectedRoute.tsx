@@ -45,8 +45,7 @@ export default function ProtectedRoute({ children }: { children: React.ReactNode
         </div>
         <div className="mt-6 text-center">
           <p className="text-gold-500 font-serif text-xl tracking-wider">SOVEREIGN</p>
-          <p className="text-gray-500 text-sm mt-2 animate-pulse">Chargement ...</p>
-        </div>
+         </div>
       </div>
     );
   }
