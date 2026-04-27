@@ -3,7 +3,7 @@ import { useState, useRef, useEffect } from "react";
 import { 
   Send, ArrowLeft, Plus, Trash2, ChevronLeft, ChevronRight, 
   Search, Edit2, Check, X, Loader2, Menu, Mic, Paperclip, 
-  Image, File, XCircle, Upload
+  File, XCircle, Image as ImageIcon
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
@@ -40,14 +40,11 @@ export default function ChatPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [editingTitleId, setEditingTitleId] = useState<string | null>(null);
   const [editingTitle, setEditingTitle] = useState("");
-  const [isInitialLoad, setIsInitialLoad] = useState(true);
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
   const [isUploading, setIsUploading] = useState(false);
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const messagesContainerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Speech recognition
   const {
@@ -96,23 +93,21 @@ export default function ChatPage() {
     }
   }, [searchTerm, conversations]);
 
-  // Scroll auto vers le dernier message
+  // Scroll auto
   useEffect(() => {
-    if (!isInitialLoad && messagesEndRef.current) {
+    if (messagesEndRef.current) {
       messagesEndRef.current.scrollIntoView({ behavior: "smooth", block: "end" });
-    } else {
-      setIsInitialLoad(false);
     }
   }, [messages]);
 
-  // Focus sur l'input après chargement
+  // Focus input
   useEffect(() => {
     if (currentConversationId && inputRef.current) {
       inputRef.current.focus();
     }
   }, [currentConversationId]);
 
-  // Fermer la sidebar sur mobile quand on change de conversation
+  // Fermer sidebar sur mobile
   useEffect(() => {
     if (isMobile) {
       setIsSidebarOpen(false);
@@ -130,10 +125,8 @@ export default function ChatPage() {
       'image/*': ['.png', '.jpg', '.jpeg', '.gif', '.webp'],
       'application/pdf': ['.pdf'],
       'text/plain': ['.txt'],
-      'application/msword': ['.doc', '.docx'],
-      'application/vnd.ms-excel': ['.xls', '.xlsx']
     },
-    maxSize: 10 * 1024 * 1024 // 10MB
+    maxSize: 10 * 1024 * 1024
   });
 
   async function uploadFilesToStorage() {
@@ -188,7 +181,6 @@ export default function ChatPage() {
       .order("created_at", { ascending: true });
     
     if (data && data.length > 0) {
-      // Parser les messages pour extraire les fichiers
       const parsedMessages = data.map(msg => {
         try {
           const parsed = JSON.parse(msg.content);
@@ -219,7 +211,6 @@ export default function ChatPage() {
       setFilteredConversations(prev => [data, ...prev]);
       setCurrentConversationId(data.id);
       setMessages([{ role: "assistant", content: "Bonjour Rebecca. Que veux-tu qu'on attaque aujourd'hui ?" }]);
-      
       if (isMobile) setIsSidebarOpen(false);
     }
   }
@@ -251,7 +242,6 @@ export default function ChatPage() {
         const newConversations = conversations.filter(c => c.id !== id);
         setConversations(newConversations);
         setFilteredConversations(newConversations);
-        
         if (newConversations.length > 0) {
           setCurrentConversationId(newConversations[0].id);
         } else {
@@ -282,7 +272,21 @@ export default function ChatPage() {
     const uploadedFilesData = await uploadFilesToStorage();
     setIsUploading(false);
     
-    const userMessageContent = input.trim() || "Fichier(s) joint(s)";
+    // Construire le message avec les fichiers
+    let userMessageContent = input.trim() || "📎 Fichier(s) joint(s)";
+    
+    // Ajouter les URLs des images pour que l'IA puisse les "voir"
+    const imageFiles = uploadedFilesData.filter(f => f.type.startsWith('image/'));
+    if (imageFiles.length > 0) {
+      userMessageContent += "\n\n📸 Images jointes:\n" + imageFiles.map(f => f.url).join("\n");
+    }
+    
+    // Ajouter les autres fichiers
+    const otherFiles = uploadedFilesData.filter(f => !f.type.startsWith('image/'));
+    if (otherFiles.length > 0) {
+      userMessageContent += "\n\n📎 Autres fichiers:\n" + otherFiles.map(f => `- ${f.name}: ${f.url}`).join("\n");
+    }
+    
     const userMessage: Message = { 
       role: "user", 
       content: userMessageContent,
@@ -299,17 +303,11 @@ export default function ChatPage() {
     resetTranscript();
 
     try {
-      // Construire le message à envoyer à l'API
-      let messageContent = userMessageContent;
-      if (uploadedFilesData.length > 0) {
-        messageContent += "\n\n📎 Fichiers joints:\n" + uploadedFilesData.map(f => `- ${f.name}: ${f.url}`).join("\n");
-      }
-      
       const response = await fetch(`${API_URL}/chat`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ 
-          messages: [...allMessages.slice(0, -1), { role: "user", content: messageContent }].map(msg => ({
+          messages: allMessages.map(msg => ({
             role: msg.role,
             content: msg.content
           }))
@@ -340,7 +338,7 @@ export default function ChatPage() {
 
   const startListening = () => {
     resetTranscript();
-    SpeechRecognition.startListening({ continuous: true, language: 'fr-FR' });
+    SpeechRecognition.startListening({ continuous: false, language: 'fr-FR' });
   };
 
   const stopListening = () => {
@@ -382,30 +380,25 @@ export default function ChatPage() {
   return (
     <div className="fixed inset-0 bg-midnight flex flex-col">
       {/* HEADER */}
-        <header className="sticky top-0 z-10 h-14 border-b border-white/10 flex items-center px-4 bg-midnight/90 backdrop-blur-lg shrink-0">
-          <button
-            onClick={() => setIsSidebarOpen(true)}
-            className="p-2 text-gray-400 hover:text-gold-500 transition-colors rounded-lg hover:bg-white/5"
-            aria-label="Ouvrir l'historique des conversations"
-          >
-            <Menu className="w-5 h-5" />
-          </button>
-          
-          <div className="flex-1 text-center">
-            <h1 className="text-base font-serif text-gold-500">SOVEREIGN AI</h1>
-            <p className="text-[9px] text-gold-500/60 uppercase tracking-widest hidden sm:block">Executive Mode</p>
-          </div>
-          
-          <Link 
-            href="/" 
-            className="p-2 text-gray-400 hover:text-gold-500 transition-colors rounded-lg hover:bg-white/5"
-            aria-label="Retour au tableau de bord"
-          >
-            <ArrowLeft className="w-5 h-5" />
-          </Link>
-        </header>
+      <header className="sticky top-0 z-10 h-14 border-b border-white/10 flex items-center px-4 bg-midnight/90 backdrop-blur-lg shrink-0">
+        <button
+          onClick={() => setIsSidebarOpen(true)}
+          className="p-2 text-gray-400 hover:text-gold-500 transition-colors rounded-lg hover:bg-white/5"
+        >
+          <Menu className="w-5 h-5" />
+        </button>
+        
+        <div className="flex-1 text-center">
+          <h1 className="text-base font-serif text-gold-500">SOVEREIGN AI</h1>
+          <p className="text-[9px] text-gold-500/60 uppercase tracking-widest hidden sm:block">Executive Mode</p>
+        </div>
+        
+        <Link href="/" className="p-2 text-gray-400 hover:text-gold-500 transition-colors rounded-lg hover:bg-white/5">
+          <ArrowLeft className="w-5 h-5" />
+        </Link>
+      </header>
 
-      {/* SIDEBAR - identique à avant */}
+      {/* SIDEBAR CONVERSATIONS */}
       <AnimatePresence>
         {isSidebarOpen && (
           <>
@@ -420,7 +413,6 @@ export default function ChatPage() {
               initial={{ x: "-100%" }}
               animate={{ x: 0 }}
               exit={{ x: "-100%" }}
-              transition={{ type: "spring", damping: 25, stiffness: 200 }}
               className="fixed inset-y-0 left-0 w-80 bg-midnight z-50 border-r border-white/10 flex flex-col"
             >
               <div className="p-4 border-b border-white/10 flex justify-between items-center">
@@ -442,38 +434,38 @@ export default function ChatPage() {
               
               <div className="px-4 pb-4">
                 <div className="relative">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-500" />
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
                   <input
                     type="text"
                     placeholder="Rechercher..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
-                    className="w-full pl-9 pr-4 py-2 bg-white/5 border border-white/10 rounded-xl text-sm focus:outline-none focus:border-gold-500 text-ivory placeholder:text-gray-500"
+                    className="w-full pl-9 pr-4 py-2 bg-white/5 border border-white/10 rounded-xl text-sm focus:outline-none focus:border-gold-500 text-ivory"
                   />
                 </div>
               </div>
               
               <div className="flex-1 overflow-y-auto px-4 pb-4 space-y-2">
                 {filteredConversations.map(conv => (
-                  <div key={conv.id} className={`group p-3 rounded-xl cursor-pointer transition-all ${currentConversationId === conv.id ? "bg-gold-500/10 border border-gold-500/30" : "hover:bg-white/5 border border-transparent"}`}>
-                    <div className="flex items-center justify-between">
-                      <div onClick={() => setCurrentConversationId(conv.id)} className="flex-1 min-w-0">
+                  <div key={conv.id} className={`group p-3 rounded-xl cursor-pointer ${currentConversationId === conv.id ? "bg-gold-500/10 border border-gold-500/30" : "hover:bg-white/5"}`}>
+                    <div className="flex justify-between items-center">
+                      <div onClick={() => setCurrentConversationId(conv.id)} className="flex-1">
                         {editingTitleId === conv.id ? (
                           <div className="flex items-center gap-2">
-                            <input type="text" value={editingTitle} onChange={(e) => setEditingTitle(e.target.value)} className="flex-1 bg-white/10 border border-gold-500 rounded-md px-2 py-1 text-sm focus:outline-none" autoFocus onKeyDown={(e) => { if (e.key === 'Enter') updateConversationTitle(conv.id, editingTitle); if (e.key === 'Escape') setEditingTitleId(null); }} />
-                            <button onClick={() => updateConversationTitle(conv.id, editingTitle)} className="text-emerald-400"><Check className="w-3 h-3" /></button>
-                            <button onClick={() => setEditingTitleId(null)} className="text-red-400"><X className="w-3 h-3" /></button>
+                            <input type="text" value={editingTitle} onChange={(e) => setEditingTitle(e.target.value)} className="flex-1 bg-white/10 border border-gold-500 rounded-md px-2 py-1 text-sm" autoFocus onKeyDown={(e) => { if (e.key === 'Enter') updateConversationTitle(conv.id, editingTitle); if (e.key === 'Escape') setEditingTitleId(null); }} />
+                            <button onClick={() => updateConversationTitle(conv.id, editingTitle)}><Check className="w-3 h-3 text-emerald-400" /></button>
+                            <button onClick={() => setEditingTitleId(null)}><X className="w-3 h-3 text-red-400" /></button>
                           </div>
                         ) : (
                           <>
-                            <p className="text-sm truncate">{conv.title || "Nouvelle conversation"}</p>
+                            <p className="text-sm truncate">{conv.title}</p>
                             <p className="text-xs text-gray-500 mt-1">{formatDate(conv.updated_at)}</p>
                           </>
                         )}
                       </div>
-                      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <button onClick={(e) => { e.stopPropagation(); startEditTitle(conv); }} className="p-1 text-gray-500 hover:text-gold-500"><Edit2 className="w-3 h-3" /></button>
-                        <button onClick={(e) => { e.stopPropagation(); deleteConversation(conv.id); }} className="p-1 text-gray-500 hover:text-red-400"><Trash2 className="w-3 h-3" /></button>
+                      <div className="flex gap-1 opacity-0 group-hover:opacity-100">
+                        <button onClick={() => startEditTitle(conv)}><Edit2 className="w-3 h-3 text-gray-500" /></button>
+                        <button onClick={() => deleteConversation(conv.id)}><Trash2 className="w-3 h-3 text-gray-500" /></button>
                       </div>
                     </div>
                   </div>
@@ -485,16 +477,17 @@ export default function ChatPage() {
       </AnimatePresence>
 
       {/* ZONE DES MESSAGES */}
-      <div ref={messagesContainerRef} className="flex-1 overflow-y-auto p-4 space-y-4">
+      <div className="flex-1 overflow-y-auto p-4 space-y-4">
         {messages.map((m, i) => (
           <motion.div key={i} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
-            <div className={`max-w-[85%] p-4 rounded-2xl text-sm leading-relaxed ${m.role === "user" ? "bg-gold-500 text-midnight rounded-br-none" : "bg-white/10 text-ivory border border-white/5 rounded-bl-none"}`}>
-              {m.content}
+            <div className={`max-w-[80%] p-4 rounded-2xl text-sm ${m.role === "user" ? "bg-gold-500 text-midnight rounded-br-none" : "bg-white/10 text-ivory border border-white/5 rounded-bl-none"}`}>
+              <div className="whitespace-pre-wrap break-words">{m.content}</div>
               {m.files && m.files.length > 0 && (
                 <div className="mt-2 pt-2 border-t border-white/10">
                   {m.files.map((file, idx) => (
-                    <a key={idx} href={file.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-xs text-gold-500 hover:underline">
-                      <File className="w-3 h-3" /> {file.name}
+                    <a key={idx} href={file.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-xs text-gold-500 hover:underline mt-1">
+                      {file.type.startsWith('image/') ? <ImageIcon className="w-3 h-3" /> : <File className="w-3 h-3" />}
+                      {file.name}
                     </a>
                   ))}
                 </div>
@@ -504,75 +497,85 @@ export default function ChatPage() {
         ))}
         
         {isLoading && (
-          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="flex justify-start">
-            <div className="bg-white/10 p-4 rounded-2xl rounded-bl-none"><Loader2 className="w-4 h-4 text-gold-500 animate-spin" /></div>
-          </motion.div>
+          <div className="flex justify-start">
+            <div className="bg-white/10 p-4 rounded-2xl">
+              <Loader2 className="w-4 h-4 text-gold-500 animate-spin" />
+            </div>
+          </div>
         )}
         
         <div ref={messagesEndRef} />
       </div>
 
-      {/* ZONE DE SAISIE AVEC UPLOAD ET MICRO */}
-      <div className="shrink-0 p-4 border-t border-white/10 bg-midnight/90 backdrop-blur-lg">
-        {/* Fichiers en attente d'upload */}
+      {/* BARRE DE SAISIE - VERSION MOBILE OPTIMISÉE */}
+      <div className="shrink-0 p-3 border-t border-white/10 bg-midnight/90 backdrop-blur-lg">
+        {/* Fichiers en attente */}
         {uploadedFiles.length > 0 && (
           <div className="flex flex-wrap gap-2 mb-2">
             {uploadedFiles.map((file, idx) => (
               <div key={idx} className="flex items-center gap-2 bg-white/10 rounded-full px-3 py-1 text-xs">
-                <File className="w-3 h-3" />
-                <span className="truncate max-w-[150px]">{file.name}</span>
-                <button onClick={() => removeFile(idx)} className="text-gray-400 hover:text-red-400"><XCircle className="w-3 h-3" /></button>
+                {file.type.startsWith('image/') ? '🖼️' : '📄'}
+                <span className="truncate max-w-[100px]">{file.name}</span>
+                <button onClick={() => removeFile(idx)} className="text-gray-400 hover:text-red-400">
+                  <XCircle className="w-3 h-3" />
+                </button>
               </div>
             ))}
           </div>
         )}
         
+        {/* Indicateur d'enregistrement vocal */}
+        {listening && (
+          <div className="text-center text-xs text-red-400 animate-pulse mb-2">
+            🎤 Parle... relâche pour envoyer
+          </div>
+        )}
+        
         {/* Barre de saisie principale */}
-        <div className="relative max-w-4xl mx-auto flex items-center gap-2">
-          {/* Bouton upload de fichier */}
+        <div className="flex items-center gap-2">
+          {/* Bouton upload */}
           <div {...getRootProps()} className="cursor-pointer">
             <input {...getInputProps()} />
-            <button type="button" className="p-2 bg-white/10 rounded-full hover:bg-white/20 transition-colors" title="Joindre un fichier">
-              <Paperclip className="w-5 h-5 text-gray-400" />
+            <button type="button" className={`p-2 rounded-full transition-all ${isDragActive ? "bg-gold-500 text-midnight" : "bg-white/10 text-gray-400 hover:bg-white/20"}`}>
+              <Paperclip className="w-5 h-5" />
             </button>
           </div>
           
-          <input
-            ref={inputRef}
-            type="text"
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder={listening ? "🎤 Écoute en cours..." : "Écris ton message... (Entrée pour envoyer)"}
-            className="flex-1 bg-white/10 border border-white/20 rounded-full py-3 px-5 pr-24 text-sm focus:outline-none focus:border-gold-500 transition-all text-ivory placeholder:text-gray-500"
-          />
-          
-          {/* Bouton micro */}
-          {browserSupportsSpeechRecognition && (
+          {/* Champ de saisie */}
+          <div className="relative flex-1">
+            <input
+              ref={inputRef}
+              type="text"
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={handleKeyDown}
+              placeholder="Écris ton message..."
+              className={`w-full bg-white/10 border rounded-full py-3 px-4 pr-24 text-sm focus:outline-none focus:border-gold-500 text-ivory placeholder:text-gray-500 ${listening ? "border-red-500" : "border-white/20"}`}
+            />
+            
+            {/* Bouton micro */}
+            {browserSupportsSpeechRecognition && (
+              <button
+                onTouchStart={startListening}
+                onTouchEnd={stopListening}
+                onMouseDown={startListening}
+                onMouseUp={stopListening}
+                className={`absolute right-12 top-1/2 -translate-y-1/2 p-1.5 rounded-full transition-all ${listening ? "text-red-500 animate-pulse" : "text-gray-400"}`}
+              >
+                <Mic className="w-4 h-4" />
+              </button>
+            )}
+            
+            {/* Bouton envoyer */}
             <button
-              onMouseDown={startListening}
-              onMouseUp={stopListening}
-              onTouchStart={startListening}
-              onTouchEnd={stopListening}
-              className={`p-2 rounded-full transition-colors ${listening ? "bg-red-500 text-white animate-pulse" : "bg-white/10 text-gray-400 hover:bg-white/20"}`}
-              title="Appuyer et maintenir pour parler"
+              onClick={handleSend}
+              disabled={(!input.trim() && uploadedFiles.length === 0) || isLoading}
+              className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 bg-gold-500 rounded-full disabled:opacity-50 transition-all"
             >
-              <Mic className="w-5 h-5" />
+              <Send className="w-4 h-4 text-midnight" />
             </button>
-          )}
-          
-          {/* Bouton envoyer */}
-          <button 
-            onClick={handleSend}
-            disabled={(isLoading || (!input.trim() && uploadedFiles.length === 0))}
-            className="absolute right-2 p-2 bg-gold-500 rounded-full text-midnight hover:scale-105 transition-transform disabled:opacity-50 disabled:hover:scale-100"
-          >
-            <Send className="w-4 h-4" />
-          </button>
+          </div>
         </div>
-        {listening && (
-          <p className="text-center text-xs text-gold-500 mt-2 animate-pulse">🎤 Parle maintenant... (relâche pour envoyer)</p>
-        )}
       </div>
     </div>
   );
