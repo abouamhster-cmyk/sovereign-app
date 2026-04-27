@@ -257,7 +257,10 @@ export default function DocumentsPage() {
           <h1 className="text-3xl md:text-4xl font-serif text-gold-500 tracking-tight">Documents & Deals</h1>
           <p className="text-gray-500 mt-1 text-sm">Gestion des contrats, factures et documents</p>
         </div>
-        <button className="bg-gold-500 text-midnight px-4 py-2 rounded-full text-sm font-medium flex items-center justify-center gap-2 w-full md:w-auto">
+        <button
+          onClick={() => { setShowForm(true); setEditingDoc(null); scrollToForm(); }}
+          className="bg-gold-500 text-midnight px-4 py-2 rounded-full text-sm font-medium flex items-center justify-center gap-2 w-full md:w-auto"
+        >
           <Plus className="w-4 h-4" /> Nouveau document
         </button>
       </div>
