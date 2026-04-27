@@ -81,3 +81,22 @@ body {
 .stat-card .text-2xl {
   font-size: clamp(1.25rem, 5vw, 1.5rem);
 }
+
+
+/* Empêcher les chiffres de sortir des cartes sur mobile */
+.stat-value {
+  font-size: clamp(1.25rem, 6vw, 1.875rem);
+  word-break: break-word;
+  overflow-wrap: break-word;
+  white-space: normal;
+}
+
+/* Pour toutes les cartes de stats */
+.bg-white\/5.rounded-2xl {
+  overflow: hidden;
+}
+
+.text-2xl {
+  font-size: clamp(1.25rem, 5vw, 1.5rem);
+  word-break: break-word;
+}
