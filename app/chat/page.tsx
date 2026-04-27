@@ -351,10 +351,12 @@ export default function ChatPage() {
   const startVoiceRecording = () => {
     resetTranscript();
     SpeechRecognition.startListening({ continuous: true, language: 'fr-FR' });
+    setIsRecording(true);
   };
 
   const stopVoiceRecording = () => {
     SpeechRecognition.stopListening();
+    setIsRecording(false);
   };
 
   // Gestion du clic prolongé sur le bouton envoyer
@@ -366,13 +368,11 @@ export default function ChatPage() {
       
       if (pressDuration >= 3000 && pressDuration < 10000) {
         // Mode vocal maintenu (3-10s)
-        setIsRecording(true);
         startVoiceRecording();
       } else if (pressDuration >= 10000) {
         // Mode vocal locké (≥10s)
-        setIsRecording(true);
-        setIsVoiceLocked(true);
         startVoiceRecording();
+        setIsVoiceLocked(true);
       }
     }, 3000);
     
@@ -390,17 +390,14 @@ export default function ChatPage() {
     if (pressDuration < 3000) {
       // Clic court → envoyer le message
       if (isVoiceLocked) {
-        // Si locké, on arrête le vocal et on envoie
         setIsVoiceLocked(false);
-        setIsRecording(false);
         stopVoiceRecording();
       }
       sendMessage();
     } else if (pressDuration >= 3000 && pressDuration < 10000) {
-      // Appui long maintenu → arrêter et envoyer
-      setIsRecording(false);
+      // Appui long maintenu → arrêter l'enregistrement mais NE PAS envoyer
       stopVoiceRecording();
-      sendMessage();
+      inputRef.current?.focus();
     }
     // Si ≥ 10s, on reste en mode locké, ne rien faire
   };
@@ -408,9 +405,8 @@ export default function ChatPage() {
   const stopVoiceLock = () => {
     if (isVoiceLocked) {
       setIsVoiceLocked(false);
-      setIsRecording(false);
       stopVoiceRecording();
-      sendMessage();
+      inputRef.current?.focus();
     }
   };
 
@@ -617,7 +613,7 @@ export default function ChatPage() {
         {/* Indicateur d'enregistrement vocal */}
         {(isRecording || isVoiceLocked) && (
           <div className="text-center text-xs text-red-400 animate-pulse mb-2">
-            {isVoiceLocked ? "🔒 Enregistrement vocal en cours... recliquez pour arrêter" : "🎤 Parlez... relâchez pour envoyer"}
+            {isVoiceLocked ? "🔒 Enregistrement vocal en cours... recliquez pour arrêter" : "🎤 Parlez... relâchez pour arrêter (texte modifiable)"}
           </div>
         )}
         
@@ -661,9 +657,7 @@ export default function ChatPage() {
             onMouseUp={handleSendButtonMouseUp}
             onMouseLeave={() => {
               if (isRecording && !isVoiceLocked) {
-                setIsRecording(false);
                 stopVoiceRecording();
-                sendMessage();
               }
             }}
             onTouchStart={handleSendButtonMouseDown}
@@ -679,7 +673,7 @@ export default function ChatPage() {
                 ? "bg-red-500 text-white animate-pulse"
                 : "bg-gold-500 text-midnight hover:scale-105"
             } disabled:opacity-50 disabled:hover:scale-100`}
-            title={isRecording || isVoiceLocked ? "Enregistrement vocal" : "Envoyer (appui long pour vocal)"}
+            title={isRecording || isVoiceLocked ? "Enregistrement vocal (recliquez pour arrêter)" : "Envoyer (appui long pour dicter)"}
           >
             {isRecording || isVoiceLocked ? (
               <Mic className="w-5 h-5" />
