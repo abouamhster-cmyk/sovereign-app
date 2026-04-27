@@ -11,9 +11,21 @@
   "lang": "fr-FR",
   "icons": [
     {
-      "src": "/favicon.ico",
-      "sizes": "64x64",
-      "type": "image/x-icon",
+      "src": "/icons/icon-96x96.png",
+      "sizes": "96x96",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icons/icon-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icons/icon-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
       "purpose": "any maskable"
     }
   ],
@@ -26,21 +38,21 @@
       "short_name": "Home",
       "description": "Voir le tableau de bord",
       "url": "/",
-      "icons": [{ "src": "/favicon.ico", "sizes": "64x64" }]
+      "icons": [{ "src": "/icons/icon-96x96.png", "sizes": "96x96" }]
     },
     {
       "name": "Chat avec Sovereign",
       "short_name": "Chat",
       "description": "Discuter avec Sovereign AI",
       "url": "/chat",
-      "icons": [{ "src": "/favicon.ico", "sizes": "64x64" }]
+      "icons": [{ "src": "/icons/icon-96x96.png", "sizes": "96x96" }]
     },
     {
       "name": "Money",
       "short_name": "Finances",
       "description": "Gestion financière",
       "url": "/money",
-      "icons": [{ "src": "/favicon.ico", "sizes": "64x64" }]
+      "icons": [{ "src": "/icons/icon-96x96.png", "sizes": "96x96" }]
     }
   ]
 }
