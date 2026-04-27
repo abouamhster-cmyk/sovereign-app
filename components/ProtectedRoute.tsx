@@ -1,37 +1,60 @@
 "use client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useRouter, usePathname } from "next/navigation";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Loader2 } from "lucide-react";
+import { supabase } from "@/lib/supabase";
 
 const publicRoutes = ["/login"];
 
 export default function ProtectedRoute({ children }: { children: React.ReactNode }) {
-  const { user, isLoading } = useAuth();
+  const { user, isLoading: isAuthLoading } = useAuth();
+  const [isDataReady, setIsDataReady] = useState(false);
   const router = useRouter();
   const pathname = usePathname();
 
   useEffect(() => {
-    if (!isLoading && !user && !publicRoutes.includes(pathname)) {
-      router.push("/login");
+    async function checkDataReady() {
+      if (user && !isAuthLoading) {
+        // Charger les données initiales essentielles
+        try {
+          await Promise.all([
+            supabase.from("missions").select("id", { count: "exact", head: true }),
+            supabase.from("tasks").select("id", { count: "exact", head: true }),
+          ]);
+          setIsDataReady(true);
+        } catch (error) {
+          console.error("Erreur chargement initial:", error);
+          setIsDataReady(true); // On passe quand même pour éviter un blocage
+        }
+      } else if (!user && !isAuthLoading && !publicRoutes.includes(pathname)) {
+        router.push("/login");
+      }
     }
-  }, [user, isLoading, router, pathname]);
+    
+    checkDataReady();
+  }, [user, isAuthLoading, router, pathname]);
 
-  // Pendant le chargement, on affiche un écran de chargement
-  if (isLoading) {
+  // Pendant le chargement de l'auth ou des données
+  if (isAuthLoading || (user && !isDataReady)) {
     return (
-      <div className="min-h-screen bg-midnight flex items-center justify-center">
-        <Loader2 className="w-8 h-8 text-gold-500 animate-spin" />
+      <div className="fixed inset-0 bg-midnight flex flex-col items-center justify-center z-50">
+        <div className="relative">
+          <div className="w-16 h-16 border-4 border-gold-500/20 rounded-full"></div>
+          <div className="w-16 h-16 border-4 border-gold-500 border-t-transparent rounded-full animate-spin absolute top-0 left-0"></div>
+        </div>
+        <div className="mt-6 text-center">
+          <p className="text-gold-500 font-serif text-xl tracking-wider">SOVEREIGN</p>
+          <p className="text-gray-500 text-sm mt-2 animate-pulse">Chargement ...</p>
+        </div>
       </div>
     );
   }
 
-  // Si l'utilisateur n'est pas connecté ET qu'on n'est pas sur une route publique
-  // on ne retourne RIEN du tout (pas même le layout)
+  // Si pas d'utilisateur et pas sur une route publique → ne rien rendre
   if (!user && !publicRoutes.includes(pathname)) {
     return null;
   }
 
-  // Si l'utilisateur est connecté ou sur une route publique, on affiche les enfants
   return <>{children}</>;
 }
