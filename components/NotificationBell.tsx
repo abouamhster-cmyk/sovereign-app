@@ -1,15 +1,27 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Bell, BellRing } from "lucide-react";
+import { Bell, BellRing, Loader2 } from "lucide-react";
 import { toast } from "sonner";
-import { supabase } from "@/lib/supabase";
 
-const VAPID_PUBLIC_KEY = "BDKRJZfCHn7PxdrfojdRP7ZAFW1mnw8bKZM-mK6Ue8Q0almSSTPuLQRVlscGiXtJaLRYONMYgZgu_T5EKR6K92s";
+const VAPID_PUBLIC_KEY = "BCfXQm5XjlHxTxPtDoZEo2SgntoSwNTlo0Wy1xNTUWItFIp59oTTSV-hQgrn54BkNQAQa7-pusO3oZP_BquN33w";
+
+// Fonction pour convertir la clé VAPID
+function urlBase64ToUint8Array(base64String: string) {
+  const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
+  const base64 = (base64String + padding).replace(/\-/g, "+").replace(/_/g, "/");
+  const rawData = window.atob(base64);
+  const outputArray = new Uint8Array(rawData.length);
+  for (let i = 0; i < rawData.length; ++i) {
+    outputArray[i] = rawData.charCodeAt(i);
+  }
+  return outputArray;
+}
 
 export default function NotificationBell() {
   const [isSubscribed, setIsSubscribed] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [isSupported, setIsSupported] = useState(true);
 
   useEffect(() => {
     checkSubscription();
@@ -17,7 +29,7 @@ export default function NotificationBell() {
 
   async function checkSubscription() {
     if (!("serviceWorker" in navigator) || !("PushManager" in window)) {
-      console.log("Push non supporté");
+      setIsSupported(false);
       return;
     }
 
@@ -27,6 +39,7 @@ export default function NotificationBell() {
       setIsSubscribed(!!subscription);
     } catch (error) {
       console.error("Erreur check subscription:", error);
+      setIsSupported(false);
     }
   }
 
@@ -42,21 +55,21 @@ export default function NotificationBell() {
       // Demander la permission
       const permission = await Notification.requestPermission();
       if (permission !== "granted") {
-        toast.error("Permission refusée");
+        toast.error("Permission refusée pour les notifications");
+        setIsLoading(false);
         return;
       }
 
       // Récupérer le service worker
       const swReg = await navigator.serviceWorker.ready;
-      
-      // Convertir la clé VAPID
-      const applicationServerKey = urlBase64ToUint8Array(VAPID_PUBLIC_KEY);
-      
+      console.log("Service Worker prêt:", swReg);
+
       // Créer la subscription
       const subscription = await swReg.pushManager.subscribe({
         userVisibleOnly: true,
-        applicationServerKey: applicationServerKey
+        applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
       });
+      console.log("Subscription créée:", subscription);
 
       // Envoyer la subscription au backend
       const response = await fetch("https://sovereign-bridge.onrender.com/api/subscribe", {
@@ -65,16 +78,24 @@ export default function NotificationBell() {
         body: JSON.stringify(subscription)
       });
 
-      if (response.ok) {
+      const result = await response.json();
+      console.log("Réponse backend:", result);
+
+      if (result.success) {
         setIsSubscribed(true);
-        toast.success("Notifications activées", {
+        toast.success("Notifications activées !", {
           description: "Vous recevrez les rappels importants"
         });
+        
+        // Tester la notification
+        setTimeout(() => {
+          testNotification();
+        }, 2000);
       } else {
-        throw new Error("Erreur serveur");
+        throw new Error(result.error || "Erreur serveur");
       }
     } catch (error) {
-      console.error("Erreur subscription:", error);
+      console.error("Erreur subscription détaillée:", error);
       toast.error("Impossible d'activer les notifications");
     } finally {
       setIsLoading(false);
@@ -84,6 +105,7 @@ export default function NotificationBell() {
   async function unsubscribeFromPush() {
     if (!("serviceWorker" in navigator)) return;
     
+    setIsLoading(true);
     try {
       const swReg = await navigator.serviceWorker.ready;
       const subscription = await swReg.pushManager.getSubscription();
@@ -102,10 +124,36 @@ export default function NotificationBell() {
       }
     } catch (error) {
       console.error("Erreur unsubscription:", error);
+      toast.error("Erreur lors de la désactivation");
+    } finally {
+      setIsLoading(false);
+    }
+  }
+
+  async function testNotification() {
+    try {
+      const response = await fetch("https://sovereign-bridge.onrender.com/api/send-notification", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: "🔔 SOVEREIGN",
+          body: "Les notifications sont activées !",
+          url: "/"
+        })
+      });
+      const result = await response.json();
+      console.log("Notification test envoyée:", result);
+    } catch (error) {
+      console.error("Erreur test notification:", error);
     }
   }
 
   const handleClick = () => {
+    if (!isSupported) {
+      toast.error("Notifications non supportées sur ce navigateur");
+      return;
+    }
+    
     if (isSubscribed) {
       unsubscribeFromPush();
     } else {
@@ -125,7 +173,7 @@ export default function NotificationBell() {
       title={isSubscribed ? "Désactiver les alertes" : "Activer les alertes"}
     >
       {isLoading ? (
-        <div className="w-5 h-5 border-2 border-gold-500 border-t-transparent rounded-full animate-spin" />
+        <Loader2 className="w-5 h-5 animate-spin" />
       ) : isSubscribed ? (
         <BellRing className="w-5 h-5" />
       ) : (
@@ -133,15 +181,4 @@ export default function NotificationBell() {
       )}
     </button>
   );
-}
-
-function urlBase64ToUint8Array(base64String: string) {
-  const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
-  const base64 = (base64String + padding).replace(/\-/g, "+").replace(/_/g, "/");
-  const rawData = window.atob(base64);
-  const outputArray = new Uint8Array(rawData.length);
-  for (let i = 0; i < rawData.length; ++i) {
-    outputArray[i] = rawData.charCodeAt(i);
-  }
-  return outputArray;
 }
