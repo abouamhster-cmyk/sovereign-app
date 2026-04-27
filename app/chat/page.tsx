@@ -573,12 +573,29 @@ export default function ChatPage() {
         
         {/* Barre de saisie principale */}
         <div className="flex items-center gap-2">
-          {/* Bouton upload */}
-          <div {...getRootProps()} className="cursor-pointer">
-            <input {...getInputProps()} />
-            <button type="button" className={`p-2 rounded-full transition-all ${isDragActive ? "bg-gold-500 text-midnight" : "bg-white/10 text-gray-400 hover:bg-white/20"}`}>
-              <Paperclip className="w-5 h-5" />
-            </button>
+          {/* Groupe des boutons à gauche (upload + micro) */}
+          <div className="flex items-center gap-2">
+            {/* Bouton upload */}
+            <div {...getRootProps()} className="cursor-pointer">
+              <input {...getInputProps()} />
+              <button type="button" className={`p-2 rounded-full transition-all ${isDragActive ? "bg-gold-500 text-midnight" : "bg-white/10 text-gray-400 hover:bg-white/20"}`}>
+                <Paperclip className="w-5 h-5" />
+              </button>
+            </div>
+            
+            {/* Bouton micro - déplacé ici */}
+            {browserSupportsSpeechRecognition && (
+              <button
+                onTouchStart={startListening}
+                onTouchEnd={stopListening}
+                onMouseDown={startListening}
+                onMouseUp={stopListening}
+                className={`p-2 rounded-full transition-all ${listening ? "bg-red-500 text-white animate-pulse" : "bg-white/10 text-gray-400 hover:bg-white/20"}`}
+                title="Appuyer et maintenir pour parler"
+              >
+                <Mic className="w-5 h-5" />
+              </button>
+            )}
           </div>
           
           {/* Champ de saisie */}
@@ -590,23 +607,10 @@ export default function ChatPage() {
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={handleKeyDown}
               placeholder="Écris ton message..."
-              className={`w-full bg-white/10 border rounded-full py-3 px-4 pr-24 text-sm focus:outline-none focus:border-gold-500 text-ivory placeholder:text-gray-500 ${listening ? "border-red-500" : "border-white/20"}`}
+              className={`w-full bg-white/10 border rounded-full py-3 px-4 pr-12 text-sm focus:outline-none focus:border-gold-500 text-ivory placeholder:text-gray-500 ${listening ? "border-red-500" : "border-white/20"}`}
             />
             
-            {/* Bouton micro */}
-            {browserSupportsSpeechRecognition && (
-              <button
-                onTouchStart={startListening}
-                onTouchEnd={stopListening}
-                onMouseDown={startListening}
-                onMouseUp={stopListening}
-                className={`absolute right-12 top-1/2 -translate-y-1/2 p-1.5 rounded-full transition-all ${listening ? "text-red-500 animate-pulse" : "text-gray-400"}`}
-              >
-                <Mic className="w-4 h-4" />
-              </button>
-            )}
-            
-            {/* Bouton envoyer */}
+            {/* Bouton envoyer - seul à droite */}
             <button
               onClick={handleSend}
               disabled={(!input.trim() && uploadedFiles.length === 0) || isLoading}
@@ -616,6 +620,7 @@ export default function ChatPage() {
             </button>
           </div>
         </div>
+        
       </div>
     </div>
   );
