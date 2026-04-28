@@ -169,18 +169,6 @@ export default function AlignmentPage() {
           {isLoading ? (
             <LoadingSpinner />
           ) : wins.length > 0 ? (
-          <div className="space-y-4">
-              {[1, 2, 3].map((i) => (
-                <div key={i} className="animate-pulse flex items-center gap-3 p-4 bg-white/5 rounded-xl">
-                  <div className="w-8 h-8 bg-white/10 rounded-full" />
-                  <div className="flex-1">
-                    <div className="h-4 bg-white/10 rounded w-3/4 mb-2" />
-                    <div className="h-3 bg-white/5 rounded w-1/4" />
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : wins.length > 0 ? (
             <div className="space-y-4">
               {wins.map((win, i) => (
                 <motion.div 
