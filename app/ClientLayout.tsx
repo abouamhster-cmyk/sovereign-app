@@ -241,7 +241,7 @@ const MenuContent = () => (
         <div key={category.category} className="mb-1">
           <button
             onClick={() => toggleCategory(category.category)}
-            className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+            className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs font-medium ${
               hasActiveItem ? "text-gold-500" : "text-gray-500 hover:text-gray-400"
             }`}
           >
@@ -265,7 +265,7 @@ const MenuContent = () => (
                     <Link
                       key={item.href}
                       href={item.href}
-                      className={`flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg text-sm transition-all ${
+                      className={`flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg text-sm ${
                         isActive
                           ? "bg-gold-500/10 text-gold-500 border-l-2 border-gold-500"
                           : "text-gray-400 hover:text-ivory hover:bg-white/5"
