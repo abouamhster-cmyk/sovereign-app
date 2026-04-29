@@ -180,6 +180,24 @@ export async function exportFinancialToPDF(spending: any[], revenue: any[]) {
   doc.save(`finances-${new Date().toISOString().split('T')[0]}.pdf`);
 }
 
+
+
+// Export des victoires
+export async function exportWinsToPDF(wins: any[]) {
+  exportToPDFStructured(
+    "🏆 Rapport des victoires",
+    wins,
+    [
+      { header: "Victoire", accessor: "title" },
+      { header: "Catégorie", accessor: "category" },
+      { header: "Date", accessor: "date" },
+      { header: "Notes", accessor: "notes" },
+    ],
+    `victoires-${new Date().toISOString().split('T')[0]}`,
+    `Total : ${wins.length} victoires célébrées`
+  );
+}
+
 // Garder l'ancienne fonction pour la compatibilité (export image)
 export async function exportToPDF(elementId: string, filename: string) {
   // Fallback : export image pour les pages qui n'ont pas encore migré
