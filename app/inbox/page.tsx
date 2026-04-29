@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import VoiceInput from "@/components/VoiceInput";
 import { supabase } from "@/lib/supabase";
@@ -8,9 +8,11 @@ import {
   Inbox, Send, Sparkles, Trash2, CheckCircle, 
   Clock, AlertCircle, Lightbulb, Heart, DollarSign,
   Briefcase, FileText, Globe, Sprout, User, X,
-  Loader2, Filter
+  Loader2, Filter, Mic, Paperclip, XCircle
 } from "lucide-react";
 import { toast } from "sonner";
+import { useDropzone } from "react-dropzone";
+import SpeechRecognition, { useSpeechRecognition } from "react-speech-recognition";
 
 type InboxItem = {
   id: string;
@@ -55,31 +57,112 @@ export default function InboxPage() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [filter, setFilter] = useState<string>("all");
   const [selectedType, setSelectedType] = useState<string>("all");
+  
+  // États pour les fichiers
+  const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
+  const [isUploading, setIsUploading] = useState(false);
+  
+  // États pour le micro intégré
+  const [isRecording, setIsRecording] = useState(false);
+  const [isVoiceLocked, setIsVoiceLocked] = useState(false);
+  const [pressTimer, setPressTimer] = useState<NodeJS.Timeout | null>(null);
+  const [pressStartTime, setPressStartTime] = useState(0);
+  const [isSending, setIsSending] = useState(false);
+  
+  const inputRef = useRef<HTMLTextAreaElement>(null);
+
+  // Speech recognition
+  const {
+    transcript,
+    resetTranscript,
+    browserSupportsSpeechRecognition
+  } = useSpeechRecognition();
+
+  // Mettre à jour l'input quand le transcript change
+  useEffect(() => {
+    if (transcript) {
+      setInput(prev => prev + " " + transcript);
+      resetTranscript();
+    }
+  }, [transcript, resetTranscript]);
+
+  // Nettoyer le timer au démontage
+  useEffect(() => {
+    return () => {
+      if (pressTimer) clearTimeout(pressTimer);
+    };
+  }, [pressTimer]);
+
+  // Dropzone pour les fichiers
+  const onDrop = (acceptedFiles: File[]) => {
+    setUploadedFiles(prev => [...prev, ...acceptedFiles]);
+  };
+
+  const { getRootProps, getInputProps, isDragActive } = useDropzone({
+    onDrop,
+    accept: {
+      'image/*': ['.png', '.jpg', '.jpeg', '.gif', '.webp'],
+      'application/pdf': ['.pdf'],
+      'text/plain': ['.txt'],
+    },
+    maxSize: 10 * 1024 * 1024
+  });
+
+  const removeFile = (index: number) => {
+    setUploadedFiles(prev => prev.filter((_, i) => i !== index));
+  };
+
+  async function uploadFilesToStorage() {
+    if (uploadedFiles.length === 0) return [];
+    
+    const uploaded = [];
+    for (const file of uploadedFiles) {
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
+      const filePath = `inbox/${fileName}`;
+      
+      const { error: uploadError } = await supabase.storage
+        .from('chat-files')
+        .upload(filePath, file);
+      
+      if (!uploadError) {
+        const { data: { publicUrl } } = supabase.storage
+          .from('chat-files')
+          .getPublicUrl(filePath);
+        
+        uploaded.push({
+          name: file.name,
+          url: publicUrl,
+          type: file.type
+        });
+      }
+    }
+    return uploaded;
+  }
 
   const scrollToForm = () => {
-  setTimeout(() => {
-    const formElement = document.getElementById('form-container');
-    if (formElement) {
-      formElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }
-  }, 150);
-};
-
-useEffect(() => {
-  fetchItems();
-  
-  const channel = supabase
-    .channel('inbox_changes')
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'inbox' }, () => fetchItems())
-    .subscribe();
-  
-  return () => {
-    // Ne pas retourner la Promise directement
-    if (channel) {
-      channel.unsubscribe();
-    }
+    setTimeout(() => {
+      const formElement = document.getElementById('form-container');
+      if (formElement) {
+        formElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    }, 150);
   };
-}, []); 
+
+  useEffect(() => {
+    fetchItems();
+    
+    const channel = supabase
+      .channel('inbox_changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'inbox' }, () => fetchItems())
+      .subscribe();
+    
+    return () => {
+      if (channel) {
+        channel.unsubscribe();
+      }
+    };
+  }, []); 
 
   async function fetchItems() {
     setIsLoading(true);
@@ -91,7 +174,7 @@ useEffect(() => {
     setIsLoading(false);
   }
 
-  // === NOUVELLE FONCTION : CLASSIFICATION AUTOMATIQUE ===
+  // === FONCTION : CLASSIFICATION AUTOMATIQUE ===
   async function processNewItemAutomatically(itemId: string, content: string) {
     try {
       const response = await fetch("https://sovereign-bridge.onrender.com/chat", {
@@ -110,7 +193,6 @@ useEffect(() => {
       const data = await response.json();
       let classification;
       try {
-        // Nettoyer la réponse pour extraire le JSON
         const jsonMatch = data.reply.match(/\{[\s\S]*\}/);
         if (jsonMatch) {
           classification = JSON.parse(jsonMatch[0]);
@@ -121,7 +203,6 @@ useEffect(() => {
         classification = { type: "note", area: "life", urgency: "medium" };
       }
       
-      // Mettre à jour l'item avec la classification
       await supabase
         .from("inbox")
         .update({ 
@@ -133,12 +214,10 @@ useEffect(() => {
         })
         .eq("id", itemId);
       
-      // Si c'est une tâche, créer automatiquement une tâche
       if (classification.type === "task") {
         await supabase.from("tasks").insert({
           title: content.length > 100 ? content.substring(0, 100) : content,
           status: "today",
-          area: classification.area || "life",
           created_at: new Date().toISOString()
         });
         toast.success("✅ Tâche créée automatiquement");
@@ -150,14 +229,32 @@ useEffect(() => {
     }
   }
 
-  // === FONCTION AJOUT MODIFIÉE ===
+  // === FONCTION AJOUT MODIFIÉE AVEC FICHIERS ===
   async function addItem() {
-    if (!input.trim()) return;
+    if ((!input.trim() && uploadedFiles.length === 0) || isSending) return;
+    
+    setIsSending(true);
+    setIsUploading(true);
+    const uploadedFilesData = await uploadFilesToStorage();
+    setIsUploading(false);
+    
+    let content = input.trim() || "📎 Fichier(s) joint(s)";
+    
+    const imageFiles = uploadedFilesData.filter(f => f.type.startsWith('image/'));
+    const otherFiles = uploadedFilesData.filter(f => !f.type.startsWith('image/'));
+    
+    if (imageFiles.length > 0) {
+      content += "\n\n" + imageFiles.map(f => f.url).join("\n\n");
+    }
+    
+    if (otherFiles.length > 0) {
+      content += "\n\n📎 Fichiers joints:\n" + otherFiles.map(f => `- **${f.name}** : ${f.url}`).join("\n");
+    }
     
     const { data, error } = await supabase
       .from("inbox")
       .insert({
-        content: input,
+        content: content,
         type: "note",
         area: "life",
         urgency: "medium",
@@ -168,20 +265,78 @@ useEffect(() => {
     if (!error && data && data[0]) {
       const newItem = data[0];
       setInput("");
+      setUploadedFiles([]);
       fetchItems();
       
-      // Traitement automatique en arrière-plan
       toast.info("🤖 Classification en cours...");
-      processNewItemAutomatically(newItem.id, input);
+      processNewItemAutomatically(newItem.id, content);
     } else if (error) {
       toast.error("Erreur: " + error.message);
     }
+    setIsSending(false);
   }
 
   async function deleteItem(id: string) {
     const { error } = await supabase.from("inbox").delete().eq("id", id);
     if (!error) fetchItems();
   }
+
+  // === GESTION DU MICRO INTÉGRÉ ===
+  const startVoiceRecording = () => {
+    resetTranscript();
+    SpeechRecognition.startListening({ continuous: true, language: 'fr-FR' });
+    setIsRecording(true);
+  };
+
+  const stopVoiceRecording = () => {
+    SpeechRecognition.stopListening();
+    setIsRecording(false);
+  };
+
+  const handleSendButtonMouseDown = () => {
+    setPressStartTime(Date.now());
+    
+    const timer = setTimeout(() => {
+      const pressDuration = Date.now() - pressStartTime;
+      
+      if (pressDuration >= 3000 && pressDuration < 10000) {
+        startVoiceRecording();
+      } else if (pressDuration >= 10000) {
+        startVoiceRecording();
+        setIsVoiceLocked(true);
+      }
+    }, 3000);
+    
+    setPressTimer(timer);
+  };
+
+  const handleSendButtonMouseUp = () => {
+    const pressDuration = Date.now() - pressStartTime;
+    
+    if (pressTimer) {
+      clearTimeout(pressTimer);
+      setPressTimer(null);
+    }
+    
+    if (pressDuration < 3000) {
+      if (isVoiceLocked) {
+        setIsVoiceLocked(false);
+        stopVoiceRecording();
+      }
+      addItem();
+    } else if (pressDuration >= 3000 && pressDuration < 10000) {
+      stopVoiceRecording();
+      inputRef.current?.focus();
+    }
+  };
+
+  const stopVoiceLock = () => {
+    if (isVoiceLocked) {
+      setIsVoiceLocked(false);
+      stopVoiceRecording();
+      inputRef.current?.focus();
+    }
+  };
 
   const filteredItems = items.filter(item => {
     if (filter !== "all" && item.area !== filter) return false;
@@ -221,44 +376,102 @@ useEffect(() => {
         </div>
       </div>
 
-      {/* INPUT */}
+      {/* INPUT AVEC BOUTON JOINDURE ET MICRO */}
       <div className="mb-8">
-        <div className="relative flex items-center gap-2">
+        {/* Fichiers en attente */}
+        {uploadedFiles.length > 0 && (
+          <div className="flex flex-wrap gap-2 mb-2">
+            {uploadedFiles.map((file, idx) => (
+              <div key={idx} className="flex items-center gap-2 bg-white/10 rounded-full px-3 py-1 text-xs">
+                {file.type.startsWith('image/') ? '🖼️' : '📄'}
+                <span className="truncate max-w-[100px]">{file.name}</span>
+                <button onClick={() => removeFile(idx)} className="text-gray-400 hover:text-red-400">
+                  <XCircle className="w-3 h-3" />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+        
+        {/* Indicateur d'enregistrement vocal */}
+        {(isRecording || isVoiceLocked) && (
+          <div className="text-center text-xs text-red-400 animate-pulse mb-2">
+            {isVoiceLocked ? "🔒 Enregistrement vocal en cours... recliquez pour arrêter" : "🎤 Parlez... relâchez pour arrêter (texte modifiable)"}
+          </div>
+        )}
+        
+        <div className="flex items-center gap-2">
+          {/* Bouton Paperclip */}
+          <button
+            onClick={() => document.getElementById('file-upload-input')?.click()}
+            className="p-2 rounded-full bg-white/10 text-gray-400 hover:bg-white/20 transition-colors flex-shrink-0"
+            title="Joindre un fichier"
+          >
+            <Paperclip className="w-5 h-5" />
+          </button>
+          
+          <input
+            id="file-upload-input"
+            type="file"
+            {...getInputProps()}
+            className="hidden"
+            onChange={(e) => {
+              if (e.target.files) {
+                onDrop(Array.from(e.target.files));
+              }
+            }}
+          />
+          
+          {/* Champ de saisie */}
           <textarea
+            ref={inputRef}
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            placeholder="Écris tout ce qui te traverse l'esprit... (tâches, idées, stress, opportunités, questions)"
-            className="flex-1 bg-white/10 border border-white/20 rounded-2xl px-5 py-4 text-sm focus:outline-none focus:border-gold-500 transition-all text-ivory placeholder:text-gray-500 resize-none"
+            placeholder={isRecording || isVoiceLocked ? "🎤 Enregistrement vocal..." : "Écris tout ce qui te traverse l'esprit... (tâches, idées, stress, opportunités, questions)"}
+            className="flex-1 bg-white/10 border border-white/20 rounded-2xl px-4 py-3 text-sm focus:outline-none focus:border-gold-500 transition-all text-ivory placeholder:text-gray-500 resize-none"
             rows={3}
             onKeyDown={(e) => {
-              if (e.key === "Enter" && !e.shiftKey) {
+              if (e.key === "Enter" && !e.shiftKey && !isRecording && !isVoiceLocked) {
                 e.preventDefault();
                 addItem();
               }
             }}
           />
-            <div className="relative">
-              <textarea
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                placeholder="Écris tes pensées ici..."
-                className="w-full bg-white/10 border border-white/20 rounded-xl px-4 py-3 focus:outline-none focus:border-gold-500 text-ivory"
-                rows={3}
-              />
-              <VoiceInput 
-                onTranscript={(text) => setInput(prev => prev + " " + text)}
-                buttonClassName="absolute bottom-3 right-3"
-              />
-            </div>
+          
+          {/* Bouton Envoyer / Micro intégré */}
           <button
-            onClick={addItem}
-            disabled={!input.trim()}
-            className="absolute right-4 bottom-4 p-2 bg-gold-500 rounded-full text-midnight hover:scale-105 transition-transform disabled:opacity-50 disabled:hover:scale-100"
+            onMouseDown={handleSendButtonMouseDown}
+            onMouseUp={handleSendButtonMouseUp}
+            onMouseLeave={() => {
+              if (isRecording && !isVoiceLocked) {
+                stopVoiceRecording();
+              }
+            }}
+            onTouchStart={handleSendButtonMouseDown}
+            onTouchEnd={handleSendButtonMouseUp}
+            onClick={() => {
+              if (isVoiceLocked) {
+                stopVoiceLock();
+              }
+            }}
+            disabled={(!input.trim() && uploadedFiles.length === 0 && !isRecording && !isVoiceLocked) || isSending}
+            className={`p-2 rounded-full transition-all flex-shrink-0 ${
+              isRecording || isVoiceLocked
+                ? "bg-red-500 text-white animate-pulse"
+                : "bg-gold-500 text-midnight hover:scale-105"
+            } disabled:opacity-50 disabled:hover:scale-100`}
+            title={isRecording || isVoiceLocked ? "Enregistrement vocal (recliquez pour arrêter)" : "Envoyer (appui long pour dicter)"}
           >
-            <Send className="w-4 h-4" />
+            {isSending ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : isRecording || isVoiceLocked ? (
+              <Mic className="w-5 h-5" />
+            ) : (
+              <Send className="w-5 h-5" />
+            )}
           </button>
         </div>
-        <p className="text-xs text-gray-600 mt-2">💡 Appuie sur Entrée pour envoyer, Shift+Entrée pour retour à la ligne</p>
+        <p className="text-xs text-gray-600 mt-2">💡 Appuie sur Entrée pour envoyer, Shift+Entrée pour retour à la ligne | Appui long sur le bouton pour dicter</p>
       </div>
 
       {/* FILTRES */}
@@ -288,9 +501,9 @@ useEffect(() => {
 
       {/* LISTE DES ENTREES */}
       <div className="space-y-3">
-          {isLoading ? (
-            <LoadingSpinner />
-          ) : filteredItems.length === 0 ? (
+        {isLoading ? (
+          <LoadingSpinner />
+        ) : filteredItems.length === 0 ? (
           <div className="text-center py-12 text-gray-500">
             <Inbox className="w-12 h-12 mx-auto mb-4 opacity-30" />
             <p>Ton inbox est vide</p>
