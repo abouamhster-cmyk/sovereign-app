@@ -466,8 +466,8 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
       </aside>
 
       {/* Main Content Desktop */}
-      <main className="flex-1 overflow-y-auto pt-20 lg:pt-0">
-        <div className="w-full px-3 md:px-5 py-4 md:py-6">
+      <main className="flex-1 overflow-y-auto">
+        <div className="w-full px-3 md:px-5 pt-6 pb-6 md:pt-8 md:pb-8">
           {children}
           <InstallBanner />
         </div>
