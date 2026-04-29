@@ -37,6 +37,7 @@ export default function ChatPage() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [isSending, setIsSending] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
@@ -281,8 +282,8 @@ export default function ChatPage() {
   }
 
   const sendMessage = async () => {
-    if ((!input.trim() && uploadedFiles.length === 0) || isLoading || !currentConversationId) return;
-    
+    if (isSending || (!input.trim() && uploadedFiles.length === 0) || isLoading || !currentConversationId) return;
+  
     setIsUploading(true);
     const uploadedFilesData = await uploadFilesToStorage();
     setIsUploading(false);
@@ -345,7 +346,8 @@ export default function ChatPage() {
       await saveMessage(currentConversationId, "assistant", errorMessage);
     } finally {
       setIsLoading(false);
-    }
+      setIsSending(false);
+    } 
   };
 
   const startVoiceRecording = () => {
@@ -667,7 +669,7 @@ export default function ChatPage() {
                 stopVoiceLock();
               }
             }}
-            disabled={(!input.trim() && uploadedFiles.length === 0 && !isRecording && !isVoiceLocked) || isLoading}
+            disabled={(!input.trim() && uploadedFiles.length === 0 && !isRecording && !isVoiceLocked) || isLoading || isSending}
             className={`p-2 rounded-full transition-all flex-shrink-0 ${
               isRecording || isVoiceLocked
                 ? "bg-red-500 text-white animate-pulse"
@@ -675,7 +677,9 @@ export default function ChatPage() {
             } disabled:opacity-50 disabled:hover:scale-100`}
             title={isRecording || isVoiceLocked ? "Enregistrement vocal (recliquez pour arrêter)" : "Envoyer (appui long pour dicter)"}
           >
-            {isRecording || isVoiceLocked ? (
+            {isSending ? (
+              <Loader2 className="w-5 h-5 animate-spin" />
+            ) : isRecording || isVoiceLocked ? (
               <Mic className="w-5 h-5" />
             ) : (
               <Send className="w-5 h-5" />
