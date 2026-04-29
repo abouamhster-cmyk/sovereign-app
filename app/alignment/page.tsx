@@ -92,7 +92,7 @@ export default function AlignmentPage() {
   };
 
   return (
-    <div className="p-8 lg:p-12 h-full flex flex-col overflow-y-auto bg-midnight">
+    <div className="h-full flex flex-col overflow-y-auto bg-midnight">
       {/* Le reste du JSX reste identique */}
       <header className="mb-10">
         <div className="flex justify-between items-start">
