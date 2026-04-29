@@ -348,7 +348,7 @@ export default function DashboardPage() {
   };
   
   return (
-    <div className="p-6 lg:p-8 h-full flex flex-col overflow-y-auto bg-midnight">
+    <div className="h-full flex flex-col overflow-y-auto bg-midnight">
       
       {/* HEADER */}
       <div className="flex justify-between items-start mb-8">
