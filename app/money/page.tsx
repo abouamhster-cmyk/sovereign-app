@@ -8,7 +8,7 @@ import {
   X, Check, Calendar, FolderOpen, Tag, Loader2, RefreshCw,
   Download
 } from "lucide-react";
-import { exportToPDF } from "@/lib/exportPDF";
+import { exportFinancialToPDF } from "@/lib/exportPDF";
 import { Chart as ChartJS, ArcElement, Tooltip, Legend, CategoryScale, LinearScale, BarElement, Title } from 'chart.js';
 import { Bar, Pie } from 'react-chartjs-2';
 
@@ -300,9 +300,9 @@ export default function MoneyPage() {
           </div>
           {/* BOUTON EXPORT PDF */}
           <button
-            onClick={() => exportToPDF("money-report", `rapport-financier-${new Date().toISOString().split('T')[0]}`)}
+            onClick={() => exportFinancialToPDF(spending, revenue)}
             className="p-2 bg-white/10 rounded-full hover:bg-white/20 transition-colors"
-            title="Exporter en PDF"
+            title="Exporter les finances en PDF"
           >
             <Download className="w-5 h-5 text-gold-500" />
           </button>
@@ -318,7 +318,7 @@ export default function MoneyPage() {
       </div>
 
       {/* ZONE À EXPORTER */}
-      <div id="money-report">
+      <div>
         {/* FILTRES */}
         <div className="flex flex-wrap gap-3 mb-6">
           <select
