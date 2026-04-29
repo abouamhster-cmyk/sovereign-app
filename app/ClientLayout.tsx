@@ -57,11 +57,21 @@ const DEFAULT_OPEN_GROUPS: Record<string, boolean> = {
   alignment: true
 };
 
-// Composant d'invite d'installation PWA - Version améliorée
+
+
+
+
+// Composant d'invite d'installation PWA - UNIQUEMENT SUR MOBILE
 function InstallButton() {
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [isVisible, setIsVisible] = useState(false);
   const [isInstalled, setIsInstalled] = useState(true);
+  
+  // Détecter si on est sur mobile
+  const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
+  
+  // NE RIEN AFFICHER SUR ORDINATEUR
+  if (!isMobile) return null;
 
   useEffect(() => {
     const checkInstalled = () => {
@@ -146,11 +156,17 @@ function InstallButton() {
   );
 }
 
-// Bannière d'installation en bas (mobile)
+// Bannière d'installation en bas - UNIQUEMENT SUR MOBILE
 function InstallBanner() {
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [showPrompt, setShowPrompt] = useState(false);
   const [isInstalled, setIsInstalled] = useState(true);
+  
+  // Détecter si on est sur mobile
+  const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
+  
+  // NE RIEN AFFICHER SUR ORDINATEUR
+  if (!isMobile) return null;
 
   useEffect(() => {
     const isStandalone = window.matchMedia('(display-mode: standalone)').matches;
@@ -238,6 +254,7 @@ function InstallBanner() {
     </div>
   );
 }
+
 
 export default function ClientLayout({ children }: { children: React.ReactNode }) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
