@@ -189,7 +189,7 @@ useEffect(() => {
   const upcomingEvents = filteredEvents.filter(e => e.date && e.date >= today && e.status !== "done").slice(0, 5);
 
   return (
-    <div className="p-6 lg:p-10 h-full flex flex-col overflow-y-auto bg-midnight">
+    <div className="h-full flex flex-col overflow-y-auto bg-midnight">
       {/* HEADER */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
         <div>
