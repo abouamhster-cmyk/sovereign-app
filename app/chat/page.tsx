@@ -173,6 +173,19 @@ export default function ChatPage() {
     return uploaded;
   }
 
+
+  function formatFileUrl(url: string, fileName?: string): string {
+  // Extraire juste le nom du fichier pour l'affichage
+  if (fileName) return fileName;
+  const parts = url.split('/');
+  const lastPart = parts[parts.length - 1];
+  // Si c'est un hash, prendre les 8 derniers caractères
+  if (lastPart.length > 20) {
+    return `...${lastPart.slice(-15)}`;
+  }
+  return lastPart;
+}
+  
   async function fetchConversations() {
     const { data } = await supabase
       .from("conversations")
@@ -291,13 +304,16 @@ export default function ChatPage() {
     let userMessageContent = input.trim() || "📎 Fichier(s) joint(s)";
     
     const imageFiles = uploadedFilesData.filter(f => f.type.startsWith('image/'));
+    const otherFiles = uploadedFilesData.filter(f => !f.type.startsWith('image/'));
+    
     if (imageFiles.length > 0) {
-      userMessageContent += "\n\n📸 Images jointes:\n" + imageFiles.map(f => f.url).join("\n");
+      // Format spécial pour les images : on met juste les URLs sur des lignes séparées
+      // pour que le markdown les capte
+      userMessageContent += "\n\n" + imageFiles.map(f => f.url).join("\n\n");
     }
     
-    const otherFiles = uploadedFilesData.filter(f => !f.type.startsWith('image/'));
     if (otherFiles.length > 0) {
-      userMessageContent += "\n\n📎 Autres fichiers:\n" + otherFiles.map(f => `- ${f.name}: ${f.url}`).join("\n");
+      userMessageContent += "\n\n📎 Fichiers joints:\n" + otherFiles.map(f => `- **${f.name}** : ${f.url}`).join("\n");
     }
     
     const userMessage: Message = { 
@@ -548,9 +564,19 @@ export default function ChatPage() {
                   img: ({ node, ...props }) => (
                     <img {...props} className="rounded-xl max-w-full max-h-96 object-contain my-2 border border-white/10" loading="lazy" />
                   ),
-                  a: ({ node, ...props }) => (
-                    <a {...props} className="text-gold-500 hover:underline" target="_blank" rel="noopener noreferrer" />
-                  ),
+                  a: ({ node, href, children, ...props }) => {
+                    // Vérifier si le lien pointe vers une image
+                    const isImage = href?.match(/\.(jpg|jpeg|png|gif|webp)$/i);
+                    if (isImage) {
+                      return <img src={href} alt={String(children)} className="rounded-xl max-w-full max-h-96 object-contain my-2 border border-white/10" loading="lazy" />;
+                    }
+                    // Sinon, lien normal
+                    return (
+                      <a href={href} target="_blank" rel="noopener noreferrer" className="text-gold-500 hover:underline" {...props}>
+                        {children}
+                      </a>
+                    );
+                  },
                   p: ({ node, ...props }) => (
                     <p className="mb-2 last:mb-0" {...props} />
                   ),
