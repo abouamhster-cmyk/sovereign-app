@@ -448,7 +448,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
           {isChatPage ? (
             children
           ) : (
-            <div className="w-full px-3 md:px-5 pt-6 pb-6 md:pt-8 md:pb-8">
+                <div className="w-full px-3 md:px-5 pt-6 pb-12 md:pt-8 md:pb-16">
               {children}
               <InstallBanner />
             </div>
@@ -467,12 +467,11 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
       </aside>
 
       {/* Main Content Desktop */}
-        {/* Main Content - pas de padding sur le chat */}
         <main className={isChatPage ? "h-screen" : "h-[calc(100vh-48px)] overflow-y-auto"}>
           {isChatPage ? (
             children
           ) : (
-            <div className="w-full px-3 md:px-5 pt-6 pb-6 md:pt-8 md:pb-8">
+              <div className="w-full px-3 md:px-5 pt-6 pb-12 md:pt-8 md:pb-16">
               {children}
               <InstallBanner />
             </div>
