@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { Bell, BellRing, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
-const VAPID_PUBLIC_KEY = "BDUcDcYzvCTHHOFrTWxHDL9627woyJeAzKqQ8AQ2cDLOH8LJF82oJTfOP75RGlfx_izAOEMeuombR6Tv-2fYuJE";
+const VAPID_PUBLIC_KEY = "BBBlTgNIZqh8TWsKy73wptSd69jogrECwImktCKW3YbWeQgDkSwhvmsbhxr2mo57fJt_rhrgddIwQfgj3p9_0C0";
 
 function urlBase64ToUint8Array(base64String: string) {
   const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
