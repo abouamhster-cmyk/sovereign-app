@@ -469,7 +469,7 @@ export default function FarmPage() {
   };
 
   return (
-    <div className="p-6 lg:p-10 h-full flex flex-col overflow-y-auto bg-midnight">
+    <div className="h-full flex flex-col overflow-y-auto bg-midnight">
       {/* HEADER AVEC BOUTON EXPORT */}
       <div className="flex justify-between items-center mb-8">
         <div>
