@@ -411,12 +411,6 @@ export default function ChatPage() {
     }
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !e.shiftKey && !isRecording && !isVoiceLocked && !isSending) {
-      e.preventDefault();
-      sendMessage();
-    }
-  };
 
   return (
     <div className="fixed inset-0 bg-midnight flex flex-col">
