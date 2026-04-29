@@ -206,8 +206,7 @@ export async function exportToPDF(elementId: string, filename: string) {
   try {
     const html2canvas = (await import("html2canvas")).default;
     const imgData = await html2canvas(element, {
-      quality: 1,
-      pixelRatio: 2,
+      scale: 2,           // remplace pixelRatio
       backgroundColor: "#0A0A0B"
     });
     
