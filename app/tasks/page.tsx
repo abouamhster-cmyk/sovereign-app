@@ -185,7 +185,7 @@ function editTask(task: Task) {
             onClick={() => { 
               setShowForm(true); 
               setEditingId(null);
-              scrollToForm(); // ← AJOUTE CETTE LIGNE
+              scrollToForm();
             }}
             className="bg-gold-500 text-midnight px-5 py-2 rounded-full text-sm font-medium flex items-center gap-2 hover:bg-gold-400 transition-colors"
           >
@@ -302,35 +302,38 @@ function editTask(task: Task) {
         )}
       </AnimatePresence>
 
-      {/* LISTE DES TÂCHES */}
+      {/* LISTE DES TÂCHES - CORRIGÉE AVEC FALLBACK */}
       <div className="space-y-3">
-          {isLoading ? (
-            <LoadingSpinner />
-          ) : filteredTasks.length === 0 ? (
+        {isLoading ? (
+          <LoadingSpinner />
+        ) : filteredTasks.length === 0 ? (
           <div className="text-center py-12 text-gray-500">Aucune tâche</div>
         ) : (
           filteredTasks.map((task) => {
-            const StatusIcon = statusConfig[task.status].icon;
-            const PriorityIcon = priorityConfig[task.priority].icon;
+            // Fallback pour éviter les erreurs si status ou priority est invalide
+            const statusConf = statusConfig[task.status as keyof typeof statusConfig] || statusConfig.not_started;
+            const priorityConf = priorityConfig[task.priority as keyof typeof priorityConfig] || priorityConfig.normal;
+            const StatusIcon = statusConf.icon;
+            const PriorityIcon = priorityConf.icon;
             
             return (
               <motion.div
                 key={task.id}
                 initial={{ opacity: 0, x: -20 }}
                 animate={{ opacity: 1, x: 0 }}
-                className={`bg-white/5 border-l-4 ${statusConfig[task.status].border} rounded-xl p-4 hover:bg-white/10 transition-colors`}
+                className={`bg-white/5 border-l-4 ${statusConf.border} rounded-xl p-4 hover:bg-white/10 transition-colors`}
               >
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
                     <div className="flex items-center gap-3 flex-wrap mb-2">
                       <h3 className="text-ivory font-medium">{task.title}</h3>
-                      <span className={`text-xs px-2 py-0.5 rounded-full ${priorityConfig[task.priority].color}`}>
+                      <span className={`text-xs px-2 py-0.5 rounded-full ${priorityConf.color}`}>
                         <PriorityIcon className="w-3 h-3 inline mr-1" />
-                        {priorityConfig[task.priority].label}
+                        {priorityConf.label}
                       </span>
-                      <span className={`text-xs px-2 py-0.5 rounded-full ${statusConfig[task.status].color}`}>
+                      <span className={`text-xs px-2 py-0.5 rounded-full ${statusConf.color}`}>
                         <StatusIcon className="w-3 h-3 inline mr-1" />
-                        {statusConfig[task.status].label}
+                        {statusConf.label}
                       </span>
                     </div>
                     <div className="flex flex-wrap gap-4 text-xs text-gray-500">
