@@ -9,7 +9,8 @@ import {
   Inbox, Send, Sparkles, Trash2, CheckCircle, 
   Clock, AlertCircle, Lightbulb, Heart, DollarSign,
   Briefcase, FileText, Globe, Sprout, User, X,
-  Loader2, Filter, Mic, Paperclip, XCircle
+  Loader2, Filter, Mic, Paperclip, XCircle, TrendingUp,
+  BarChart3, Brain, Target, Zap
 } from "lucide-react";
 import { toast } from "sonner";
 import { useDropzone } from "react-dropzone";
@@ -51,13 +52,278 @@ const areaConfig = {
   self: { icon: User, label: "Personnel", color: "bg-indigo-500/20 text-indigo-400" }
 };
 
+// ============================================
+// COMPOSANT D'ANALYSE EN TEMPS RÉEL
+// ============================================
+function RealtimeAnalysis({ text }: { text: string }) {
+  const [analysis, setAnalysis] = useState<any>(null);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (text.length < 20) {
+      setAnalysis(null);
+      return;
+    }
+
+    const timer = setTimeout(async () => {
+      setLoading(true);
+      try {
+        const response = await fetch("https://sovereign-bridge.onrender.com/chat", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            messages: [{
+              role: "user",
+              content: `Analyse ce texte en français. Retourne UNIQUEMENT du JSON valide sans aucun autre texte:
+              {
+                "type": "task|idea|question|worry|note",
+                "emotion": "positif|negatif|stress|neutre",
+                "suggested_action": "courte action (max 40 caractères)",
+                "priority": "high|medium|low"
+              }
+              Texte: "${text.substring(0, 300)}"`
+            }]
+          })
+        });
+        const data = await response.json();
+        const jsonMatch = data.reply.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          setAnalysis(JSON.parse(jsonMatch[0]));
+        }
+      } catch (error) {
+        console.error("Erreur analyse:", error);
+      } finally {
+        setLoading(false);
+      }
+    }, 1000);
+
+    return () => clearTimeout(timer);
+  }, [text]);
+
+  if (!analysis) return null;
+
+  const getTypeEmoji = (type: string) => {
+    switch(type) {
+      case "task": return "📋";
+      case "idea": return "💡";
+      case "question": return "❓";
+      case "worry": return "😟";
+      default: return "📝";
+    }
+  };
+
+  const getEmotionEmoji = (emotion: string) => {
+    switch(emotion) {
+      case "positif": return "😊";
+      case "negatif": return "😔";
+      case "stress": return "😰";
+      default: return "😐";
+    }
+  };
+
+  return (
+    <motion.div 
+      initial={{ opacity: 0, y: -10 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="mt-2 p-3 bg-gradient-to-r from-gold-500/10 to-transparent border border-gold-500/20 rounded-xl"
+    >
+      <div className="flex items-center gap-2 mb-2">
+        <Brain className="w-3 h-3 text-gold-500" />
+        <span className="text-[10px] text-gold-500 uppercase tracking-wider">Analyse en temps réel</span>
+      </div>
+      <div className="flex items-center gap-3 text-xs flex-wrap">
+        <span className="px-2 py-1 rounded-full bg-white/10">
+          {getTypeEmoji(analysis.type)} {analysis.type || "note"}
+        </span>
+        <span className="px-2 py-1 rounded-full bg-white/10">
+          {getEmotionEmoji(analysis.emotion)} {analysis.emotion || "neutre"}
+        </span>
+        {analysis.priority === "high" && (
+          <span className="px-2 py-1 rounded-full bg-red-500/20 text-red-400">⚠️ Prioritaire</span>
+        )}
+        <span className="text-gold-400">💡 {analysis.suggested_action || "À traiter"}</span>
+      </div>
+    </motion.div>
+  );
+}
+
+// ============================================
+// COMPOSANT INSIGHTS (STATISTIQUES)
+// ============================================
+function Insights({ items }: { items: InboxItem[] }) {
+  const weekAgo = new Date();
+  weekAgo.setDate(weekAgo.getDate() - 7);
+  
+  const recentItems = items.filter(i => new Date(i.created_at) > weekAgo);
+  
+  const typeCount = recentItems.reduce((acc, i) => {
+    acc[i.type] = (acc[i.type] || 0) + 1;
+    return acc;
+  }, {} as Record<string, number>);
+  
+  const areaCount = recentItems.reduce((acc, i) => {
+    acc[i.area] = (acc[i.area] || 0) + 1;
+    return acc;
+  }, {} as Record<string, number>);
+  
+  const stressCount = recentItems.filter(i => i.type === "worry" || i.urgency === "high").length;
+  const stressPercent = recentItems.length > 0 ? Math.round((stressCount / recentItems.length) * 100) : 0;
+  
+  const topType = Object.entries(typeCount).sort((a,b) => b[1] - a[1])[0];
+  const topArea = Object.entries(areaCount).sort((a,b) => b[1] - a[1])[0];
+
+  return (
+    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
+      <div className="bg-white/5 rounded-xl p-3 text-center">
+        <div className="text-xl font-serif text-ivory">{recentItems.length}</div>
+        <div className="text-[10px] text-gray-500">Cette semaine</div>
+      </div>
+      <div className="bg-white/5 rounded-xl p-3 text-center">
+        <div className="text-xl font-serif text-gold-500">{topType ? topType[1] : 0}</div>
+        <div className="text-[10px] text-gray-500">{topType ? topType[0] : "Type"}</div>
+      </div>
+      <div className="bg-white/5 rounded-xl p-3 text-center">
+        <div className="text-xl font-serif text-blue-400">{topArea ? topArea[1] : 0}</div>
+        <div className="text-[10px] text-gray-500">{topArea ? topArea[0] : "Domaine"}</div>
+      </div>
+      <div className="bg-white/5 rounded-xl p-3 text-center">
+        <div className="text-xl font-serif text-red-400">{stressPercent}%</div>
+        <div className="text-[10px] text-gray-500">Stress perçu</div>
+      </div>
+    </div>
+  );
+}
+
+// ============================================
+// COMPOSANT SUGGESTIONS INTELLIGENTES
+// ============================================
+function SmartSuggestions({ items, onSuggestionClick }: { items: InboxItem[], onSuggestionClick: (text: string) => void }) {
+  const pendingCount = items.filter(i => i.needs_processing).length;
+  const highUrgencyCount = items.filter(i => i.urgency === "high" && i.needs_processing).length;
+  const worryCount = items.filter(i => i.type === "worry" && i.needs_processing).length;
+  
+  const suggestions = [];
+  
+  if (pendingCount >= 3) {
+    suggestions.push(`📋 Tu as ${pendingCount} éléments en attente. Veux-tu les traiter maintenant ?`);
+  }
+  if (highUrgencyCount > 0) {
+    suggestions.push(`⚠️ ${highUrgencyCount} élément(s) urgent(s) non traités. Priorise-les !`);
+  }
+  if (worryCount > 0) {
+    suggestions.push(`🌿 ${worryCount} source(s) de stress identifiée(s). Veux-tu les décomposer en petites actions ?`);
+  }
+  if (pendingCount === 0 && items.length > 0) {
+    suggestions.push(`🎉 Tu as tout traité ! Continue comme ça !`);
+  }
+  if (items.length === 0) {
+    suggestions.push(`✨ Commence par écrire ce qui te traverse l'esprit. Je m'occupe du classement.`);
+  }
+  
+  if (suggestions.length === 0) return null;
+  
+  return (
+    <div className="bg-gold-500/5 border border-gold-500/20 rounded-xl p-4 mb-6">
+      <div className="flex items-center gap-2 mb-3">
+        <Zap className="w-4 h-4 text-gold-500" />
+        <h3 className="text-sm font-serif text-gold-500">Suggestions Sovereign</h3>
+      </div>
+      <div className="space-y-2">
+        {suggestions.map((s, i) => (
+          <div key={i} className="text-xs text-gray-300 flex items-start gap-2 cursor-pointer hover:text-gold-400 transition-colors">
+            <span className="text-gold-500">→</span>
+            <span>{s}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ============================================
+// MODE FOCUS
+// ============================================
+function FocusMode({ onClose, onAdd }: { onClose: () => void, onAdd: (text: string) => void }) {
+  const [focusInput, setFocusInput] = useState("");
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  
+  useEffect(() => {
+    textareaRef.current?.focus();
+  }, []);
+  
+  const handleSubmit = () => {
+    if (focusInput.trim()) {
+      onAdd(focusInput);
+      setFocusInput("");
+    }
+  };
+  
+  return (
+    <motion.div 
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="fixed inset-0 bg-black/95 z-50 flex items-center justify-center p-4"
+    >
+      <div className="max-w-2xl w-full">
+        <div className="flex justify-between items-center mb-6">
+          <div className="flex items-center gap-2">
+            <Brain className="w-5 h-5 text-gold-500" />
+            <h2 className="text-xl font-serif text-gold-500">Mode Focus</h2>
+          </div>
+          <button onClick={onClose} className="p-2 text-gray-500 hover:text-white transition-colors">
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+        
+        <p className="text-sm text-gray-400 mb-4 italic">
+          "Vide ton esprit. Écris tout ce qui te passe par la tête sans filtre."
+        </p>
+        
+        <textarea
+          ref={textareaRef}
+          value={focusInput}
+          onChange={(e) => setFocusInput(e.target.value)}
+          placeholder="Ne réfléchis pas. Écris.
+          
+Je dois...
+Pourquoi...
+Et si...
+J'ai peur que...
+J'aimerais...
+Demain il faut...
+Pourquoi je n'arrive pas à..."
+          className="w-full h-80 bg-white/5 border border-white/10 rounded-2xl p-5 text-ivory placeholder:text-gray-600 resize-none focus:outline-none focus:border-gold-500 text-sm leading-relaxed"
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
+              e.preventDefault();
+              handleSubmit();
+            }
+          }}
+        />
+        
+        <div className="flex justify-between items-center mt-4">
+          <p className="text-xs text-gray-600">Ctrl/Cmd + Entrée pour envoyer</p>
+          <button
+            onClick={handleSubmit}
+            disabled={!focusInput.trim()}
+            className="px-6 py-2 bg-gold-500 text-midnight rounded-full font-medium text-sm hover:bg-gold-400 transition-colors disabled:opacity-50"
+          >
+            Libérer l'esprit ✨
+          </button>
+        </div>
+      </div>
+    </motion.div>
+  );
+}
+
 export default function InboxPage() {
   const [items, setItems] = useState<InboxItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [input, setInput] = useState("");
-  const [isProcessing, setIsProcessing] = useState(false);
   const [filter, setFilter] = useState<string>("all");
   const [selectedType, setSelectedType] = useState<string>("all");
+  const [showFocusMode, setShowFocusMode] = useState(false);
   
   // États pour les fichiers
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
@@ -99,7 +365,7 @@ export default function InboxPage() {
     setUploadedFiles(prev => [...prev, ...acceptedFiles]);
   };
 
-  const { getRootProps, getInputProps, isDragActive } = useDropzone({
+  const { getRootProps, getInputProps } = useDropzone({
     onDrop,
     accept: {
       'image/*': ['.png', '.jpg', '.jpeg', '.gif', '.webp'],
@@ -140,15 +406,6 @@ export default function InboxPage() {
     }
     return uploaded;
   }
-
-  const scrollToForm = () => {
-    setTimeout(() => {
-      const formElement = document.getElementById('form-container');
-      if (formElement) {
-        formElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      }
-    }, 150);
-  };
 
   useEffect(() => {
     fetchItems();
@@ -231,31 +488,32 @@ export default function InboxPage() {
   }
 
   // === FONCTION AJOUT MODIFIÉE AVEC FICHIERS ===
-  async function addItem() {
-    if ((!input.trim() && uploadedFiles.length === 0) || isSending) return;
+  async function addItem(content?: string) {
+    const finalContent = content || input.trim();
+    if ((!finalContent && uploadedFiles.length === 0) || isSending) return;
     
     setIsSending(true);
     setIsUploading(true);
     const uploadedFilesData = await uploadFilesToStorage();
     setIsUploading(false);
     
-    let content = input.trim() || "📎 Fichier(s) joint(s)";
+    let messageContent = finalContent || "📎 Fichier(s) joint(s)";
     
     const imageFiles = uploadedFilesData.filter(f => f.type.startsWith('image/'));
     const otherFiles = uploadedFilesData.filter(f => !f.type.startsWith('image/'));
     
     if (imageFiles.length > 0) {
-      content += "\n\n" + imageFiles.map(f => f.url).join("\n\n");
+      messageContent += "\n\n" + imageFiles.map(f => f.url).join("\n\n");
     }
     
     if (otherFiles.length > 0) {
-      content += "\n\n📎 Fichiers joints:\n" + otherFiles.map(f => `- **${f.name}** : ${f.url}`).join("\n");
+      messageContent += "\n\n📎 Fichiers joints:\n" + otherFiles.map(f => `- **${f.name}** : ${f.url}`).join("\n");
     }
     
     const { data, error } = await supabase
       .from("inbox")
       .insert({
-        content: content,
+        content: messageContent,
         type: "note",
         area: "life",
         urgency: "medium",
@@ -270,7 +528,7 @@ export default function InboxPage() {
       fetchItems();
       
       toast.info("🤖 Classification en cours...");
-      processNewItemAutomatically(newItem.id, content);
+      processNewItemAutomatically(newItem.id, messageContent);
     } else if (error) {
       toast.error("Erreur: " + error.message);
     }
@@ -354,32 +612,47 @@ export default function InboxPage() {
   return (
     <div className="p-8 lg:p-12 h-full flex flex-col overflow-y-auto bg-midnight">
       {/* HEADER */}
-      <div className="mb-8">
+      <div className="mb-6">
         <h1 className="text-4xl font-serif text-gold-500 tracking-tight">Brain Dump</h1>
         <p className="text-gray-500 mt-2 italic font-light">
           Vide tes pensées ici. L'IA les organisera automatiquement.
         </p>
       </div>
 
-      {/* STATS */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
-        <div className="bg-white/5 border border-white/10 rounded-2xl p-4 text-center">
-          <div className="text-2xl font-serif text-ivory">{stats.total}</div>
-          <div className="text-xs text-gray-500">Total entrées</div>
+      {/* MODE FOCUS BUTTON */}
+      <button
+        onClick={() => setShowFocusMode(true)}
+        className="mb-6 w-full py-3 bg-gradient-to-r from-gold-500/10 to-gold-500/5 border border-gold-500/20 rounded-xl text-gold-500 text-sm font-medium flex items-center justify-center gap-2 hover:bg-gold-500/20 transition-all group"
+      >
+        <Brain className="w-4 h-4 group-hover:scale-110 transition-transform" />
+        Mode Focus - Vider son esprit
+        <Sparkles className="w-3 h-3 opacity-60" />
+      </button>
+
+      {/* INSIGHTS */}
+      <Insights items={items} />
+
+      {/* SMART SUGGESTIONS */}
+      <SmartSuggestions items={items} onSuggestionClick={(text) => setInput(text)} />
+
+      {/* STATS CARD */}
+      <div className="grid grid-cols-3 gap-4 mb-6">
+        <div className="bg-white/5 border border-white/10 rounded-xl p-3 text-center">
+          <div className="text-xl font-serif text-ivory">{stats.total}</div>
+          <div className="text-[10px] text-gray-500">Total</div>
         </div>
-        <div className="bg-white/5 border border-white/10 rounded-2xl p-4 text-center">
-          <div className="text-2xl font-serif text-yellow-400">{stats.pending}</div>
-          <div className="text-xs text-gray-500">En traitement</div>
+        <div className="bg-white/5 border border-white/10 rounded-xl p-3 text-center">
+          <div className="text-xl font-serif text-yellow-400">{stats.pending}</div>
+          <div className="text-[10px] text-gray-500">En attente</div>
         </div>
-        <div className="bg-white/5 border border-white/10 rounded-2xl p-4 text-center">
-          <div className="text-2xl font-serif text-red-400">{stats.highUrgency}</div>
-          <div className="text-xs text-gray-500">Urgentes</div>
+        <div className="bg-white/5 border border-white/10 rounded-xl p-3 text-center">
+          <div className="text-xl font-serif text-red-400">{stats.highUrgency}</div>
+          <div className="text-[10px] text-gray-500">Urgent</div>
         </div>
       </div>
 
-      {/* INPUT AVEC BOUTON JOINDURE ET MICRO */}
-      <div className="mb-8">
-        {/* Fichiers en attente */}
+      {/* INPUT AVEC BOUTON PAPERCLIP ET MICRO */}
+      <div className="mb-6">
         {uploadedFiles.length > 0 && (
           <div className="flex flex-wrap gap-2 mb-2">
             {uploadedFiles.map((file, idx) => (
@@ -394,18 +667,16 @@ export default function InboxPage() {
           </div>
         )}
         
-        {/* Indicateur d'enregistrement vocal */}
         {(isRecording || isVoiceLocked) && (
           <div className="text-center text-xs text-red-400 animate-pulse mb-2">
-            {isVoiceLocked ? "🔒 Enregistrement vocal en cours... recliquez pour arrêter" : "🎤 Parlez... relâchez pour arrêter (texte modifiable)"}
+            {isVoiceLocked ? "🔒 Enregistrement vocal en cours... recliquez pour arrêter" : "🎤 Parlez... relâchez pour arrêter"}
           </div>
         )}
         
-        <div className="flex items-center gap-2">
-          {/* Bouton Paperclip */}
+        <div className="flex items-start gap-2">
           <button
             onClick={() => document.getElementById('file-upload-input')?.click()}
-            className="p-2 rounded-full bg-white/10 text-gray-400 hover:bg-white/20 transition-colors flex-shrink-0"
+            className="p-2 rounded-full bg-white/10 text-gray-400 hover:bg-white/20 transition-colors flex-shrink-0 mt-2"
             title="Joindre un fichier"
           >
             <Paperclip className="w-5 h-5" />
@@ -423,23 +694,24 @@ export default function InboxPage() {
             }}
           />
           
-          {/* Champ de saisie */}
-          <textarea
-            ref={inputRef}
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            placeholder={isRecording || isVoiceLocked ? "🎤 Enregistrement vocal..." : "Écris tout ce qui te traverse l'esprit... (tâches, idées, stress, opportunités, questions)"}
-            className="flex-1 bg-white/10 border border-white/20 rounded-2xl px-4 py-3 text-sm focus:outline-none focus:border-gold-500 transition-all text-ivory placeholder:text-gray-500 resize-none"
-            rows={3}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && !e.shiftKey && !isRecording && !isVoiceLocked) {
-                e.preventDefault();
-                addItem();
-              }
-            }}
-          />
+          <div className="flex-1">
+            <textarea
+              ref={inputRef}
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              placeholder={isRecording || isVoiceLocked ? "🎤 Enregistrement vocal..." : "Écris tout ce qui te traverse l'esprit... (tâches, idées, stress, opportunités, questions)"}
+              className="w-full bg-white/10 border border-white/20 rounded-2xl px-4 py-3 text-sm focus:outline-none focus:border-gold-500 transition-all text-ivory placeholder:text-gray-500 resize-none"
+              rows={3}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !e.shiftKey && !isRecording && !isVoiceLocked) {
+                  e.preventDefault();
+                  addItem();
+                }
+              }}
+            />
+            <RealtimeAnalysis text={input} />
+          </div>
           
-          {/* Bouton Envoyer / Micro intégré */}
           <button
             onMouseDown={handleSendButtonMouseDown}
             onMouseUp={handleSendButtonMouseUp}
@@ -456,7 +728,7 @@ export default function InboxPage() {
               }
             }}
             disabled={(!input.trim() && uploadedFiles.length === 0 && !isRecording && !isVoiceLocked) || isSending}
-            className={`p-2 rounded-full transition-all flex-shrink-0 ${
+            className={`p-2 rounded-full transition-all flex-shrink-0 mt-2 ${
               isRecording || isVoiceLocked
                 ? "bg-red-500 text-white animate-pulse"
                 : "bg-gold-500 text-midnight hover:scale-105"
@@ -464,7 +736,7 @@ export default function InboxPage() {
             title={isRecording || isVoiceLocked ? "Enregistrement vocal (recliquez pour arrêter)" : "Envoyer (appui long pour dicter)"}
           >
             {isSending ? (
-              <Loader2 className="w-4 h-4 animate-spin" />
+              <Loader2 className="w-5 h-5 animate-spin" />
             ) : isRecording || isVoiceLocked ? (
               <Mic className="w-5 h-5" />
             ) : (
@@ -472,17 +744,17 @@ export default function InboxPage() {
             )}
           </button>
         </div>
-        <p className="text-xs text-gray-600 mt-2">💡 Appuie sur Entrée pour envoyer, Shift+Entrée pour retour à la ligne | Appui long sur le bouton pour dicter</p>
+        <p className="text-xs text-gray-600 mt-2">💡 Entrée = envoyer | Shift+Entrée = retour à la ligne | Appui long = dicter</p>
       </div>
 
       {/* FILTRES */}
-      <div className="flex flex-wrap gap-3 mb-6">
+      <div className="flex flex-wrap gap-2 mb-6">
         <select
           value={filter}
           onChange={(e) => setFilter(e.target.value)}
-          className="bg-white/5 border border-white/10 rounded-full px-4 py-2 text-sm focus:outline-none focus:border-gold-500"
+          className="bg-white/5 border border-white/10 rounded-full px-3 py-1.5 text-xs focus:outline-none focus:border-gold-500"
         >
-          <option value="all">📁 Tous les domaines</option>
+          <option value="all">📁 Tous domaines</option>
           {Object.entries(areaConfig).map(([key, conf]) => (
             <option key={key} value={key}>{conf.label}</option>
           ))}
@@ -491,9 +763,9 @@ export default function InboxPage() {
         <select
           value={selectedType}
           onChange={(e) => setSelectedType(e.target.value)}
-          className="bg-white/5 border border-white/10 rounded-full px-4 py-2 text-sm focus:outline-none focus:border-gold-500"
+          className="bg-white/5 border border-white/10 rounded-full px-3 py-1.5 text-xs focus:outline-none focus:border-gold-500"
         >
-          <option value="all">🏷️ Tous les types</option>
+          <option value="all">🏷️ Tous types</option>
           {Object.entries(typeConfig).map(([key, conf]) => (
             <option key={key} value={key}>{conf.label}</option>
           ))}
@@ -501,14 +773,14 @@ export default function InboxPage() {
       </div>
 
       {/* LISTE DES ENTREES */}
-      <div className="space-y-3">
+      <div className="space-y-2">
         {isLoading ? (
           <LoadingSpinner />
         ) : filteredItems.length === 0 ? (
           <div className="text-center py-12 text-gray-500">
             <Inbox className="w-12 h-12 mx-auto mb-4 opacity-30" />
-            <p>Ton inbox est vide</p>
-            <p className="text-sm mt-2">Écris ce qui te passe par la tête !</p>
+            <p className="text-sm">Ton inbox est vide</p>
+            <p className="text-xs mt-1">Écris ce qui te passe par la tête !</p>
           </div>
         ) : (
           filteredItems.map((item, idx) => {
@@ -521,43 +793,41 @@ export default function InboxPage() {
                 initial={{ opacity: 0, x: -20 }}
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ delay: idx * 0.03 }}
-                className={`bg-white/5 border-l-4 rounded-xl p-4 transition-all ${
+                className={`bg-white/5 border-l-4 rounded-xl p-3 transition-all ${
                   item.urgency === "high" ? "border-l-red-500" : 
                   item.urgency === "medium" ? "border-l-yellow-500" : "border-l-gray-500"
                 } ${item.needs_processing ? "opacity-100" : "opacity-60"}`}
               >
                 <div className="flex justify-between items-start">
                   <div className="flex-1">
-                    <p className="text-ivory text-sm whitespace-pre-wrap">{item.content}</p>
-                    <div className="flex flex-wrap gap-2 mt-3">
-                      <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs ${typeConfig[item.type].color}`}>
+                    <p className="text-sm whitespace-pre-wrap line-clamp-3">{item.content}</p>
+                    <div className="flex flex-wrap gap-1.5 mt-2">
+                      <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] ${typeConfig[item.type].color}`}>
                         <TypeIcon className="w-3 h-3" /> {typeConfig[item.type].label}
                       </span>
-                      <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs ${areaConfig[item.area].color}`}>
+                      <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] ${areaConfig[item.area].color}`}>
                         <AreaIcon className="w-3 h-3" /> {areaConfig[item.area].label}
                       </span>
                       {item.urgency === "high" && (
-                        <span className="text-xs text-red-400 bg-red-500/10 px-2 py-0.5 rounded-full">⚠️ Urgent</span>
+                        <span className="text-[10px] text-red-400 bg-red-500/10 px-2 py-0.5 rounded-full">⚠️ Urgent</span>
                       )}
-                      <span className="text-xs text-gray-600">{new Date(item.created_at).toLocaleString('fr-FR')}</span>
+                      <span className="text-[10px] text-gray-600">{new Date(item.created_at).toLocaleString('fr-FR')}</span>
                     </div>
                   </div>
-                  <div className="flex items-center gap-2 ml-4">
+                  <div className="flex items-center gap-1 ml-2">
                     {item.needs_processing && (
-                      <div className="p-1.5">
-                        <Loader2 className="w-4 h-4 text-gold-500 animate-spin" />
-                      </div>
+                      <Loader2 className="w-3 h-3 text-gold-500 animate-spin" />
                     )}
                     <button
                       onClick={() => deleteItem(item.id)}
-                      className="p-1.5 text-gray-500 hover:text-red-400 transition-colors"
+                      className="p-1 text-gray-500 hover:text-red-400 transition-colors"
                     >
-                      <Trash2 className="w-4 h-4" />
+                      <Trash2 className="w-3 h-3" />
                     </button>
                   </div>
                 </div>
                 {item.processed_at && (
-                  <div className="mt-2 text-xs text-emerald-400">
+                  <div className="mt-1 text-[10px] text-emerald-400">
                     ✅ Traité le {new Date(item.processed_at).toLocaleString('fr-FR')}
                   </div>
                 )}
@@ -566,6 +836,19 @@ export default function InboxPage() {
           })
         )}
       </div>
+
+      {/* MODE FOCUS MODAL */}
+      <AnimatePresence>
+        {showFocusMode && (
+          <FocusMode 
+            onClose={() => setShowFocusMode(false)} 
+            onAdd={(text) => {
+              addItem(text);
+              setShowFocusMode(false);
+            }} 
+          />
+        )}
+      </AnimatePresence>
     </div>
   );
 }
