@@ -462,13 +462,26 @@ export default function ChatPage() {
   return (
     <div className="fixed inset-0 bg-midnight flex flex-col">
       {/* HEADER */}
-      <header className="sticky top-0 z-10 h-14 border-b border-white/10 flex items-center px-4 bg-midnight/90 backdrop-blur-lg shrink-0">
-        <button
-          onClick={() => setIsSidebarOpen(true)}
-          className="p-2 text-gray-400 hover:text-gold-500 transition-colors rounded-lg hover:bg-white/5"
-        >
-          <Menu className="w-5 h-5" />
-        </button>
+      <header className="sticky top-0 z-10 h-14 border-b border-white/10 flex items-center justify-between px-4 bg-midnight/90 backdrop-blur-lg shrink-0">
+        <div className="flex items-center gap-2">
+          {/* Bouton menu historique (mobile) */}
+          <button
+            onClick={() => setIsSidebarOpen(true)}
+            className="p-2 text-gray-400 hover:text-gold-500 transition-colors rounded-lg hover:bg-white/5"
+            title="Historique des conversations"
+          >
+            <Menu className="w-5 h-5" />
+          </button>
+          
+          {/* Bouton nouvelle conversation (mobile) */}
+          <button
+            onClick={createNewConversation}
+            className="p-2 text-gray-400 hover:text-gold-500 transition-colors rounded-lg hover:bg-white/5 lg:hidden"
+            title="Nouvelle conversation"
+          >
+            <Plus className="w-5 h-5" />
+          </button>
+        </div>
         
         <div className="flex-1 text-center">
           <h1 className="text-base font-serif text-gold-500">SOVEREIGN AI</h1>
