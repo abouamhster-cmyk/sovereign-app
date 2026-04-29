@@ -8,9 +8,10 @@ import {
   Flag, FolderOpen, Loader2, TrendingUp, Battery,
   CheckCircle, Clock, AlertCircle, BarChart3,
   Sprout, Briefcase, Heart, Globe, FileText, 
-  Lightbulb, Activity, Pause, Users, User
+  Lightbulb, Activity, Pause, Users, User, Download
 } from "lucide-react";
 import Link from "next/link";
+import { exportMissionsToPDF } from "@/lib/exportPDF";
 
 type Mission = {
   id: string;
@@ -205,18 +206,27 @@ export default function MissionsPage() {
   return (
     <div className="p-6 lg:p-10 h-full flex flex-col overflow-y-auto bg-midnight">
       {/* HEADER */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
-        <div>
-          <h1 className="text-4xl font-serif text-gold-500 tracking-tight">Missions Command</h1>
-          <p className="text-gray-500 text-sm mt-1">Gestion stratégique des projets</p>
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
+          <div>
+            <h1 className="text-4xl font-serif text-gold-500 tracking-tight">Missions Command</h1>
+            <p className="text-gray-500 text-sm mt-1">Gestion stratégique des projets</p>
+          </div>
+          <div className="flex gap-3">
+            <button
+              onClick={() => exportMissionsToPDF(filteredMissions)}
+              className="bg-white/10 p-2 rounded-full hover:bg-white/20 transition-colors"
+              title="Exporter les missions en PDF"
+            >
+              <Download className="w-5 h-5" />
+            </button>
+            <button
+              onClick={() => { setShowForm(true); setEditingId(null); scrollToForm(); }}
+              className="bg-gold-500 text-midnight px-5 py-2 rounded-full text-sm font-medium flex items-center gap-2 hover:bg-gold-400 transition-colors"
+            >
+              <Plus className="w-4 h-4" /> Nouvelle mission
+            </button>
+          </div>
         </div>
-        <button
-          onClick={() => { setShowForm(true); setEditingId(null); scrollToForm(); }}
-          className="bg-gold-500 text-midnight px-5 py-2 rounded-full text-sm font-medium flex items-center gap-2 hover:bg-gold-400 transition-colors"
-        >
-          <Plus className="w-4 h-4" /> Nouvelle mission
-        </button>
-      </div>
 
       {/* STATS */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
