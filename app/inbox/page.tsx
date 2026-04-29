@@ -610,7 +610,7 @@ export default function InboxPage() {
   };
 
   return (
-    <div className="p-8 lg:p-12 h-full flex flex-col overflow-y-auto bg-midnight">
+    <div className="h-full flex flex-col overflow-y-auto bg-midnight">
       {/* HEADER */}
       <div className="mb-6">
         <h1 className="text-4xl font-serif text-gold-500 tracking-tight">Brain Dump</h1>
