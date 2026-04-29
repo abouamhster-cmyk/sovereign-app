@@ -399,6 +399,18 @@ export default function ChatPage() {
     return date.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' });
   };
 
+    const startEditTitle = (conv: Conversation) => {
+    setEditingTitleId(conv.id);
+    setEditingTitle(conv.title);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && !e.shiftKey && !isRecording && !isVoiceLocked && !isSending) {
+      e.preventDefault();
+      sendMessage();
+    }
+  };
+
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey && !isRecording && !isVoiceLocked && !isSending) {
       e.preventDefault();
