@@ -238,7 +238,7 @@ export default function RelocationPage() {
   ];
 
   return (
-    <div className="p-8 lg:p-12 h-full flex flex-col overflow-y-auto bg-midnight">
+    <div className="h-full flex flex-col overflow-y-auto bg-midnight">
       <header className="mb-8">
         <div className="flex justify-between items-start">
           <div>
