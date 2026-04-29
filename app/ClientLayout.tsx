@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import { 
   LayoutDashboard, Target, Heart, DollarSign, Briefcase, Calendar,
   MessageSquare, FileText, Inbox, Trophy, Megaphone, 
@@ -229,69 +229,61 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
   };
 
   // Composant menu réutilisable
-  const MenuContent = () => (
-    <>
-      {menuStructure.map((category) => {
-        const isOpen = openCategories[category.category];
-        const CategoryIcon = category.icon;
-        const hasActiveItem = category.items.some(item => pathname === item.href);
-        
-        return (
-          <div key={category.category} className="mb-1">
-            <button
-              onClick={() => toggleCategory(category.category)}
-              className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors ${
-                hasActiveItem ? "text-gold-500" : "text-gray-500 hover:text-gray-400"
-              }`}
-            >
-              <div className="flex items-center gap-2">
-                <CategoryIcon className="w-3.5 h-3.5" />
-                <span>{category.category}</span>
+ // Composant menu réutilisable (sans animations)
+const MenuContent = () => (
+  <>
+    {menuStructure.map((category) => {
+      const isOpen = openCategories[category.category];
+      const CategoryIcon = category.icon;
+      const hasActiveItem = category.items.some(item => pathname === item.href);
+      
+      return (
+        <div key={category.category} className="mb-1">
+          <button
+            onClick={() => toggleCategory(category.category)}
+            className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+              hasActiveItem ? "text-gold-500" : "text-gray-500 hover:text-gray-400"
+            }`}
+          >
+            <div className="flex items-center gap-2">
+              <CategoryIcon className="w-3.5 h-3.5" />
+              <span>{category.category}</span>
+            </div>
+            {isOpen ? (
+              <ChevronDown className="w-3.5 h-3.5" />
+            ) : (
+              <ChevronRight className="w-3.5 h-3.5" />
+            )}
+          </button>
+          
+          {isOpen && (
+            <div className="ml-3">
+              <div className="space-y-0.5 mt-0.5">
+                {category.items.map((item) => {
+                  const isActive = pathname === item.href;
+                  return (
+                    <Link
+                      key={item.href}
+                      href={item.href}
+                      className={`flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg text-sm transition-all ${
+                        isActive
+                          ? "bg-gold-500/10 text-gold-500 border-l-2 border-gold-500"
+                          : "text-gray-400 hover:text-ivory hover:bg-white/5"
+                      }`}
+                    >
+                      <item.icon className="w-4 h-4" />
+                      <span>{item.name}</span>
+                    </Link>
+                  );
+                })}
               </div>
-              {isOpen ? (
-                <ChevronDown className="w-3.5 h-3.5" />
-              ) : (
-                <ChevronRight className="w-3.5 h-3.5" />
-              )}
-            </button>
-            
-            <AnimatePresence>
-              {isOpen && (
-                <motion.div
-                  initial={{ height: 0, opacity: 0 }}
-                  animate={{ height: "auto", opacity: 1 }}
-                  exit={{ height: 0, opacity: 0 }}
-                  transition={{ duration: 0.2 }}
-                  className="overflow-hidden ml-3"
-                >
-                  <div className="space-y-0.5 mt-0.5">
-                    {category.items.map((item) => {
-                      const isActive = pathname === item.href;
-                      return (
-                        <Link
-                          key={item.href}
-                          href={item.href}
-                          className={`flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg text-sm transition-all ${
-                            isActive
-                              ? "bg-gold-500/10 text-gold-500 border-l-2 border-gold-500"
-                              : "text-gray-400 hover:text-ivory hover:bg-white/5"
-                          }`}
-                        >
-                          <item.icon className="w-4 h-4" />
-                          <span>{item.name}</span>
-                        </Link>
-                      );
-                    })}
-                  </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </div>
-        );
-      })}
-    </>
-  );
-
+            </div>
+          )}
+        </div>
+      );
+    })}
+  </>
+);
   // Version mobile
   if (isMobile) {
     return (
