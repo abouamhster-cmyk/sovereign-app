@@ -7,7 +7,7 @@ import {
   LayoutDashboard, Target, Heart, DollarSign, Briefcase, Calendar,
   MessageSquare, FileText, Inbox, Trophy, Megaphone, 
   Sprout, Shield, Globe, Baby, LogOut, Menu, X,
-  Crown, ChevronDown, ChevronRight, Sparkles, FolderOpen, TrendingUp
+  Crown, ChevronDown, ChevronRight, Sparkles, FolderOpen, TrendingUp, X
 } from "lucide-react";
 import NotificationBell from "@/components/NotificationBell";
 import { useAuth } from "@/contexts/AuthContext";
@@ -65,6 +65,116 @@ const menuStructure = [
     ]
   }
 ];
+
+
+
+
+
+
+// Composant d'invite d'installation PWA
+function InstallPrompt() {
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+  const [showPrompt, setShowPrompt] = useState(false);
+  const [isInstalled, setIsInstalled] = useState(false);
+
+  useEffect(() => {
+    // Vérifier si l'app est déjà installée
+    const isAppInstalled = window.matchMedia('(display-mode: standalone)').matches;
+    if (isAppInstalled) {
+      setIsInstalled(true);
+      return;
+    }
+
+    // Écouter l'événement beforeinstallprompt
+    const handler = (e: Event) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+      setShowPrompt(true);
+    };
+
+    window.addEventListener('beforeinstallprompt', handler);
+
+    // Vérifier si l'installation a été complétée
+    window.addEventListener('appinstalled', () => {
+      setIsInstalled(true);
+      setShowPrompt(false);
+      setDeferredPrompt(null);
+    });
+
+    return () => {
+      window.removeEventListener('beforeinstallprompt', handler);
+    };
+  }, []);
+
+  const handleInstall = async () => {
+    if (!deferredPrompt) return;
+    
+    deferredPrompt.prompt();
+    const { outcome } = await deferredPrompt.userChoice;
+    
+    if (outcome === 'accepted') {
+      console.log('✅ Installation acceptée');
+      setShowPrompt(false);
+    } else {
+      console.log('❌ Installation refusée');
+    }
+    setDeferredPrompt(null);
+  };
+
+  const handleDismiss = () => {
+    setShowPrompt(false);
+    localStorage.setItem('installPromptDismissed', Date.now().toString());
+  };
+
+  // Ne pas afficher si déjà installé ou si l'utilisateur a refusé récemment
+  useEffect(() => {
+    const dismissed = localStorage.getItem('installPromptDismissed');
+    if (dismissed && Date.now() - parseInt(dismissed) < 7 * 24 * 60 * 60 * 1000) {
+      setShowPrompt(false);
+    }
+  }, []);
+
+  if (!showPrompt || isInstalled) return null;
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: 20 }}
+      className="fixed bottom-4 left-4 right-4 z-50 bg-gradient-to-r from-gold-500/10 to-gold-500/5 backdrop-blur-xl border border-gold-500/30 rounded-2xl p-4 shadow-2xl"
+    >
+      <div className="flex items-start gap-3">
+        <div className="bg-gold-500/20 p-2 rounded-full">
+          <Crown className="w-6 h-6 text-gold-500" />
+        </div>
+        <div className="flex-1">
+          <h3 className="text-sm font-serif text-gold-500">Installer SOVEREIGN</h3>
+          <p className="text-xs text-gray-400 mt-1">
+            Installe l'application sur ton téléphone pour y accéder plus rapidement et recevoir les notifications même quand l'app est fermée.
+          </p>
+          <div className="flex gap-3 mt-3">
+            <button
+              onClick={handleInstall}
+              className="px-4 py-1.5 bg-gold-500 text-midnight rounded-full text-xs font-medium hover:bg-gold-400 transition-colors"
+            >
+              Installer
+            </button>
+            <button
+              onClick={handleDismiss}
+              className="px-4 py-1.5 bg-white/10 text-gray-400 rounded-full text-xs hover:bg-white/20 transition-colors"
+            >
+              Plus tard
+            </button>
+          </div>
+        </div>
+        <button onClick={handleDismiss} className="text-gray-500 hover:text-gray-400">
+          <X className="w-4 h-4" />
+        </button>
+      </div>
+    </motion.div>
+  );
+}
+
 
 export default function ClientLayout({ children }: { children: React.ReactNode }) {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -265,9 +375,10 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
         </AnimatePresence>
 
         {/* Contenu principal */}
-        <main className="h-[calc(100vh-48px)] overflow-y-auto">
-          {children}
-        </main>
+          <main className="h-[calc(100vh-48px)] overflow-y-auto">
+            {children}
+            <InstallPrompt />
+          </main>
       </div>
     );
   }
@@ -304,9 +415,10 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
       </aside>
 
       {/* Contenu principal */}
-      <main className="flex-1 overflow-y-auto">
-        {children}
-      </main>
+        <main className="flex-1 overflow-y-auto">
+          {children}
+          <InstallPrompt />
+        </main>
     </div>
   );
 }
