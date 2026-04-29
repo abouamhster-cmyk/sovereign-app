@@ -443,11 +443,12 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
         )}
 
         {/* Main Content - pas de padding sur le chat */}
+        {/* Main Content - pas de padding sur le chat */}
         <main className={isChatPage ? "h-screen" : "h-[calc(100vh-48px)] overflow-y-auto"}>
           {isChatPage ? (
             children
           ) : (
-            <div className="w-full px-3 md:px-5 py-4 md:py-6">
+            <div className="w-full px-3 md:px-5 pt-6 pb-6 md:pt-8 md:pb-8">
               {children}
               <InstallBanner />
             </div>
@@ -466,12 +467,17 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
       </aside>
 
       {/* Main Content Desktop */}
-      <main className="flex-1 overflow-y-auto">
-        <div className="w-full px-3 md:px-5 pt-6 pb-6 md:pt-8 md:pb-8">
-          {children}
-          <InstallBanner />
-        </div>
-      </main>
+        {/* Main Content - pas de padding sur le chat */}
+        <main className={isChatPage ? "h-screen" : "h-[calc(100vh-48px)] overflow-y-auto"}>
+          {isChatPage ? (
+            children
+          ) : (
+            <div className="w-full px-3 md:px-5 pt-6 pb-6 md:pt-8 md:pb-8">
+              {children}
+              <InstallBanner />
+            </div>
+          )}
+        </main>
     </div>
   );
 }
