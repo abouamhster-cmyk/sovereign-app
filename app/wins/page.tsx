@@ -8,6 +8,8 @@ import {
   Star, Sparkles, Heart, Briefcase, Home, 
   Sprout, DollarSign, Smile, Award
 } from "lucide-react";
+import { exportWinsToPDF } from "@/lib/exportPDF";
+import { Download } from "lucide-react";
 
 type Win = {
   id: string;
@@ -175,18 +177,27 @@ export default function WinsPage() {
   return (
     <div className="p-6 lg:p-10 h-full flex flex-col overflow-y-auto bg-midnight">
       {/* HEADER */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
-        <div>
-          <h1 className="text-4xl font-serif text-gold-500 tracking-tight">Wins & Truths</h1>
-          <p className="text-gray-500 text-sm mt-1">Célébrer chaque victoire, petite ou grande ✨</p>
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
+          <div>
+            <h1 className="text-4xl font-serif text-gold-500 tracking-tight">Wins & Truths</h1>
+            <p className="text-gray-500 text-sm mt-1">Célébrer chaque victoire, petite ou grande ✨</p>
+          </div>
+          <div className="flex gap-2">
+            <button
+              onClick={() => exportWinsToPDF(filteredWins)}
+              className="bg-white/10 p-2 rounded-full hover:bg-white/20 transition-colors"
+              title="Exporter les victoires en PDF"
+            >
+              <Download className="w-5 h-5" />
+            </button>
+            <button
+              onClick={() => { setShowForm(true); setEditingId(null); scrollToForm(); }}
+              className="bg-gold-500 text-midnight px-5 py-2 rounded-full text-sm font-medium flex items-center gap-2 hover:bg-gold-400 transition-colors"
+            >
+              <Trophy className="w-4 h-4" /> Ajouter une victoire
+            </button>
+          </div>
         </div>
-        <button
-          onClick={() => {      setShowForm(true);      setEditingId(null);     scrollToForm();   }}
-          className="bg-gold-500 text-midnight px-5 py-2 rounded-full text-sm font-medium flex items-center gap-2 hover:bg-gold-400 transition-colors"
-        >
-          <Trophy className="w-4 h-4" /> Ajouter une victoire
-        </button>
-      </div>
 
       {/* STATS */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
