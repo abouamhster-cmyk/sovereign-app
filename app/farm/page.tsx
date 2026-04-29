@@ -483,8 +483,7 @@ export default function FarmPage() {
         >
           <Download className="w-5 h-5" />
         </button>
-        </button>
-      </div>
+       </div>
 
       {/* ZONE À EXPORTER */}
       <div id="farm-report">
