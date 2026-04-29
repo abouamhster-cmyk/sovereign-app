@@ -38,7 +38,7 @@ const menuItems = [
   { name: "Rescue Mode", icon: ShieldAlert, href: "/rescue", group: "alignment" }
 ];
 
-const groupLabels = {
+const groupLabels: Record<string, string> = {
   main: "PRINCIPAL",
   operations: "OPÉRATIONS",
   strategies: "STRATÉGIES",
@@ -48,7 +48,7 @@ const groupLabels = {
 };
 
 // État par défaut - tous ouverts
-const DEFAULT_OPEN_GROUPS = {
+const DEFAULT_OPEN_GROUPS: Record<string, boolean> = {
   main: true,
   operations: true,
   strategies: true,
@@ -59,7 +59,7 @@ const DEFAULT_OPEN_GROUPS = {
 
 export default function ClientLayout({ children }: { children: React.ReactNode }) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [openGroups, setOpenGroups] = useState(DEFAULT_OPEN_GROUPS);
+  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>(DEFAULT_OPEN_GROUPS);
   const pathname = usePathname();
   const router = useRouter();
   const { user, signOut } = useAuth();
@@ -118,7 +118,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
                 onClick={() => toggleGroup(groupKey)}
                 className="w-full flex items-center justify-between text-xs text-gray-500 uppercase tracking-wider py-2.5 hover:text-gold-400 transition-colors"
               >
-                <span>{groupLabels[groupKey as keyof typeof groupLabels]}</span>
+                <span>{groupLabels[groupKey] || groupKey}</span>
                 {openGroups[groupKey] ? (
                   <ChevronDown className="w-3 h-3" />
                 ) : (
