@@ -57,21 +57,16 @@ const DEFAULT_OPEN_GROUPS: Record<string, boolean> = {
   alignment: true
 };
 
-// Composant d'invite d'installation PWA
 // Composant d'invite d'installation PWA - Version améliorée
 function InstallButton() {
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [isVisible, setIsVisible] = useState(false);
-  const [isInstalled, setIsInstalled] = useState(true); // Par défaut à true (caché)
+  const [isInstalled, setIsInstalled] = useState(true);
 
   useEffect(() => {
-    // Vérifier si l'app est déjà installée (plusieurs méthodes)
     const checkInstalled = () => {
-      // Méthode 1: display-mode
       const isStandalone = window.matchMedia('(display-mode: standalone)').matches;
-      // Méthode 2: navigation standalone (iOS)
       const isStandaloneIOS = (window.navigator as any).standalone === true;
-      // Méthode 3: déjà installé
       const isAppInstalled = isStandalone || isStandaloneIOS;
       
       if (isAppInstalled) {
@@ -82,22 +77,17 @@ function InstallButton() {
       return false;
     };
 
-    // Vérification immédiate
     if (checkInstalled()) return;
 
-    // Écouter l'événement beforeinstallprompt
     const handler = (e: Event) => {
       e.preventDefault();
       setDeferredPrompt(e);
-      // Ne montrer que si vraiment pas installé
       if (!checkInstalled()) {
         setIsVisible(true);
       }
     };
 
     window.addEventListener('beforeinstallprompt', handler);
-    
-    // Écouter l'installation complétée
     window.addEventListener('appinstalled', () => {
       setIsInstalled(true);
       setIsVisible(false);
@@ -120,10 +110,8 @@ function InstallButton() {
     setDeferredPrompt(null);
   };
 
-  // NE RIEN AFFICHER si déjà installé
   if (isInstalled || !isVisible) return null;
 
-  // Pour iOS : afficher des instructions si détecté
   const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
   
   if (isIOS) {
@@ -165,7 +153,6 @@ function InstallBanner() {
   const [isInstalled, setIsInstalled] = useState(true);
 
   useEffect(() => {
-    // Vérifier si déjà installé
     const isStandalone = window.matchMedia('(display-mode: standalone)').matches;
     const isStandaloneIOS = (window.navigator as any).standalone === true;
     
@@ -216,7 +203,6 @@ function InstallBanner() {
     }
   }, []);
 
-  // NE RIEN AFFICHER si installé
   if (isInstalled || !showPrompt) return null;
 
   return (
@@ -259,6 +245,9 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
   const pathname = usePathname();
   const router = useRouter();
   const { user, signOut } = useAuth();
+
+  // Détecter si on est sur la page chat
+  const isChatPage = pathname === '/chat';
 
   // Charger les préférences
   useEffect(() => {
@@ -307,7 +296,6 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
     return (
       <div className="flex flex-col h-full p-6">
         <nav className="flex-1 overflow-y-auto">
-          {/* Bouton d'installation dans le menu (visible sur desktop ET mobile) */}
           <InstallButton />
           
           {Object.entries(grouped).map(([groupKey, items]) => (
@@ -378,6 +366,81 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
     return <>{children}</>;
   }
 
+  // Version mobile avec détection de la page chat
+  const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
+  
+  if (isMobile) {
+    return (
+      <div className="min-h-screen bg-midnight">
+        {/* Barre d'en-tête mobile - masquée sur la page chat */}
+        {!isChatPage && (
+          <header className="sticky top-0 z-30 flex items-center justify-between h-12 px-3 bg-midnight/95 backdrop-blur-lg border-b border-white/10">
+            <button
+              onClick={() => setIsMobileMenuOpen(true)}
+              className="p-1.5 text-gold-500 hover:bg-white/10 rounded-lg transition-colors"
+            >
+              <Menu className="w-5 h-5" />
+            </button>
+            
+            <div className="flex items-center gap-2">
+              <NotificationBell />
+              <button
+                onClick={handleSignOut}
+                className="p-1.5 text-gray-400 hover:text-red-400 hover:bg-white/10 rounded-lg transition-colors"
+                title="Déconnexion"
+              >
+                <LogOut className="w-4 h-4" />
+              </button>
+            </div>
+          </header>
+        )}
+
+        {/* Mobile Menu Button (seulement sur les pages non-chat) */}
+        {!isChatPage && (
+          <div className="lg:hidden fixed top-0 left-0 right-0 z-50 p-4 bg-black/80 backdrop-blur-lg border-b border-white/10 flex justify-between items-center">
+            <span className="text-gold-500 tracking-wider text-sm">SOVEREIGN</span>
+            <button onClick={() => setIsMobileMenuOpen(true)} className="p-2">
+              <Menu className="w-5 h-5 text-gold-500" />
+            </button>
+          </div>
+        )}
+
+        {/* Mobile Menu */}
+        {isMobileMenuOpen && (
+          <>
+            <div
+              onClick={() => setIsMobileMenuOpen(false)}
+              className="fixed inset-0 bg-black/70 z-50 lg:hidden"
+            />
+            <aside className="fixed inset-y-0 right-0 w-72 bg-black z-50 border-l border-white/10 flex flex-col">
+              <div className="flex justify-end p-4">
+                <button onClick={() => setIsMobileMenuOpen(false)} className="p-2">
+                  <X className="w-5 h-5 text-gray-500" />
+                </button>
+              </div>
+              <div className="flex-1 overflow-y-auto">
+                <SidebarContent />
+              </div>
+            </aside>
+          </>
+        )}
+
+        {/* Main Content - pas de padding sur le chat */}
+        <main className={isChatPage ? "h-screen" : "h-[calc(100vh-48px)] overflow-y-auto"}>
+          {isChatPage ? (
+            children
+          ) : (
+            <div className="w-full px-3 md:px-5 py-4 md:py-6">
+              {children}
+              <InstallBanner />
+            </div>
+          )}
+        </main>
+      </div>
+    );
+  }
+
+  // Version desktop
   return (
     <div className="flex h-screen overflow-hidden">
       {/* Sidebar Desktop */}
@@ -385,41 +448,13 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
         <SidebarContent />
       </aside>
 
-      {/* Mobile Menu Button */}
-      <div className="lg:hidden fixed top-0 left-0 right-0 z-50 p-4 bg-black/80 backdrop-blur-lg border-b border-white/10 flex justify-between items-center">
-        <span className="text-gold-500 tracking-wider text-sm">SOVEREIGN</span>
-        <button onClick={() => setIsMobileMenuOpen(true)} className="p-2">
-          <Menu className="w-5 h-5 text-gold-500" />
-        </button>
-      </div>
-
-      {/* Mobile Menu */}
-      {isMobileMenuOpen && (
-        <>
-          <div
-            onClick={() => setIsMobileMenuOpen(false)}
-            className="fixed inset-0 bg-black/70 z-50 lg:hidden"
-          />
-          <aside className="fixed inset-y-0 right-0 w-72 bg-black z-50 border-l border-white/10 flex flex-col">
-            <div className="flex justify-end p-4">
-              <button onClick={() => setIsMobileMenuOpen(false)} className="p-2">
-                <X className="w-5 h-5 text-gray-500" />
-              </button>
-            </div>
-            <div className="flex-1 overflow-y-auto">
-              <SidebarContent />
-            </div>
-          </aside>
-        </>
-      )}
-
-       {/* Main Content - Pleine largeur */}
-    <main className="flex-1 overflow-y-auto pt-20 lg:pt-0">
-      <div className="w-full px-3 md:px-5 py-4 md:py-6">
-        {children}
-        <InstallBanner />
-      </div>
-    </main>
+      {/* Main Content Desktop */}
+      <main className="flex-1 overflow-y-auto pt-20 lg:pt-0">
+        <div className="w-full px-3 md:px-5 py-4 md:py-6">
+          {children}
+          <InstallBanner />
+        </div>
+      </main>
     </div>
   );
 }
