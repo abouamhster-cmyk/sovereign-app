@@ -5,7 +5,7 @@ import {
   LayoutDashboard, MessageSquare, Inbox, CheckSquare, Calendar,
   Wallet, TrendingUp, FileText, Target, Briefcase, Sprout, Globe,
   Trophy, Heart, Users, Zap, ShieldAlert, Menu, X, LogOut,
-  ChevronDown, ChevronRight
+  ChevronDown, ChevronRight, Download
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -57,6 +57,150 @@ const DEFAULT_OPEN_GROUPS: Record<string, boolean> = {
   alignment: true
 };
 
+// Composant d'invite d'installation PWA
+function InstallButton() {
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+  const [isInstalled, setIsInstalled] = useState(false);
+  const [isVisible, setIsVisible] = useState(false);
+
+  useEffect(() => {
+    const isAppInstalled = window.matchMedia('(display-mode: standalone)').matches;
+    if (isAppInstalled) {
+      setIsInstalled(true);
+      setIsVisible(false);
+      return;
+    }
+
+    const handler = (e: Event) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+      setIsVisible(true);
+    };
+
+    window.addEventListener('beforeinstallprompt', handler);
+    window.addEventListener('appinstalled', () => {
+      setIsInstalled(true);
+      setIsVisible(false);
+      setDeferredPrompt(null);
+    });
+
+    return () => {
+      window.removeEventListener('beforeinstallprompt', handler);
+    };
+  }, []);
+
+  const handleInstall = async () => {
+    if (!deferredPrompt) return;
+    deferredPrompt.prompt();
+    const { outcome } = await deferredPrompt.userChoice;
+    if (outcome === 'accepted') {
+      setIsVisible(false);
+    }
+    setDeferredPrompt(null);
+  };
+
+  if (!isVisible || isInstalled) return null;
+
+  return (
+    <button
+      onClick={handleInstall}
+      className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-gold-500 bg-gold-500/10 hover:bg-gold-500/20 transition-colors mb-2"
+    >
+      <Download className="w-4 h-4" />
+      <span className="text-sm">Installer l'application</span>
+    </button>
+  );
+}
+
+// Bannière d'installation en bas (mobile)
+function InstallBanner() {
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+  const [showPrompt, setShowPrompt] = useState(false);
+  const [isInstalled, setIsInstalled] = useState(false);
+
+  useEffect(() => {
+    const isAppInstalled = window.matchMedia('(display-mode: standalone)').matches;
+    if (isAppInstalled) {
+      setIsInstalled(true);
+      return;
+    }
+
+    const handler = (e: Event) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+      setShowPrompt(true);
+    };
+
+    window.addEventListener('beforeinstallprompt', handler);
+    window.addEventListener('appinstalled', () => {
+      setIsInstalled(true);
+      setShowPrompt(false);
+      setDeferredPrompt(null);
+    });
+
+    return () => {
+      window.removeEventListener('beforeinstallprompt', handler);
+    };
+  }, []);
+
+  const handleInstall = async () => {
+    if (!deferredPrompt) return;
+    deferredPrompt.prompt();
+    const { outcome } = await deferredPrompt.userChoice;
+    if (outcome === 'accepted') {
+      setShowPrompt(false);
+    }
+    setDeferredPrompt(null);
+  };
+
+  const handleDismiss = () => {
+    setShowPrompt(false);
+    localStorage.setItem('installPromptDismissed', Date.now().toString());
+  };
+
+  useEffect(() => {
+    const dismissed = localStorage.getItem('installPromptDismissed');
+    if (dismissed && Date.now() - parseInt(dismissed) < 7 * 24 * 60 * 60 * 1000) {
+      setShowPrompt(false);
+    }
+  }, []);
+
+  if (!showPrompt || isInstalled) return null;
+
+  return (
+    <div className="fixed bottom-4 left-4 right-4 z-50 bg-gradient-to-r from-gold-500/10 to-gold-500/5 backdrop-blur-xl border border-gold-500/30 rounded-2xl p-4 shadow-2xl">
+      <div className="flex items-start gap-3">
+        <div className="bg-gold-500/20 p-2 rounded-full">
+          <Download className="w-5 h-5 text-gold-500" />
+        </div>
+        <div className="flex-1">
+          <h3 className="text-sm font-serif text-gold-500">Installer SOVEREIGN</h3>
+          <p className="text-xs text-gray-400 mt-1">
+            Installe l'application sur ton téléphone pour y accéder plus rapidement et recevoir les notifications.
+          </p>
+          <div className="flex gap-3 mt-3">
+            <button
+              onClick={handleInstall}
+              className="px-4 py-1.5 bg-gold-500 text-midnight rounded-full text-xs font-medium hover:bg-gold-400 transition-colors"
+            >
+              Installer
+            </button>
+            <button
+              onClick={handleDismiss}
+              className="px-4 py-1.5 bg-white/10 text-gray-400 rounded-full text-xs hover:bg-white/20 transition-colors"
+            >
+              Plus tard
+            </button>
+          </div>
+        </div>
+        <button onClick={handleDismiss} className="text-gray-500 hover:text-gray-400">
+          <X className="w-4 h-4" />
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export default function ClientLayout({ children }: { children: React.ReactNode }) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>(DEFAULT_OPEN_GROUPS);
@@ -102,7 +246,6 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
   };
 
   const SidebarContent = () => {
-    // Grouper les items par groupe
     const grouped = menuItems.reduce((acc, item) => {
       if (!acc[item.group]) acc[item.group] = [];
       acc[item.group].push(item);
@@ -112,6 +255,9 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
     return (
       <div className="flex flex-col h-full p-6">
         <nav className="flex-1 overflow-y-auto">
+          {/* Bouton d'installation dans le menu (visible sur desktop ET mobile) */}
+          <InstallButton />
+          
           {Object.entries(grouped).map(([groupKey, items]) => (
             <div key={groupKey} className="mb-6">
               <button
@@ -219,6 +365,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
       <main className="flex-1 overflow-y-auto pt-20 lg:pt-0">
         <div className="max-w-7xl mx-auto px-4 md:px-6 py-6 md:py-8">
           {children}
+          <InstallBanner />
         </div>
       </main>
     </div>
