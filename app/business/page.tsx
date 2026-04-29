@@ -102,7 +102,7 @@ useEffect(() => {
   const completionRate = stats.total > 0 ? ((stats.completed / stats.total) * 100).toFixed(0) : "0";
 
   return (
-    <div className="p-8 lg:p-12 h-full flex flex-col overflow-y-auto bg-midnight">
+    <div className="h-full flex flex-col overflow-y-auto bg-midnight">
           <header className="mb-8">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
