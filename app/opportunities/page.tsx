@@ -270,7 +270,7 @@ export default function OpportunitiesPage() {
   };
 
   return (
-    <div className="p-8 lg:p-12 h-full flex flex-col overflow-y-auto bg-midnight">
+   <div className="h-full flex flex-col overflow-y-auto bg-midnight">
       {/* HEADER */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
         <div>
