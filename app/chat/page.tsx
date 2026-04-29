@@ -311,11 +311,10 @@ export default function ChatPage() {
       // pour que le markdown les capte
       userMessageContent += "\n\n" + imageFiles.map(f => f.url).join("\n\n");
     }
-    
+
     if (otherFiles.length > 0) {
-      userMessageContent += "\n\n📎 Fichiers joints:\n" + otherFiles.map(f => `- **${f.name}** : ${f.url}`).join("\n");
+      userMessageContent += "\n\n📎 Fichiers joints:\n" + otherFiles.map(f => `- **${f.name}** : ${formatFileUrl(f.url, f.name)}`).join("\n");
     }
-    
     const userMessage: Message = { 
       role: "user", 
       content: userMessageContent,
