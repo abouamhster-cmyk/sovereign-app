@@ -10,6 +10,7 @@ import {
   FolderOpen, Tag, Calendar, File, Image, FileArchive, FileSpreadsheet
 } from "lucide-react";
 import { toast } from "sonner";
+import { exportDocumentsToPDF } from "@/lib/exportPDF";
 
 type Document = {
   id: string;
@@ -262,12 +263,21 @@ export default function DocumentsPage() {
           <h1 className="text-3xl md:text-4xl font-serif text-gold-500 tracking-tight">Documents & Deals</h1>
           <p className="text-gray-500 mt-1 text-sm">Gestion des contrats, factures et documents</p>
         </div>
-        <button
-          onClick={handleOpenForm}
-          className="bg-gold-500 text-midnight px-4 py-2 rounded-full text-sm font-medium flex items-center justify-center gap-2 w-full md:w-auto"
-        >
-          <Plus className="w-4 h-4" /> Nouveau document
-        </button>
+        <div className="flex gap-3">
+          <button
+            onClick={() => exportDocumentsToPDF(filteredDocuments)}
+            className="bg-white/10 p-2 rounded-full hover:bg-white/20 transition-colors"
+            title="Exporter les documents en PDF"
+          >
+            <Download className="w-5 h-5" />
+          </button>
+          <button
+            onClick={handleOpenForm}
+            className="bg-gold-500 text-midnight px-4 py-2 rounded-full text-sm font-medium flex items-center justify-center gap-2"
+          >
+            <Plus className="w-4 h-4" /> Nouveau document
+          </button>
+        </div>
       </div>
 
       {/* STATISTIQUES */}
