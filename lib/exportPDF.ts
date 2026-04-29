@@ -62,7 +62,7 @@ export function exportToPDFStructured(
     head: [columns.map(col => col.header)],
     body: data.map(row => columns.map(col => row[col.accessor] || "")),
     startY: 50,
-    theme: "dark",
+    theme: "striped",
     headStyles: {
       fillColor: [212, 175, 55],
       textColor: [10, 10, 11],
@@ -97,8 +97,6 @@ export async function exportTasksToPDF(tasks: any[]) {
     `Total : ${tasks.length} tâches`
   );
 }
-
-
 
 export async function exportDocumentsToPDF(documents: any[]) {
   exportToPDFStructured(
@@ -172,15 +170,13 @@ export async function exportFinancialToPDF(spending: any[], revenue: any[]) {
       s.date ? new Date(s.date).toLocaleDateString('fr-FR') : "-",
     ]),
     startY: 80,
-    theme: "dark",
+    theme: "striped",
     headStyles: { fillColor: [212, 175, 55], textColor: [10, 10, 11] },
     bodyStyles: { textColor: [245, 245, 240] },
   });
   
   doc.save(`finances-${new Date().toISOString().split('T')[0]}.pdf`);
 }
-
-
 
 // Export des victoires
 export async function exportWinsToPDF(wins: any[]) {
@@ -230,7 +226,6 @@ export async function exportToPDF(elementId: string, filename: string) {
     console.error("Erreur export PDF:", error);
   }
 }
-
 
 // Export de la ferme (version structurée)
 export async function exportFarmToPDF(
@@ -293,7 +288,7 @@ export async function exportFarmToPDF(
         i.location_on_site || "-"
       ]),
       startY: yPos,
-      theme: "dark",
+      theme: "striped",
       headStyles: { fillColor: [212, 175, 55], textColor: [10, 10, 11] },
       bodyStyles: { textColor: [245, 245, 240] },
     });
@@ -316,7 +311,7 @@ export async function exportFarmToPDF(
         p.current_capacity || "-"
       ]),
       startY: yPos,
-      theme: "dark",
+      theme: "striped",
       headStyles: { fillColor: [212, 175, 55], textColor: [10, 10, 11] },
       bodyStyles: { textColor: [245, 245, 240] },
     });
@@ -340,7 +335,7 @@ export async function exportFarmToPDF(
         s.verified ? "✓ Oui" : "⏳ Non"
       ]),
       startY: yPos,
-      theme: "dark",
+      theme: "striped",
       headStyles: { fillColor: [212, 175, 55], textColor: [10, 10, 11] },
       bodyStyles: { textColor: [245, 245, 240] },
     });
@@ -364,7 +359,7 @@ export async function exportFarmToPDF(
         t.phone || "-"
       ]),
       startY: yPos,
-      theme: "dark",
+      theme: "striped",
       headStyles: { fillColor: [212, 175, 55], textColor: [10, 10, 11] },
       bodyStyles: { textColor: [245, 245, 240] },
     });
