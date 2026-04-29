@@ -98,6 +98,24 @@ export async function exportTasksToPDF(tasks: any[]) {
   );
 }
 
+
+
+export async function exportDocumentsToPDF(documents: any[]) {
+  exportToPDFStructured(
+    "📄 Rapport des documents",
+    documents,
+    [
+      { header: "Nom", accessor: "name" },
+      { header: "Type", accessor: "type" },
+      { header: "Statut", accessor: "status" },
+      { header: "Échéance", accessor: "due_date" },
+      { header: "Notes", accessor: "notes" },
+    ],
+    `documents-${new Date().toISOString().split('T')[0]}`,
+    `Total : ${documents.length} documents`
+  );
+}
+
 // Export des missions
 export async function exportMissionsToPDF(missions: any[]) {
   exportToPDFStructured(
