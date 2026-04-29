@@ -58,26 +58,46 @@ const DEFAULT_OPEN_GROUPS: Record<string, boolean> = {
 };
 
 // Composant d'invite d'installation PWA
+// Composant d'invite d'installation PWA - Version améliorée
 function InstallButton() {
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
-  const [isInstalled, setIsInstalled] = useState(false);
   const [isVisible, setIsVisible] = useState(false);
+  const [isInstalled, setIsInstalled] = useState(true); // Par défaut à true (caché)
 
   useEffect(() => {
-    const isAppInstalled = window.matchMedia('(display-mode: standalone)').matches;
-    if (isAppInstalled) {
-      setIsInstalled(true);
-      setIsVisible(false);
-      return;
-    }
+    // Vérifier si l'app est déjà installée (plusieurs méthodes)
+    const checkInstalled = () => {
+      // Méthode 1: display-mode
+      const isStandalone = window.matchMedia('(display-mode: standalone)').matches;
+      // Méthode 2: navigation standalone (iOS)
+      const isStandaloneIOS = (window.navigator as any).standalone === true;
+      // Méthode 3: déjà installé
+      const isAppInstalled = isStandalone || isStandaloneIOS;
+      
+      if (isAppInstalled) {
+        setIsInstalled(true);
+        setIsVisible(false);
+        return true;
+      }
+      return false;
+    };
 
+    // Vérification immédiate
+    if (checkInstalled()) return;
+
+    // Écouter l'événement beforeinstallprompt
     const handler = (e: Event) => {
       e.preventDefault();
       setDeferredPrompt(e);
-      setIsVisible(true);
+      // Ne montrer que si vraiment pas installé
+      if (!checkInstalled()) {
+        setIsVisible(true);
+      }
     };
 
     window.addEventListener('beforeinstallprompt', handler);
+    
+    // Écouter l'installation complétée
     window.addEventListener('appinstalled', () => {
       setIsInstalled(true);
       setIsVisible(false);
@@ -95,11 +115,37 @@ function InstallButton() {
     const { outcome } = await deferredPrompt.userChoice;
     if (outcome === 'accepted') {
       setIsVisible(false);
+      setIsInstalled(true);
     }
     setDeferredPrompt(null);
   };
 
-  if (!isVisible || isInstalled) return null;
+  // NE RIEN AFFICHER si déjà installé
+  if (isInstalled || !isVisible) return null;
+
+  // Pour iOS : afficher des instructions si détecté
+  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+  
+  if (isIOS) {
+    return (
+      <div className="fixed bottom-4 left-4 right-4 z-50 bg-gradient-to-r from-gold-500/10 to-gold-500/5 backdrop-blur-xl border border-gold-500/30 rounded-2xl p-4 shadow-2xl">
+        <div className="flex items-start gap-3">
+          <div className="bg-gold-500/20 p-2 rounded-full">
+            <Download className="w-5 h-5 text-gold-500" />
+          </div>
+          <div className="flex-1">
+            <h3 className="text-sm font-serif text-gold-500">Installer SOVEREIGN sur iPhone</h3>
+            <p className="text-xs text-gray-400 mt-1">
+              Appuie sur <span className="text-gold-500 font-bold">Partager</span> puis <span className="text-gold-500 font-bold">"Ajouter à l'écran d'accueil"</span>
+            </p>
+          </div>
+          <button onClick={() => setIsVisible(false)} className="text-gray-500 hover:text-gray-400">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <button
@@ -116,14 +162,19 @@ function InstallButton() {
 function InstallBanner() {
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [showPrompt, setShowPrompt] = useState(false);
-  const [isInstalled, setIsInstalled] = useState(false);
+  const [isInstalled, setIsInstalled] = useState(true);
 
   useEffect(() => {
-    const isAppInstalled = window.matchMedia('(display-mode: standalone)').matches;
-    if (isAppInstalled) {
+    // Vérifier si déjà installé
+    const isStandalone = window.matchMedia('(display-mode: standalone)').matches;
+    const isStandaloneIOS = (window.navigator as any).standalone === true;
+    
+    if (isStandalone || isStandaloneIOS) {
       setIsInstalled(true);
       return;
     }
+
+    setIsInstalled(false);
 
     const handler = (e: Event) => {
       e.preventDefault();
@@ -165,7 +216,8 @@ function InstallBanner() {
     }
   }, []);
 
-  if (!showPrompt || isInstalled) return null;
+  // NE RIEN AFFICHER si installé
+  if (isInstalled || !showPrompt) return null;
 
   return (
     <div className="fixed bottom-4 left-4 right-4 z-50 bg-gradient-to-r from-gold-500/10 to-gold-500/5 backdrop-blur-xl border border-gold-500/30 rounded-2xl p-4 shadow-2xl">
@@ -176,7 +228,7 @@ function InstallBanner() {
         <div className="flex-1">
           <h3 className="text-sm font-serif text-gold-500">Installer SOVEREIGN</h3>
           <p className="text-xs text-gray-400 mt-1">
-            Installe l'application sur ton téléphone pour y accéder plus rapidement et recevoir les notifications.
+            Installe l'application pour y accéder plus rapidement et recevoir les notifications.
           </p>
           <div className="flex gap-3 mt-3">
             <button
