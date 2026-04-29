@@ -1,4 +1,5 @@
 "use client";
+import "regenerator-runtime/runtime";
 import { useEffect, useState, useRef } from "react";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import VoiceInput from "@/components/VoiceInput";
