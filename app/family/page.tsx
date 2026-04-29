@@ -197,7 +197,7 @@ useEffect(() => {
           <p className="text-gray-500 text-sm mt-1">Gestion des événements familiaux et suivi des enfants</p>
         </div>
         <button
-          onClick={() => {      setShowForm(true);      setEditingId(null);     scrollToForm();   }}
+          onClick={() => { setShowForm(true); setEditingId(null); scrollToForm(); }}
           className="bg-gold-500 text-midnight px-5 py-2 rounded-full text-sm font-medium flex items-center gap-2 hover:bg-gold-400 transition-colors"
         >
           <Plus className="w-4 h-4" /> Ajouter un événement
@@ -236,20 +236,23 @@ useEffect(() => {
             📅 Prochains événements
           </h2>
           <div className="space-y-2">
-            {upcomingEvents.map(event => (
-              <div key={event.id} className="flex items-center justify-between p-3 bg-midnight rounded-xl border border-gold-500/20">
-                <div>
-                  <p className="text-ivory text-sm">{event.title}</p>
-                  <p className="text-xs text-gray-500">
-                    {event.child_name && <span>👶 {event.child_name} • </span>}
-                    {event.date && new Date(event.date).toLocaleDateString('fr-FR')}
-                  </p>
+            {upcomingEvents.map(event => {
+              const priorityConf = priorityConfig[event.priority as keyof typeof priorityConfig] || priorityConfig.normal;
+              return (
+                <div key={event.id} className="flex items-center justify-between p-3 bg-midnight rounded-xl border border-gold-500/20">
+                  <div>
+                    <p className="text-ivory text-sm">{event.title}</p>
+                    <p className="text-xs text-gray-500">
+                      {event.child_name && <span>👶 {event.child_name} • </span>}
+                      {event.date && new Date(event.date).toLocaleDateString('fr-FR')}
+                    </p>
+                  </div>
+                  <span className={`text-xs px-2 py-1 rounded-full ${priorityConf.color}`}>
+                    {priorityConf.label}
+                  </span>
                 </div>
-                <span className={`text-xs px-2 py-1 rounded-full ${priorityConfig[event.priority].color}`}>
-                  {priorityConfig[event.priority].label}
-                </span>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       )}
@@ -345,7 +348,7 @@ useEffect(() => {
         )}
       </AnimatePresence>
 
-      {/* LISTE DES ÉVÉNEMENTS */}
+      {/* LISTE DES ÉVÉNEMENTS - CORRIGÉE AVEC FALLBACK */}
       <div className="space-y-3">
         {isLoading ? (
           <LoadingSpinner />
@@ -353,29 +356,35 @@ useEffect(() => {
           <div className="text-center py-12 text-gray-500">Aucun événement</div>
         ) : (
           filteredEvents.map((event) => {
-            const CategoryIcon = categoryConfig[event.category].icon;
+            // Fallback pour éviter les erreurs
+            const categoryConf = categoryConfig[event.category as keyof typeof categoryConfig] || categoryConfig.school;
+            const priorityConf = priorityConfig[event.priority as keyof typeof priorityConfig] || priorityConfig.normal;
+            const statusConf = statusConfig[event.status as keyof typeof statusConfig] || statusConfig.pending;
+            const CategoryIcon = categoryConf.icon;
+            
+            // Déterminer la bordure selon la priorité
+            let borderClass = "border-l-gray-500";
+            if (event.priority === "critical") borderClass = "border-l-red-500";
+            else if (event.priority === "high") borderClass = "border-l-orange-500";
+            else if (event.priority === "normal") borderClass = "border-l-blue-500";
             
             return (
               <motion.div
                 key={event.id}
                 initial={{ opacity: 0, x: -20 }}
                 animate={{ opacity: 1, x: 0 }}
-                className={`bg-white/5 border-l-4 rounded-xl p-4 hover:bg-white/10 transition-colors ${
-                  event.priority === "critical" ? "border-l-red-500" :
-                  event.priority === "high" ? "border-l-orange-500" :
-                  event.priority === "normal" ? "border-l-blue-500" : "border-l-gray-500"
-                }`}
+                className={`bg-white/5 border-l-4 rounded-xl p-4 hover:bg-white/10 transition-colors ${borderClass}`}
               >
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
                     <div className="flex items-center gap-3 flex-wrap mb-2">
                       <h3 className="text-ivory font-medium">{event.title}</h3>
-                      <span className={`text-xs px-2 py-0.5 rounded-full ${categoryConfig[event.category].color}`}>
+                      <span className={`text-xs px-2 py-0.5 rounded-full ${categoryConf.color}`}>
                         <CategoryIcon className="w-3 h-3 inline mr-1" />
-                        {categoryConfig[event.category].label}
+                        {categoryConf.label}
                       </span>
-                      <span className={`text-xs px-2 py-0.5 rounded-full ${priorityConfig[event.priority].color}`}>
-                        {priorityConfig[event.priority].label}
+                      <span className={`text-xs px-2 py-0.5 rounded-full ${priorityConf.color}`}>
+                        {priorityConf.label}
                       </span>
                     </div>
                     <div className="flex flex-wrap gap-4 text-xs text-gray-500">
