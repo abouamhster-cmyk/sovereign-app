@@ -11,7 +11,7 @@ import {
   Package, Truck, Leaf, Download, Activity, Pause,
   Home
 } from "lucide-react";
-import { exportToPDF } from "@/lib/exportPDF";
+import { exportFarmToPDF } from "@/lib/exportPDF";
 
 // Types
 type FarmInfrastructure = {
@@ -477,11 +477,12 @@ export default function FarmPage() {
           <p className="text-gray-500 text-sm mt-1">Command Center - Gestion complète de la ferme</p>
         </div>
         <button
-          onClick={() => exportToPDF("farm-report", `farm-rapport-${new Date().toISOString().split('T')[0]}`)}
+          onClick={() => exportFarmToPDF(infrastructure, production, spending, team)}
           className="bg-white/10 p-2 rounded-full hover:bg-white/20 transition-colors"
-          title="Exporter en PDF"
+          title="Exporter le rapport de la ferme en PDF"
         >
           <Download className="w-5 h-5" />
+        </button>
         </button>
       </div>
 
