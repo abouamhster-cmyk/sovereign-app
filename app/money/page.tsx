@@ -290,7 +290,7 @@ export default function MoneyPage() {
   };
 
   return (
-    <div className="p-6 lg:p-10 h-full flex flex-col overflow-y-auto bg-midnight">
+    <div className="h-full flex flex-col overflow-y-auto bg-midnight">
       {/* HEADER */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
         <div className="flex items-center gap-4">
