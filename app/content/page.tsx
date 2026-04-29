@@ -194,7 +194,7 @@ useEffect(() => {
   };
 
   return (
-    <div id="content-report" className="p-8 lg:p-12 h-full flex flex-col overflow-y-auto bg-midnight">
+    <div className="h-full flex flex-col overflow-y-auto bg-midnight">
       {/* HEADER */}
       <div className="flex justify-between items-center mb-8">
         <div>
