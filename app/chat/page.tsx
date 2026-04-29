@@ -5,7 +5,7 @@ import ReactMarkdown from 'react-markdown';
 import { 
   Send, ArrowLeft, Plus, Trash2, ChevronLeft, ChevronRight, 
   Search, Edit2, Check, X, Loader2, Menu, Mic, Paperclip, 
-  File, XCircle, Image as ImageIcon
+  File, XCircle
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
@@ -44,7 +44,6 @@ export default function ChatPage() {
   const [editingTitleId, setEditingTitleId] = useState<string | null>(null);
   const [editingTitle, setEditingTitle] = useState("");
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
-  const [isUploading, setIsUploading] = useState(false);
   
   // États pour le micro intégré
   const [isRecording, setIsRecording] = useState(false);
@@ -58,9 +57,7 @@ export default function ChatPage() {
   // Speech recognition
   const {
     transcript,
-    listening,
     resetTranscript,
-    browserSupportsSpeechRecognition
   } = useSpeechRecognition();
 
   // Détecter le mobile
@@ -74,9 +71,10 @@ export default function ChatPage() {
   // Mettre à jour l'input quand le transcript change
   useEffect(() => {
     if (transcript) {
-      setInput(transcript);
+      setInput(prev => prev + " " + transcript);
+      resetTranscript();
     }
-  }, [transcript]);
+  }, [transcript, resetTranscript]);
 
   // Charger les conversations
   useEffect(() => {
@@ -109,21 +107,14 @@ export default function ChatPage() {
     }
   }, [messages]);
 
-  // Focus input
+  // Fermer sidebar sur mobile après navigation
   useEffect(() => {
-    if (currentConversationId && inputRef.current) {
-      inputRef.current.focus();
-    }
-  }, [currentConversationId]);
-
-  // Fermer sidebar sur mobile
-  useEffect(() => {
-    if (isMobile) {
+    if (isMobile && currentConversationId) {
       setIsSidebarOpen(false);
     }
   }, [currentConversationId, isMobile]);
 
-  // Nettoyer le timer au démontage
+  // Nettoyer le timer
   useEffect(() => {
     return () => {
       if (pressTimer) clearTimeout(pressTimer);
@@ -135,18 +126,24 @@ export default function ChatPage() {
     setUploadedFiles(prev => [...prev, ...acceptedFiles]);
   };
 
-  const { getRootProps, getInputProps, isDragActive } = useDropzone({
+  const { getInputProps } = useDropzone({
     onDrop,
     accept: {
       'image/*': ['.png', '.jpg', '.jpeg', '.gif', '.webp'],
       'application/pdf': ['.pdf'],
       'text/plain': ['.txt'],
     },
-    maxSize: 10 * 1024 * 1024
+    maxSize: 10 * 1024 * 1024,
+    noClick: true,
+    noKeyboard: true
   });
 
+  const removeFile = (index: number) => {
+    setUploadedFiles(prev => prev.filter((_, i) => i !== index));
+  };
+
   async function uploadFilesToStorage() {
-    if (uploadedFiles.length === 0) return [];
+    if (uploadedFiles.length === 0 || !currentConversationId) return [];
     
     const uploaded = [];
     for (const file of uploadedFiles) {
@@ -173,19 +170,6 @@ export default function ChatPage() {
     return uploaded;
   }
 
-
-  function formatFileUrl(url: string, fileName?: string): string {
-  // Extraire juste le nom du fichier pour l'affichage
-  if (fileName) return fileName;
-  const parts = url.split('/');
-  const lastPart = parts[parts.length - 1];
-  // Si c'est un hash, prendre les 8 derniers caractères
-  if (lastPart.length > 20) {
-    return `...${lastPart.slice(-15)}`;
-  }
-  return lastPart;
-}
-  
   async function fetchConversations() {
     const { data } = await supabase
       .from("conversations")
@@ -296,10 +280,9 @@ export default function ChatPage() {
 
   const sendMessage = async () => {
     if (isSending || (!input.trim() && uploadedFiles.length === 0) || isLoading || !currentConversationId) return;
-  
-    setIsUploading(true);
+    
+    setIsSending(true);
     const uploadedFilesData = await uploadFilesToStorage();
-    setIsUploading(false);
     
     let userMessageContent = input.trim() || "📎 Fichier(s) joint(s)";
     
@@ -307,14 +290,12 @@ export default function ChatPage() {
     const otherFiles = uploadedFilesData.filter(f => !f.type.startsWith('image/'));
     
     if (imageFiles.length > 0) {
-      // Format spécial pour les images : on met juste les URLs sur des lignes séparées
-      // pour que le markdown les capte
       userMessageContent += "\n\n" + imageFiles.map(f => f.url).join("\n\n");
     }
-
     if (otherFiles.length > 0) {
-      userMessageContent += "\n\n📎 Fichiers joints:\n" + otherFiles.map(f => `- **${f.name}** : ${formatFileUrl(f.url, f.name)}`).join("\n");
+      userMessageContent += "\n\n📎 Fichiers joints:\n" + otherFiles.map(f => `- **${f.name}** : ${f.url}`).join("\n");
     }
+    
     const userMessage: Message = { 
       role: "user", 
       content: userMessageContent,
@@ -342,29 +323,23 @@ export default function ChatPage() {
         }),
       });
       
-      if (!response.ok) {
-        throw new Error(`Erreur ${response.status}`);
-      }
+      if (!response.ok) throw new Error(`Erreur ${response.status}`);
       
       const data = await response.json();
-      const assistantContent = data.reply;
-      
-      setMessages(prev => [...prev, { role: "assistant", content: assistantContent }]);
-      await saveMessage(currentConversationId, "assistant", assistantContent);
-      
+      setMessages(prev => [...prev, { role: "assistant", content: data.reply }]);
+      await saveMessage(currentConversationId, "assistant", data.reply);
       fetchConversations();
       inputRef.current?.focus();
     } catch (error) {
       console.error("Erreur:", error);
-      const errorMessage = "Erreur de connexion. Vérifie que le backend est bien démarré.";
-      setMessages(prev => [...prev, { role: "assistant", content: errorMessage }]);
-      await saveMessage(currentConversationId, "assistant", errorMessage);
+      setMessages(prev => [...prev, { role: "assistant", content: "Erreur de connexion. Vérifie que le backend est bien démarré." }]);
     } finally {
       setIsLoading(false);
       setIsSending(false);
-    } 
+    }
   };
 
+  // Gestion du micro
   const startVoiceRecording = () => {
     resetTranscript();
     SpeechRecognition.startListening({ continuous: true, language: 'fr-FR' });
@@ -376,47 +351,33 @@ export default function ChatPage() {
     setIsRecording(false);
   };
 
-  // Gestion du clic prolongé sur le bouton envoyer
   const handleSendButtonMouseDown = () => {
     setPressStartTime(Date.now());
-    
     const timer = setTimeout(() => {
       const pressDuration = Date.now() - pressStartTime;
-      
       if (pressDuration >= 3000 && pressDuration < 10000) {
-        // Mode vocal maintenu (3-10s)
         startVoiceRecording();
       } else if (pressDuration >= 10000) {
-        // Mode vocal locké (≥10s)
         startVoiceRecording();
         setIsVoiceLocked(true);
       }
     }, 3000);
-    
     setPressTimer(timer);
   };
 
   const handleSendButtonMouseUp = () => {
     const pressDuration = Date.now() - pressStartTime;
-    
-    if (pressTimer) {
-      clearTimeout(pressTimer);
-      setPressTimer(null);
-    }
-    
+    if (pressTimer) clearTimeout(pressTimer);
     if (pressDuration < 3000) {
-      // Clic court → envoyer le message
       if (isVoiceLocked) {
         setIsVoiceLocked(false);
         stopVoiceRecording();
       }
       sendMessage();
     } else if (pressDuration >= 3000 && pressDuration < 10000) {
-      // Appui long maintenu → arrêter l'enregistrement mais NE PAS envoyer
       stopVoiceRecording();
       inputRef.current?.focus();
     }
-    // Si ≥ 10s, on reste en mode locké, ne rien faire
   };
 
   const stopVoiceLock = () => {
@@ -430,33 +391,19 @@ export default function ChatPage() {
   const formatDate = (dateStr: string) => {
     const date = new Date(dateStr);
     const now = new Date();
-    const diffMs = now.getTime() - date.getTime();
-    const diffMins = Math.floor(diffMs / 60000);
-    const diffHours = Math.floor(diffMs / 3600000);
-    const diffDays = Math.floor(diffMs / 86400000);
-    
+    const diffMins = Math.floor((now.getTime() - date.getTime()) / 60000);
     if (diffMins < 1) return "À l'instant";
     if (diffMins < 60) return `Il y a ${diffMins} min`;
-    if (diffHours < 24) return `Il y a ${diffHours} h`;
-    if (diffDays === 1) return "Hier";
-    if (diffDays < 7) return `Il y a ${diffDays} jours`;
+    if (diffMins < 1440) return `Il y a ${Math.floor(diffMins / 60)} h`;
+    if (diffMins < 10080) return `Il y a ${Math.floor(diffMins / 1440)} jours`;
     return date.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' });
   };
 
-  const startEditTitle = (conv: Conversation) => {
-    setEditingTitleId(conv.id);
-    setEditingTitle(conv.title);
-  };
-
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !e.shiftKey && !isRecording && !isVoiceLocked) {
+    if (e.key === 'Enter' && !e.shiftKey && !isRecording && !isVoiceLocked && !isSending) {
       e.preventDefault();
       sendMessage();
     }
-  };
-
-  const removeFile = (index: number) => {
-    setUploadedFiles(prev => prev.filter((_, i) => i !== index));
   };
 
   return (
@@ -464,7 +411,6 @@ export default function ChatPage() {
       {/* HEADER */}
       <header className="sticky top-0 z-10 h-14 border-b border-white/10 flex items-center justify-between px-4 bg-midnight/90 backdrop-blur-lg shrink-0">
         <div className="flex items-center gap-2">
-          {/* Bouton menu historique (mobile) */}
           <button
             onClick={() => setIsSidebarOpen(true)}
             className="p-2 text-gray-400 hover:text-gold-500 transition-colors rounded-lg hover:bg-white/5"
@@ -472,8 +418,6 @@ export default function ChatPage() {
           >
             <Menu className="w-5 h-5" />
           </button>
-          
-          {/* Bouton nouvelle conversation (mobile) */}
           <button
             onClick={createNewConversation}
             className="p-2 text-gray-400 hover:text-gold-500 transition-colors rounded-lg hover:bg-white/5 lg:hidden"
@@ -573,25 +517,16 @@ export default function ChatPage() {
             <div className={`max-w-[85%] p-4 rounded-2xl text-sm ${m.role === "user" ? "bg-gold-500 text-midnight rounded-br-none" : "bg-white/10 text-ivory border border-white/5 rounded-bl-none"}`}>
               <ReactMarkdown
                 components={{
-                  img: ({ node, ...props }) => (
+                  img: ({ ...props }) => (
                     <img {...props} className="rounded-xl max-w-full max-h-96 object-contain my-2 border border-white/10" loading="lazy" />
                   ),
-                  a: ({ node, href, children, ...props }) => {
-                    // Vérifier si le lien pointe vers une image
+                  a: ({ href, children, ...props }) => {
                     const isImage = href?.match(/\.(jpg|jpeg|png|gif|webp)$/i);
                     if (isImage) {
                       return <img src={href} alt={String(children)} className="rounded-xl max-w-full max-h-96 object-contain my-2 border border-white/10" loading="lazy" />;
                     }
-                    // Sinon, lien normal
-                    return (
-                      <a href={href} target="_blank" rel="noopener noreferrer" className="text-gold-500 hover:underline" {...props}>
-                        {children}
-                      </a>
-                    );
+                    return <a href={href} target="_blank" rel="noopener noreferrer" className="text-gold-500 hover:underline" {...props}>{children}</a>;
                   },
-                  p: ({ node, ...props }) => (
-                    <p className="mb-2 last:mb-0" {...props} />
-                  ),
                 }}
               >
                 {m.content}
@@ -606,7 +541,6 @@ export default function ChatPage() {
                       </a>
                     ))}
                   </div>
-                  
                   {m.files.filter(f => !f.type.startsWith('image/')).length > 0 && (
                     <div className="mt-2 pt-2 border-t border-white/10">
                       {m.files.filter(f => !f.type.startsWith('image/')).map((file, idx) => (
@@ -633,9 +567,8 @@ export default function ChatPage() {
         <div ref={messagesEndRef} />
       </div>
 
-      {/* BARRE DE SAISIE - VERSION STABLE AVEC MICRO INTÉGRÉ */}
+      {/* BARRE DE SAISIE */}
       <div className="shrink-0 border-t border-white/10 bg-midnight/90 backdrop-blur-lg p-3">
-        {/* Fichiers en attente */}
         {uploadedFiles.length > 0 && (
           <div className="flex flex-wrap gap-2 mb-2">
             {uploadedFiles.map((file, idx) => (
@@ -650,16 +583,13 @@ export default function ChatPage() {
           </div>
         )}
         
-        {/* Indicateur d'enregistrement vocal */}
         {(isRecording || isVoiceLocked) && (
           <div className="text-center text-xs text-red-400 animate-pulse mb-2">
-            {isVoiceLocked ? "🔒 Enregistrement vocal en cours... recliquez pour arrêter" : "🎤 Parlez... relâchez pour arrêter (texte modifiable)"}
+            {isVoiceLocked ? "🔒 Enregistrement vocal en cours... recliquez pour arrêter" : "🎤 Parlez... relâchez pour arrêter"}
           </div>
         )}
         
-        {/* Barre de saisie principale */}
         <div className="flex items-center gap-2">
-          {/* Bouton Paperclip */}
           <button
             onClick={() => document.getElementById('file-upload-input')?.click()}
             className="p-2 rounded-full bg-white/10 text-gray-400 hover:bg-white/20 transition-colors flex-shrink-0"
@@ -680,7 +610,6 @@ export default function ChatPage() {
             }}
           />
           
-          {/* Champ de saisie */}
           <input
             ref={inputRef}
             type="text"
@@ -691,29 +620,22 @@ export default function ChatPage() {
             className="flex-1 bg-white/10 border border-white/20 rounded-full py-3 px-4 text-sm focus:outline-none focus:border-gold-500 text-ivory placeholder:text-gray-500"
           />
           
-          {/* Bouton Envoyer / Micro intégré */}
           <button
             onMouseDown={handleSendButtonMouseDown}
             onMouseUp={handleSendButtonMouseUp}
             onMouseLeave={() => {
-              if (isRecording && !isVoiceLocked) {
-                stopVoiceRecording();
-              }
+              if (isRecording && !isVoiceLocked) stopVoiceRecording();
             }}
             onTouchStart={handleSendButtonMouseDown}
             onTouchEnd={handleSendButtonMouseUp}
-            onClick={() => {
-              if (isVoiceLocked) {
-                stopVoiceLock();
-              }
-            }}
+            onClick={() => { if (isVoiceLocked) stopVoiceLock(); }}
             disabled={(!input.trim() && uploadedFiles.length === 0 && !isRecording && !isVoiceLocked) || isLoading || isSending}
             className={`p-2 rounded-full transition-all flex-shrink-0 ${
               isRecording || isVoiceLocked
                 ? "bg-red-500 text-white animate-pulse"
                 : "bg-gold-500 text-midnight hover:scale-105"
             } disabled:opacity-50 disabled:hover:scale-100`}
-            title={isRecording || isVoiceLocked ? "Enregistrement vocal (recliquez pour arrêter)" : "Envoyer (appui long pour dicter)"}
+            title={isRecording || isVoiceLocked ? "Enregistrement vocal" : "Envoyer (appui long pour dicter)"}
           >
             {isSending ? (
               <Loader2 className="w-5 h-5 animate-spin" />
