@@ -2,10 +2,11 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import LoadingSpinner from "@/components/LoadingSpinner";
+import { exportTasksToPDF } from "@/lib/exportPDF";
 import { motion, AnimatePresence } from "framer-motion";
 import { 
   CheckCircle, Clock, AlertCircle, Plus, Trash2, Edit2, 
-  X, Flag, Calendar, FolderOpen, Loader2
+  X, Flag, Calendar, FolderOpen, Loader2, Download
 } from "lucide-react";
 import Link from "next/link";
 
@@ -176,23 +177,31 @@ function editTask(task: Task) {
   return (
     <div className="p-6 lg:p-10 h-full flex flex-col overflow-y-auto bg-midnight">
       {/* HEADER */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
-        <div>
-          <h1 className="text-4xl font-serif text-gold-500 tracking-tight">Task Command</h1>
-          <p className="text-gray-500 text-sm mt-1">Gestion des priorités et exécution</p>
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
+          <div>
+            <h1 className="text-4xl font-serif text-gold-500 tracking-tight">Task Command</h1>
+            <p className="text-gray-500 text-sm mt-1">Gestion des priorités et exécution</p>
+          </div>
+          <div className="flex gap-3">
+            <button
+              onClick={() => exportTasksToPDF(filteredTasks)}
+              className="bg-white/10 p-2 rounded-full hover:bg-white/20 transition-colors"
+              title="Exporter les tâches en PDF"
+            >
+              <Download className="w-5 h-5" />
+            </button>
+            <button
+              onClick={() => { 
+                setShowForm(true); 
+                setEditingId(null);
+                scrollToForm();
+              }}
+              className="bg-gold-500 text-midnight px-5 py-2 rounded-full text-sm font-medium flex items-center gap-2 hover:bg-gold-400 transition-colors"
+            >
+              <Plus className="w-4 h-4" /> Nouvelle tâche
+            </button>
+          </div>
         </div>
-          <button
-            onClick={() => { 
-              setShowForm(true); 
-              setEditingId(null);
-              scrollToForm();
-            }}
-            className="bg-gold-500 text-midnight px-5 py-2 rounded-full text-sm font-medium flex items-center gap-2 hover:bg-gold-400 transition-colors"
-          >
-            <Plus className="w-4 h-4" /> Nouvelle tâche
-          </button>
-        
-      </div>
 
       {/* STATS */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
