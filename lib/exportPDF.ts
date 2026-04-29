@@ -212,3 +212,145 @@ export async function exportToPDF(elementId: string, filename: string) {
     console.error("Erreur export PDF:", error);
   }
 }
+
+
+// Export de la ferme (version structurée)
+export async function exportFarmToPDF(
+  infrastructure: any[],
+  production: any[],
+  spending: any[],
+  team: any[]
+) {
+  const { default: jsPDF } = await import("jspdf");
+  const { default: autoTable } = await import("jspdf-autotable");
+  
+  const doc = new jsPDF();
+  
+  // Titre
+  doc.setFontSize(18);
+  doc.setTextColor(212, 175, 55);
+  doc.text("🌾 Rapport Ifè Living Farm", 14, 20);
+  
+  // Date d'export
+  doc.setFontSize(10);
+  doc.setTextColor(100, 100, 100);
+  doc.text(`Exporté le ${new Date().toLocaleDateString('fr-FR')} à ${new Date().toLocaleTimeString('fr-FR')}`, 14, 30);
+  
+  let yPos = 45;
+  
+  // RÉSUMÉ DES STATS
+  const totalSpent = spending.reduce((sum, s) => sum + (s.amount || 0), 0);
+  const activeProduction = production.filter(p => p.status === "active" || p.status === "setup").length;
+  const completedInfra = infrastructure.filter(i => i.status === "complete").length;
+  
+  doc.setFontSize(12);
+  doc.setTextColor(212, 175, 55);
+  doc.text("📊 Synthèse", 14, yPos);
+  yPos += 7;
+  
+  doc.setFontSize(10);
+  doc.setTextColor(245, 245, 240);
+  doc.text(`Investissement total : ${totalSpent.toLocaleString()} CFA`, 20, yPos);
+  yPos += 6;
+  doc.text(`Productions actives : ${activeProduction}`, 20, yPos);
+  yPos += 6;
+  doc.text(`Infrastructures complétées : ${completedInfra}/${infrastructure.length}`, 20, yPos);
+  yPos += 6;
+  doc.text(`Équipe : ${team.length} membre(s)`, 20, yPos);
+  yPos += 15;
+  
+  // INFRASTRUCTURES
+  if (infrastructure.length > 0) {
+    doc.setFontSize(12);
+    doc.setTextColor(212, 175, 55);
+    doc.text("🏗️ Infrastructures", 14, yPos);
+    yPos += 5;
+    
+    autoTable(doc, {
+      head: [["Nom", "Type", "Statut", "Localisation"]],
+      body: infrastructure.map(i => [
+        i.name,
+        i.type || "-",
+        i.status || "-",
+        i.location_on_site || "-"
+      ]),
+      startY: yPos,
+      theme: "dark",
+      headStyles: { fillColor: [212, 175, 55], textColor: [10, 10, 11] },
+      bodyStyles: { textColor: [245, 245, 240] },
+    });
+    yPos = (doc as any).lastAutoTable.finalY + 10;
+  }
+  
+  // UNITÉS DE PRODUCTION
+  if (production.length > 0) {
+    doc.setFontSize(12);
+    doc.setTextColor(212, 175, 55);
+    doc.text("🌱 Unités de production", 14, yPos);
+    yPos += 5;
+    
+    autoTable(doc, {
+      head: [["Nom", "Catégorie", "Statut", "Capacité"]],
+      body: production.map(p => [
+        p.name,
+        p.category || "-",
+        p.status || "-",
+        p.current_capacity || "-"
+      ]),
+      startY: yPos,
+      theme: "dark",
+      headStyles: { fillColor: [212, 175, 55], textColor: [10, 10, 11] },
+      bodyStyles: { textColor: [245, 245, 240] },
+    });
+    yPos = (doc as any).lastAutoTable.finalY + 10;
+  }
+  
+  // DÉPENSES
+  if (spending.length > 0) {
+    doc.setFontSize(12);
+    doc.setTextColor(212, 175, 55);
+    doc.text("💰 Dépenses", 14, yPos);
+    yPos += 5;
+    
+    autoTable(doc, {
+      head: [["Titre", "Montant", "Catégorie", "Zone", "Vérifié"]],
+      body: spending.map(s => [
+        s.title,
+        `${s.amount?.toLocaleString()} CFA`,
+        s.category || "-",
+        s.project_area || "-",
+        s.verified ? "✓ Oui" : "⏳ Non"
+      ]),
+      startY: yPos,
+      theme: "dark",
+      headStyles: { fillColor: [212, 175, 55], textColor: [10, 10, 11] },
+      bodyStyles: { textColor: [245, 245, 240] },
+    });
+    yPos = (doc as any).lastAutoTable.finalY + 10;
+  }
+  
+  // ÉQUIPE
+  if (team.length > 0) {
+    doc.setFontSize(12);
+    doc.setTextColor(212, 175, 55);
+    doc.text("👥 Équipe", 14, yPos);
+    yPos += 5;
+    
+    autoTable(doc, {
+      head: [["Nom", "Rôle", "Zone", "Statut", "Téléphone"]],
+      body: team.map(t => [
+        t.name,
+        t.role || "-",
+        t.area || "-",
+        t.status === "active" ? "Actif" : t.status === "occasional" ? "Occasionnel" : "En attente",
+        t.phone || "-"
+      ]),
+      startY: yPos,
+      theme: "dark",
+      headStyles: { fillColor: [212, 175, 55], textColor: [10, 10, 11] },
+      bodyStyles: { textColor: [245, 245, 240] },
+    });
+  }
+  
+  doc.save(`farm-${new Date().toISOString().split('T')[0]}.pdf`);
+}
