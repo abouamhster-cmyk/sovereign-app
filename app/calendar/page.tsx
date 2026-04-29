@@ -183,7 +183,7 @@ export default function CalendarPage() {
   const adjustedFirstDay = firstDay === 0 ? 6 : firstDay - 1;
 
 return (
-  <div className="p-8 lg:p-12 h-full flex flex-col overflow-y-auto bg-midnight">
+  <div className="h-full flex flex-col overflow-y-auto bg-midnight">
     {isLoading ? (
       <LoadingSpinner />
     ) : (
