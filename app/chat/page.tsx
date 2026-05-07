@@ -5,7 +5,8 @@ import ReactMarkdown from 'react-markdown';
 import { 
   Send, ArrowLeft, Plus, Trash2, ChevronLeft, ChevronRight, 
   Search, Edit2, Check, X, Loader2, Menu, Mic, Paperclip, 
-  File, XCircle
+  File, XCircle, Heart, Zap, Trophy, Baby, DollarSign, 
+  FileText, Crown, ChevronDown
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
@@ -30,6 +31,73 @@ type Message = {
   created_at?: string;
 };
 
+// Configuration des modes de conversation
+const modes = [
+  { 
+    id: "parle-moi", 
+    name: "Parle-moi", 
+    icon: Heart, 
+    color: "text-pink-400", 
+    bg: "bg-pink-500/10",
+    description: "Soutien émotionnel, écoute, recentrage",
+    prompt: "Tu es Becks, un compagnon bienveillant et doux. Tu es là pour écouter, soutenir, recentrer. Tu ne donnes pas de conseils médicaux. Tu aides Rebecca à clarifier ses émotions et à trouver la paix. Tu parles avec douceur, tu reformules, tu proposes des respirations courtes si elle est stressée. Tu es comme une grande sœur présente et calme."
+  },
+  { 
+    id: "fais-le-avec-moi", 
+    name: "Fais-le avec moi", 
+    icon: Zap, 
+    color: "text-yellow-400", 
+    bg: "bg-yellow-500/10",
+    description: "Exécution, transformation d'idée en action",
+    prompt: "Tu es Becks, un agent d'exécution. Tu transformes les idées en actions concrètes. Tu demandes les informations manquantes, tu crées des checklists, des emails, des plans. Tu es pragmatique, efficace et orientée résultat. Tu ne fais pas de long discours, tu vas droit au but et tu aides à passer à l'action immédiatement."
+  },
+  { 
+    id: "love-fire-sport", 
+    name: "Love & Fire Sport", 
+    icon: Trophy, 
+    color: "text-emerald-400", 
+    bg: "bg-emerald-500/10",
+    description: "Grants, DDA, contrats publics",
+    prompt: "Tu es Becks, spécialiste de Love & Fire Sport. Tu aides Rebecca avec les grants, contrats publics, DDA, Maryland vendor registration, eMMA, SAM.gov, assurances, budgets, business plan. Tu connais le domaine des sports adaptés pour enfants avec autisme et handicaps neurologiques. Tu es précise, organisée et stratégique. Tu peux aider à structurer des dossiers, préparer des emails, suivre des deadlines."
+  },
+  { 
+    id: "mes-enfants", 
+    name: "Mes enfants", 
+    icon: Baby, 
+    color: "text-blue-400", 
+    bg: "bg-blue-500/10",
+    description: "Routines, rendez-vous, organisation",
+    prompt: "Tu es Becks, assistante familiale. Tu connais Neriah Fumi, Nylah Tiwa, Norah Ife et Nyrel Sheyi (appelée Sheyi Coco). Tu aides à organiser routines, rendez-vous, notes de comportement, besoins spéciaux. Tu es douce, organisée et bienveillante. Tu aides à préparer les questions pour les rendez-vous médicaux et à suivre les devoirs."
+  },
+  { 
+    id: "business-argent", 
+    name: "Business & Argent", 
+    icon: DollarSign, 
+    color: "text-emerald-400", 
+    bg: "bg-emerald-500/10",
+    description: "Opportunités, emails, stratégie",
+    prompt: "Tu es Becks, conseillère business. Tu aides avec opportunités, emails de prospection, stratégie, suivi de candidatures, priorités. Tu penses ROI et action rapide. Tu aides à rédiger des propositions, des scripts d'appel, des pitchs. Tu es pragmatique et orientée résultats."
+  },
+  { 
+    id: "documents", 
+    name: "Documents", 
+    icon: FileText, 
+    color: "text-orange-400", 
+    bg: "bg-orange-500/10",
+    description: "Lecture, résumé, rédaction",
+    prompt: "Tu es Becks, assistante documentaire. Tu lis, résumes, réécris, remplis des formulaires. Tu aides à préparer des propositions, des lettres, des budgets. Tu es précise, professionnelle et efficace. Tu peux extraire les informations importantes d'un document et proposer des versions améliorées."
+  },
+  { 
+    id: "sovereign-mode", 
+    name: "Sovereign Mode", 
+    icon: Crown, 
+    color: "text-gold-500", 
+    bg: "bg-gold-500/10",
+    description: "Vision, plan de vie, décisions",
+    prompt: "Tu es Becks, coach de vision et de leadership. Tu aides Rebecca à clarifier sa vision, prendre des décisions importantes, planifier sur 90 jours. Tu es profonde, puissante, alignée. Tu poses des questions qui font réfléchir et tu aides à structurer la pensée. Tu parles avec profondeur et présence."
+  }
+];
+
 export default function ChatPage() {
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [filteredConversations, setFilteredConversations] = useState<Conversation[]>([]);
@@ -44,6 +112,10 @@ export default function ChatPage() {
   const [editingTitleId, setEditingTitleId] = useState<string | null>(null);
   const [editingTitle, setEditingTitle] = useState("");
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
+  
+  // États pour le sélecteur de modes
+  const [selectedMode, setSelectedMode] = useState<string>("parle-moi");
+  const [isModeSelectorOpen, setIsModeSelectorOpen] = useState(false);
   
   // États pour le micro intégré
   const [isRecording, setIsRecording] = useState(false);
@@ -302,7 +374,16 @@ export default function ChatPage() {
       files: uploadedFilesData.length > 0 ? uploadedFilesData : undefined
     };
     
-    const allMessages = [...messages, userMessage];
+    // Récupérer le prompt du mode sélectionné
+    const currentMode = modes.find(m => m.id === selectedMode);
+    const systemPrompt = currentMode?.prompt || modes[0].prompt;
+    
+    // Construire les messages avec le prompt système
+    const allMessages = [
+      { role: "system", content: systemPrompt },
+      ...messages.map(msg => ({ role: msg.role, content: msg.content })),
+      { role: "user", content: userMessageContent }
+    ];
     
     setMessages(prev => [...prev, userMessage]);
     await saveMessage(currentConversationId, "user", userMessageContent, uploadedFilesData);
@@ -315,19 +396,16 @@ export default function ChatPage() {
       const response = await fetch(`${API_URL}/chat`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ 
-          messages: allMessages.map(msg => ({
-            role: msg.role,
-            content: msg.content
-          }))
-        }),
+        body: JSON.stringify({ messages: allMessages }),
       });
       
       if (!response.ok) throw new Error(`Erreur ${response.status}`);
       
       const data = await response.json();
-      setMessages(prev => [...prev, { role: "assistant", content: data.reply }]);
-      await saveMessage(currentConversationId, "assistant", data.reply);
+      const assistantContent = data.reply;
+      
+      setMessages(prev => [...prev, { role: "assistant", content: assistantContent }]);
+      await saveMessage(currentConversationId, "assistant", assistantContent);
       fetchConversations();
       inputRef.current?.focus();
     } catch (error) {
@@ -399,7 +477,7 @@ export default function ChatPage() {
     return date.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' });
   };
 
-    const startEditTitle = (conv: Conversation) => {
+  const startEditTitle = (conv: Conversation) => {
     setEditingTitleId(conv.id);
     setEditingTitle(conv.title);
   };
@@ -411,6 +489,9 @@ export default function ChatPage() {
     }
   };
 
+  // Récupérer le mode actuel pour l'affichage
+  const currentMode = modes.find(m => m.id === selectedMode);
+  const CurrentIcon = currentMode?.icon;
 
   return (
     <div className="fixed inset-0 bg-midnight flex flex-col">
@@ -573,8 +654,50 @@ export default function ChatPage() {
         <div ref={messagesEndRef} />
       </div>
 
-      {/* BARRE DE SAISIE */}
+      {/* BARRE DE SAISIE AVEC SÉLECTEUR DE MODES */}
       <div className="shrink-0 border-t border-white/10 bg-midnight/90 backdrop-blur-lg p-3">
+        {/* SÉLECTEUR DE MODES */}
+        <div className="relative mb-2">
+          <button
+            onClick={() => setIsModeSelectorOpen(!isModeSelectorOpen)}
+            className="flex items-center gap-2 px-3 py-1.5 rounded-full text-xs transition-colors hover:bg-white/5"
+          >
+            {CurrentIcon && <CurrentIcon className={`w-3.5 h-3.5 ${currentMode?.color}`} />}
+            <span className="text-gray-400">{currentMode?.name}</span>
+            <span className="text-[10px] text-gray-600 hidden sm:inline">{currentMode?.description}</span>
+            <ChevronDown className={`w-3 h-3 text-gray-500 transition-transform ${isModeSelectorOpen ? "rotate-180" : ""}`} />
+          </button>
+          
+          {isModeSelectorOpen && (
+            <>
+              <div className="fixed inset-0 z-40" onClick={() => setIsModeSelectorOpen(false)} />
+              <div className="absolute bottom-full left-0 mb-2 w-64 bg-midnight border border-white/10 rounded-xl shadow-xl z-50 py-2 max-h-80 overflow-y-auto">
+                {modes.map((mode) => {
+                  const Icon = mode.icon;
+                  return (
+                    <button
+                      key={mode.id}
+                      onClick={() => {
+                        setSelectedMode(mode.id);
+                        setIsModeSelectorOpen(false);
+                      }}
+                      className={`w-full flex items-center gap-3 px-4 py-2.5 text-sm hover:bg-white/5 transition-colors ${selectedMode === mode.id ? mode.bg : ""}`}
+                    >
+                      <Icon className={`w-4 h-4 ${mode.color}`} />
+                      <div className="flex-1 text-left">
+                        <p className="text-gray-300 text-sm">{mode.name}</p>
+                        <p className="text-[10px] text-gray-500">{mode.description}</p>
+                      </div>
+                      {selectedMode === mode.id && <Check className="w-3.5 h-3.5 text-gold-500" />}
+                    </button>
+                  );
+                })}
+              </div>
+            </>
+          )}
+        </div>
+
+        {/* Fichiers en attente */}
         {uploadedFiles.length > 0 && (
           <div className="flex flex-wrap gap-2 mb-2">
             {uploadedFiles.map((file, idx) => (
@@ -589,12 +712,14 @@ export default function ChatPage() {
           </div>
         )}
         
+        {/* Indicateur d'enregistrement vocal */}
         {(isRecording || isVoiceLocked) && (
           <div className="text-center text-xs text-red-400 animate-pulse mb-2">
             {isVoiceLocked ? "🔒 Enregistrement vocal en cours... recliquez pour arrêter" : "🎤 Parlez... relâchez pour arrêter"}
           </div>
         )}
         
+        {/* Barre de saisie principale */}
         <div className="flex items-center gap-2">
           <button
             onClick={() => document.getElementById('file-upload-input')?.click()}
@@ -622,7 +747,7 @@ export default function ChatPage() {
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder={isRecording || isVoiceLocked ? "🎤 Enregistrement vocal..." : "Écris ton message..."}
+            placeholder={isRecording || isVoiceLocked ? "🎤 Enregistrement vocal..." : `Mode ${currentMode?.name} : écris ton message...`}
             className="flex-1 bg-white/10 border border-white/20 rounded-full py-3 px-4 text-sm focus:outline-none focus:border-gold-500 text-ivory placeholder:text-gray-500"
           />
           
