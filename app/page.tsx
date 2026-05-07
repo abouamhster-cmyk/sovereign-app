@@ -2,248 +2,56 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { motion } from "framer-motion";
-import LoadingSpinner from "@/components/LoadingSpinner";
 import Link from "next/link";
 import { 
-  LayoutDashboard, Target, Heart, DollarSign, Briefcase,
-  Sprout, AlertCircle, CheckCircle, Clock, TrendingUp,
-  Calendar, Sparkles, ArrowRight, MessageSquare, Shield,
-  FileText, Users, Wallet, Globe, Zap, Lightbulb, 
-  PieChart, LineChart, Smile, Meh, Frown, Sun, Moon, Bell,
-  Trophy, Loader2, Home, Building2, FileCheck, AlertTriangle, 
-  FolderOpen
+  MessageSquare, Sparkles, Sun, Moon, Smile, Meh, Frown,
+  Loader2, TrendingUp, Crown
 } from "lucide-react";
 
-// Types
-type Mission = { id: string; name: string; status: string; priority: string };
-type Task = { id: string; title: string; status: string; due_date: string | null };
-type Document = { id: string; name: string; status: string };
-type Win = { id: string; title: string; celebration_emoji: string };
-type FamilyEvent = { id: string; title: string; date: string | null };
-type RelocationTask = { id: string; title: string; status: string };
-type FarmUnit = { id: string; name: string; status: string };
-type Suggestion = { type: string; priority: string; title: string; message: string; action_url: string; action_label: string };
-type AiPriority = { id: string; title: string; score: number; due_date: string | null; priority_reason: string };
-type Reminder = { id: string; title: string; type: string; due_date: string | null; urgency: string };
-
-// Types pour la Life Map
-type LifeMapData = {
-  family: { status: string; pending_count: number; next_action: string; next_date: string | null; urgency: string };
-  money: { status: string; balance: number; pending_invoices: number; urgency: string };
-  business: { status: string; active_missions: number; high_priority_count: number; urgency: string };
-  farm: { status: string; total_investment: number; active_units: number; next_action: string; urgency: string };
-  documents: { status: string; pending_count: number; urgent_count: number; urgency: string };
-  wins: { status: string; recent_count: number; streak: number; urgency: string };
-  relocation: { status: string; pending_tasks: number; critical_count: number; next_deadline: string; urgency: string };
-  alignment: { status: string; score: number; recommendation: string; urgency: string };
-};
+import { CollapsibleSection } from "@/components/CollapsibleSection";
+import { SimpleLifeMap } from "@/components/SimpleLifeMap";
+import { DashboardPriorities } from "@/components/DashboardPriorities";
+import { DashboardTasks } from "@/components/DashboardTasks";
 
 const API_URL = "https://sovereign-bridge.onrender.com";
 
-// Composant Widget Humeur
-function MoodWidget() {
-  const [mood, setMood] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
+type Priority = {
+  id: string;
+  title: string;
+  priority_reason: string;
+  score: number;
+};
 
-  useEffect(() => {
-    const savedMood = localStorage.getItem("todayMood");
-    const savedDate = localStorage.getItem("todayMoodDate");
-    const today = new Date().toISOString().split('T')[0];
-    
-    if (savedMood && savedDate === today) {
-      setMood(savedMood);
-    }
-  }, []);
+type Task = {
+  id: string;
+  title: string;
+  due_date: string | null;
+  status: string;
+};
 
-  const saveMood = async (selectedMood: string) => {
-    setIsLoading(true);
-    const today = new Date().toISOString().split('T')[0];
-    setMood(selectedMood);
-    localStorage.setItem("todayMood", selectedMood);
-    localStorage.setItem("todayMoodDate", today);
-    
-    await supabase.from("mood_entries").insert({
-      mood: selectedMood,
-      date: today,
-    });
-    setIsLoading(false);
-  };
-
-  const moods = [
-    { value: "excellent", emoji: "🌟", label: "Excellent", icon: Sun },
-    { value: "bien", emoji: "😊", label: "Bien", icon: Smile },
-    { value: "neutre", emoji: "😐", label: "Neutre", icon: Meh },
-    { value: "fatiguée", emoji: "😴", label: "Fatiguée", icon: Moon },
-    { value: "stressée", emoji: "😰", label: "Stressée", icon: Frown },
-  ];
-
-  if (mood) {
-    const currentMood = moods.find(m => m.value === mood);
-    return (
-      <div className="bg-gold-500/10 border border-gold-500/20 rounded-xl p-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <span className="text-2xl">{currentMood?.emoji}</span>
-            <div>
-              <p className="text-xs text-gray-500">Humeur du jour</p>
-              <p className="text-sm text-gold-400">{currentMood?.label}</p>
-            </div>
-          </div>
-          <button
-            onClick={() => { setMood(null); localStorage.removeItem("todayMood"); }}
-            className="text-xs text-gray-500 hover:text-gold-400"
-          >
-            Modifier
-          </button>
-        </div>
-        {mood === "fatiguée" && (
-          <p className="text-xs text-gold-400 mt-3 pt-2 border-t border-gold-500/20">✨ Prends soin de toi. Une petite chose à la fois.</p>
-        )}
-        {mood === "stressée" && (
-          <p className="text-xs text-gold-400 mt-3 pt-2 border-t border-gold-500/20">🌿 On respire. Une seule priorité pour commencer.</p>
-        )}
-        {mood === "excellent" && (
-          <p className="text-xs text-gold-400 mt-3 pt-2 border-t border-gold-500/20">🔥 C'est le moment d'attaquer les gros dossiers !</p>
-        )}
-      </div>
-    );
-  }
-
-  return (
-    <div className="bg-white/5 border border-white/10 rounded-xl p-4">
-      <p className="text-xs text-gray-500 mb-3">Comment te sens-tu aujourd'hui ?</p>
-      <div className="flex justify-between">
-        {moods.map((m) => (
-          <button
-            key={m.value}
-            onClick={() => saveMood(m.value)}
-            disabled={isLoading}
-            className="flex flex-col items-center gap-1 p-2 rounded-lg hover:bg-white/10 transition-colors disabled:opacity-50"
-          >
-            <span className="text-xl">{m.emoji}</span>
-            <span className="text-[10px] text-gray-500">{m.label}</span>
-          </button>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-// Composant LifeMapCard amélioré
-function LifeMapCard({ 
-  title, 
-  icon: Icon, 
-  data, 
-  href 
-}: { 
-  title: string; 
-  icon: any; 
-  data: any; 
-  href: string 
-}) {
-  const getStatusColor = (status: string) => {
-    switch(status) {
-      case "🟢": return "bg-emerald-500/20 text-emerald-400";
-      case "🟡": return "bg-yellow-500/20 text-yellow-400";
-      case "🔴": return "bg-red-500/20 text-red-400";
-      default: return "bg-gray-500/20 text-gray-400";
-    }
-  };
-  
-  const getUrgencyBadge = (urgency: string) => {
-    switch(urgency) {
-      case "high": return <span className="text-[10px] bg-red-500/20 text-red-400 px-1.5 py-0.5 rounded">⚠️ Urgent</span>;
-      case "medium": return <span className="text-[10px] bg-yellow-500/20 text-yellow-400 px-1.5 py-0.5 rounded">🟡 À suivre</span>;
-      default: return null;
-    }
-  };
-  
-  return (
-    <Link href={href} className="block">
-      <div className="bg-white/5 border border-white/10 rounded-xl p-4 hover:bg-white/10 transition-all hover:border-gold-500/30">
-        <div className="flex items-center justify-between mb-2">
-          <Icon className="w-5 h-5 text-gold-500" />
-          <span className={`text-xs px-2 py-0.5 rounded-full ${getStatusColor(data?.status)}`}>
-            {data?.status}
-          </span>
-        </div>
-        <h3 className="text-sm font-medium text-ivory">{title}</h3>
-        
-        {/* Contenu spécifique par domaine */}
-        {title === "Famille" && (
-          <p className="text-xs text-gray-400 mt-2">
-            {data?.pending_count > 0 ? `${data.pending_count} événement(s)` : "Aucun événement"}
-          </p>
-        )}
-        {title === "Argent" && (
-          <p className={`text-xs font-medium mt-2 ${data?.balance >= 0 ? "text-emerald-400" : "text-red-400"}`}>
-            {data?.balance?.toLocaleString()} CFA
-          </p>
-        )}
-        {title === "Business" && (
-          <p className="text-xs text-gray-400 mt-2">
-            {data?.active_missions} mission(s) active(s)
-            {data?.high_priority_count > 0 && <span className="text-red-400 ml-1">({data.high_priority_count} prioritaires)</span>}
-          </p>
-        )}
-        {title === "Ferme" && (
-          <p className="text-xs text-gray-400 mt-2">
-            {data?.active_units} unité(s) active(s)
-          </p>
-        )}
-        {title === "Documents" && (
-          <p className="text-xs text-gray-400 mt-2">
-            {data?.pending_count} en attente
-            {data?.urgent_count > 0 && <span className="text-red-400 ml-1">({data.urgent_count} urgent)</span>}
-          </p>
-        )}
-        {title === "Victoires" && (
-          <p className="text-xs text-gray-400 mt-2">
-            🎉 {data?.recent_count} cette semaine
-          </p>
-        )}
-        {title === "Relocation" && (
-          <p className="text-xs text-gray-400 mt-2">
-            {data?.pending_tasks} tâche(s)
-            {data?.critical_count > 0 && <span className="text-red-400 ml-1">({data.critical_count} critiques)</span>}
-          </p>
-        )}
-        {title === "Alignement" && (
-          <div className="mt-2">
-            <div className="w-full bg-white/10 rounded-full h-1.5">
-              <div className="bg-gold-500 h-1.5 rounded-full" style={{ width: `${data?.score || 0}%` }} />
-            </div>
-            <p className="text-xs text-gray-400 mt-1">{data?.score}%</p>
-          </div>
-        )}
-        
-        <div className="mt-2">
-          {getUrgencyBadge(data?.urgency)}
-        </div>
-      </div>
-    </Link>
-  );
-}
+type Suggestion = {
+  type: string;
+  title: string;
+  message: string;
+  action_url: string;
+  action_label: string;
+};
 
 export default function DashboardPage() {
   const [greeting, setGreeting] = useState("");
-  const [userName, setUserName] = useState("Rebecca");
   const [isLoading, setIsLoading] = useState(true);
-  const [proactiveSuggestions, setProactiveSuggestions] = useState<Suggestion[]>([]);
-  const [aiPriorities, setAiPriorities] = useState<AiPriority[]>([]);
-  const [reminders, setReminders] = useState<Reminder[]>([]);
-  const [lifeMapData, setLifeMapData] = useState<LifeMapData | null>(null);
-  const [isLifeMapLoading, setIsLifeMapLoading] = useState(true);
+  const [userName, setUserName] = useState("Rebecca");
   
-  // Données pour la carte de vie dynamique
-  const [missions, setMissions] = useState<Mission[]>([]);
-  const [todayTasks, setTodayTasks] = useState<Task[]>([]);
-  const [pendingDocs, setPendingDocs] = useState<Document[]>([]);
-  const [recentWins, setRecentWins] = useState<Win[]>([]);
-  const [familyEvents, setFamilyEvents] = useState<FamilyEvent[]>([]);
-  const [relocationTasks, setRelocationTasks] = useState<RelocationTask[]>([]);
-  const [farmUnits, setFarmUnits] = useState<FarmUnit[]>([]);
-  const [financials, setFinancials] = useState({ revenue: 0, spending: 0, balance: 0 });
+  // Données
+  const [priorities, setPriorities] = useState<Priority[]>([]);
+  const [upcomingTasks, setUpcomingTasks] = useState<Task[]>([]);
+  const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
+  const [mood, setMood] = useState<string | null>(null);
+  
+  // Stats pour la Life Map
+  const [balance, setBalance] = useState(0);
+  const [activeMissions, setActiveMissions] = useState(0);
+  const [familyEvents, setFamilyEvents] = useState(0);
   const [alignmentScore, setAlignmentScore] = useState(0);
 
   useEffect(() => {
@@ -252,10 +60,28 @@ export default function DashboardPage() {
     else if (hour < 18) setGreeting("Bon après-midi");
     else setGreeting("Bonsoir");
     
-    fetchUserName();
+    const savedMood = localStorage.getItem("todayMood");
+    const savedDate = localStorage.getItem("todayMoodDate");
+    const today = new Date().toISOString().split('T')[0];
+    
+    if (savedMood && savedDate === today) {
+      setMood(savedMood);
+    }
+    
     fetchAllData();
-    fetchLifeMap();
   }, []);
+
+  async function fetchAllData() {
+    setIsLoading(true);
+    await Promise.all([
+      fetchUserName(),
+      fetchPriorities(),
+      fetchUpcomingTasks(),
+      fetchSuggestions(),
+      fetchLifeMapData()
+    ]);
+    setIsLoading(false);
+  }
 
   async function fetchUserName() {
     const { data: { user } } = await supabase.auth.getUser();
@@ -265,412 +91,223 @@ export default function DashboardPage() {
     }
   }
 
-  async function fetchLifeMap() {
-    try {
-      const response = await fetch(`${API_URL}/api/life-map`);
-      const data = await response.json();
-      if (data.success) {
-        setLifeMapData(data.data);
-      }
-    } catch (error) {
-      console.error("Erreur life map:", error);
-    } finally {
-      setIsLifeMapLoading(false);
-    }
-  }
-
-  async function fetchAllData() {
-    setIsLoading(true);
-    await Promise.all([
-      fetchMissions(),
-      fetchTasks(),
-      fetchDocuments(),
-      fetchWins(),
-      fetchFinancials(),
-      fetchAiPriorities(),
-      fetchProactiveSuggestions(),
-      fetchFamilyEvents(),
-      fetchRelocationTasks(),
-      fetchFarmUnits(),
-      fetchReminders()
-    ]);
-    calculateAlignmentScore();
-    setIsLoading(false);
-  }
-
-  async function fetchReminders() {
-    const today = new Date().toISOString().split('T')[0];
-    const tomorrow = new Date(Date.now() + 86400000).toISOString().split('T')[0];
-    
-    const { data: tasks } = await supabase
-      .from("tasks")
-      .select("*")
-      .in("due_date", [today, tomorrow])
-      .neq("status", "done");
-    
-    const { data: docs } = await supabase
-      .from("documents")
-      .select("*")
-      .lt("due_date", today)
-      .neq("status", "approved");
-    
-    const allReminders: Reminder[] = [];
-    
-    tasks?.forEach(task => {
-      allReminders.push({
-        id: task.id,
-        title: task.title,
-        type: "task",
-        due_date: task.due_date,
-        urgency: task.due_date === today ? "high" : "medium"
-      });
-    });
-    
-    docs?.forEach(doc => {
-      allReminders.push({
-        id: doc.id,
-        title: doc.name,
-        type: "document",
-        due_date: doc.due_date,
-        urgency: "high"
-      });
-    });
-    
-    setReminders(allReminders.slice(0, 5));
-  }
-
-  async function fetchProactiveSuggestions() {
-    try {
-      const response = await fetch(`${API_URL}/api/proactive-suggestions`);
-      const data = await response.json();
-      setProactiveSuggestions(data.suggestions || []);
-    } catch (error) {
-      console.error("Erreur suggestions:", error);
-    }
-  }
-
-  async function fetchAiPriorities() {
+  async function fetchPriorities() {
     try {
       const response = await fetch(`${API_URL}/api/ai-priorities`);
       const data = await response.json();
-      setAiPriorities(data.priorities || []);
+      setPriorities(data.priorities || []);
     } catch (error) {
       console.error("Erreur priorités:", error);
     }
   }
 
-  async function fetchMissions() {
-    const { data } = await supabase.from("missions").select("*").eq("status", "active");
-    setMissions(data || []);
+  async function fetchUpcomingTasks() {
+    const today = new Date().toISOString().split('T')[0];
+    const { data } = await supabase
+      .from("tasks")
+      .select("*")
+      .neq("status", "done")
+      .order("due_date", { ascending: true, nullsFirst: false })
+      .limit(5);
+    setUpcomingTasks(data || []);
   }
 
-  async function fetchTasks() {
-    const { data } = await supabase.from("tasks").select("*").eq("status", "today").limit(5);
-    setTodayTasks(data || []);
+  async function fetchSuggestions() {
+    try {
+      const response = await fetch(`${API_URL}/api/proactive-suggestions`);
+      const data = await response.json();
+      setSuggestions(data.suggestions || []);
+    } catch (error) {
+      console.error("Erreur suggestions:", error);
+    }
   }
 
-  async function fetchDocuments() {
-    const { data } = await supabase.from("documents").select("*").neq("status", "approved").limit(3);
-    setPendingDocs(data || []);
+  async function fetchLifeMapData() {
+    try {
+      // Finances
+      const [revenueRes, spendingRes] = await Promise.all([
+        supabase.from("revenue").select("amount"),
+        supabase.from("spending").select("amount")
+      ]);
+      const totalRevenue = (revenueRes.data || []).reduce((sum, r) => sum + (r.amount || 0), 0);
+      const totalSpending = (spendingRes.data || []).reduce((sum, s) => sum + (s.amount || 0), 0);
+      setBalance(totalRevenue - totalSpending);
+      
+      // Missions actives
+      const { data: missions } = await supabase.from("missions").select("*").eq("status", "active");
+      setActiveMissions(missions?.length || 0);
+      
+      // Événements familiaux à venir
+      const today = new Date().toISOString().split('T')[0];
+      const { data: events } = await supabase
+        .from("family_events")
+        .select("*")
+        .gte("date", today)
+        .neq("status", "done");
+      setFamilyEvents(events?.length || 0);
+      
+      // Score d'alignement (victoires récentes)
+      const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+      const { data: wins } = await supabase.from("wins").select("*").gte("date", sevenDaysAgo);
+      setAlignmentScore(Math.min(100, (wins?.length || 0) * 12));
+      
+    } catch (error) {
+      console.error("Erreur LifeMap:", error);
+    }
   }
 
-  async function fetchWins() {
-    const { data } = await supabase.from("wins").select("*").order("date", { ascending: false }).limit(3);
-    setRecentWins(data || []);
+  async function saveMood(selectedMood: string) {
+    const today = new Date().toISOString().split('T')[0];
+    setMood(selectedMood);
+    localStorage.setItem("todayMood", selectedMood);
+    localStorage.setItem("todayMoodDate", today);
+    
+    await fetch(`${API_URL}/api/mood/save`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ mood: selectedMood })
+    });
   }
 
-  async function fetchFinancials() {
-    const [revenueRes, spendingRes] = await Promise.all([
-      supabase.from("revenue").select("amount"),
-      supabase.from("spending").select("amount")
-    ]);
-    const revenue = (revenueRes.data || []).reduce((sum, r) => sum + (r.amount || 0), 0);
-    const spending = (spendingRes.data || []).reduce((sum, s) => sum + (s.amount || 0), 0);
-    setFinancials({ revenue, spending, balance: revenue - spending });
-  }
+  const moods = [
+    { value: "excellent", emoji: "🌟", label: "Excellent", icon: Sun },
+    { value: "bien", emoji: "😊", label: "Bien", icon: Smile },
+    { value: "neutre", emoji: "😐", label: "Neutre", icon: Meh },
+    { value: "fatiguée", emoji: "😴", label: "Fatiguée", icon: Moon },
+    { value: "stressée", emoji: "😰", label: "Stressée", icon: Frown }
+  ];
 
-  async function fetchFamilyEvents() {
-    const { data } = await supabase.from("family_events").select("*").gte("date", new Date().toISOString().split('T')[0]).limit(10);
-    setFamilyEvents(data || []);
-  }
-
-  async function fetchRelocationTasks() {
-    const { data } = await supabase.from("relocation_tasks").select("*").neq("status", "completed");
-    setRelocationTasks(data || []);
-  }
-
-  async function fetchFarmUnits() {
-    const { data } = await supabase.from("farm_production_units").select("*").eq("status", "active");
-    setFarmUnits(data || []);
-  }
-
-  function calculateAlignmentScore() {
-    const baseScore = Math.min(100, (missions.length * 5) + (recentWins.length * 3));
-    setAlignmentScore(baseScore);
-  }
-
-  const formatCurrency = (val: number) => {
-    return new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'XOF', maximumFractionDigits: 0 }).format(val);
-  };
-
-  const handleHelpMeMoveForward = () => {
-    window.location.href = "/chat?mode=execute";
-  };
+  const currentMood = moods.find(m => m.value === mood);
 
   return (
-    <div className="p-4 md:p-6 lg:p-8 h-full flex flex-col overflow-y-auto bg-midnight">
-      
-      {/* HEADER avec prénom */}
-      <div className="mb-6">
-        <h1 className="text-2xl md:text-3xl lg:text-4xl font-serif text-ivory tracking-tight">
-          {greeting}, {userName}. 👑
-        </h1>
-        <p className="text-gray-500 text-sm mt-1">Aujourd'hui avec Becks</p>
+    <div className="max-w-4xl mx-auto space-y-4 pb-24">
+      {/* HEADER */}
+      <div className="flex justify-between items-center mb-2">
+        <div>
+          <h1 className="text-2xl md:text-3xl font-serif text-ivory tracking-tight">
+            {greeting}, {userName}. 👑
+          </h1>
+          <p className="text-gray-500 text-sm">Becks est là pour t'aider</p>
+        </div>
+        <Link 
+          href="/chat" 
+          className="bg-gold-500 text-midnight p-3 rounded-full shadow-lg hover:scale-105 transition-transform"
+        >
+          <MessageSquare className="w-5 h-5" />
+        </Link>
       </div>
 
-      {/* WIDGET HUMEUR */}
-      <div className="mb-6">
-        <MoodWidget />
-      </div>
-
-      {/* BOUTON "Aide-moi à avancer" */}
-      <motion.button
-        whileHover={{ scale: 1.01 }}
-        whileTap={{ scale: 0.99 }}
-        onClick={handleHelpMeMoveForward}
-        className="mb-8 w-full py-4 bg-gradient-to-r from-gold-500/20 to-gold-500/5 border border-gold-500/30 rounded-2xl text-gold-500 font-medium flex items-center justify-center gap-3 hover:bg-gold-500/30 transition-all group"
-      >
-        <Sparkles className="w-5 h-5 group-hover:rotate-12 transition-transform" />
-        <span>🧠 Aide-moi à avancer maintenant</span>
-        <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-      </motion.button>
-
-      {/* TOP 3 PRIORITÉS IA */}
-      {aiPriorities.length > 0 && (
-        <div className="mb-8">
-          <div className="flex items-center gap-2 text-gold-500 mb-3">
-            <Target className="w-4 h-4" />
-            <h2 className="text-sm font-serif">🎯 Top priorités du jour</h2>
-          </div>
-          <div className="space-y-3">
-            {aiPriorities.map((priority, idx) => (
-              <div
-                key={priority.id || idx}
-                className={`p-4 rounded-xl border-l-4 transition-all ${
-                  idx === 0 ? "border-l-red-500 bg-red-950/10" :
-                  idx === 1 ? "border-l-orange-500 bg-orange-950/10" :
-                  "border-l-gold-500 bg-gold-500/5"
-                }`}
-              >
-                <div className="flex justify-between items-start">
-                  <div>
-                    <p className="text-ivory font-medium">{priority.title}</p>
-                    <p className="text-xs text-gray-400 mt-1">{priority.priority_reason}</p>
-                    {priority.due_date && (
-                      <p className="text-xs text-gray-500 mt-1">📅 {new Date(priority.due_date).toLocaleDateString('fr-FR')}</p>
-                    )}
-                  </div>
-                  <Link href="/tasks" className="text-gold-500 text-sm hover:underline">→</Link>
-                </div>
-                <div className="mt-2 w-full bg-white/10 rounded-full h-1">
-                  <div className={`h-1 rounded-full ${idx === 0 ? "bg-red-500" : idx === 1 ? "bg-orange-500" : "bg-gold-500"}`} style={{ width: `${(priority.score / 40) * 100}%` }} />
-                </div>
+      {/* HUMEUR DU JOUR (petit widget) */}
+      <div className="bg-white/5 border border-white/10 rounded-xl p-3">
+        {mood ? (
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <span className="text-2xl">{currentMood?.emoji}</span>
+              <div>
+                <p className="text-xs text-gray-500">Humeur du jour</p>
+                <p className="text-sm text-gold-400">{currentMood?.label}</p>
               </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* SECTION RAPPELS IMPORTANTS */}
-      {reminders.length > 0 && (
-        <div className="mb-8">
-          <div className="flex items-center gap-2 text-gold-500 mb-3">
-            <Bell className="w-4 h-4" />
-            <h2 className="text-sm font-serif">🔔 Rappels importants</h2>
-          </div>
-          <div className="space-y-2">
-            {reminders.map(reminder => (
-              <div key={reminder.id} className={`p-3 rounded-xl border-l-4 ${reminder.urgency === "high" ? "border-l-red-500 bg-red-950/10" : "border-l-yellow-500 bg-yellow-950/10"}`}>
-                <p className="text-sm text-ivory">{reminder.title}</p>
-                <div className="flex items-center gap-3 mt-1">
-                  <span className={`text-xs px-2 py-0.5 rounded-full ${reminder.type === "task" ? "bg-blue-500/20 text-blue-400" : "bg-orange-500/20 text-orange-400"}`}>
-                    {reminder.type === "task" ? "📋 Tâche" : "📄 Document"}
-                  </span>
-                  {reminder.due_date && (
-                    <span className={`text-xs ${reminder.urgency === "high" ? "text-red-400" : "text-yellow-400"}`}>
-                      ⚠️ {new Date(reminder.due_date).toLocaleDateString('fr-FR')}
-                    </span>
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* CARTE DE VIE - LIFE MAP */}
-      <div className="mb-8">
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-2">
-            <Globe className="w-5 h-5 text-gold-500" />
-            <h2 className="text-lg font-serif text-gold-500">🗺️ Carte de vie</h2>
-          </div>
-          <span className="text-[10px] text-gray-500">Mise à jour en temps réel</span>
-        </div>
-        
-        {isLifeMapLoading ? (
-          <div className="flex justify-center py-8">
-            <Loader2 className="w-6 h-6 text-gold-500 animate-spin" />
-          </div>
-        ) : lifeMapData ? (
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <LifeMapCard title="Famille" icon={Heart} data={lifeMapData.family} href="/family" />
-            <LifeMapCard title="Argent" icon={DollarSign} data={lifeMapData.money} href="/money" />
-            <LifeMapCard title="Business" icon={Briefcase} data={lifeMapData.business} href="/business" />
-            <LifeMapCard title="Ferme" icon={Sprout} data={lifeMapData.farm} href="/farm" />
-            <LifeMapCard title="Documents" icon={FileText} data={lifeMapData.documents} href="/documents" />
-            <LifeMapCard title="Victoires" icon={Trophy} data={lifeMapData.wins} href="/wins" />
-            <LifeMapCard title="Relocation" icon={Globe} data={lifeMapData.relocation} href="/relocation" />
-            <LifeMapCard title="Alignement" icon={Shield} data={lifeMapData.alignment} href="/alignment" />
+            </div>
+            <button
+              onClick={() => { setMood(null); localStorage.removeItem("todayMood"); }}
+              className="text-xs text-gray-500 hover:text-gold-400"
+            >
+              Modifier
+            </button>
           </div>
         ) : (
-          <div className="text-center py-8 text-gray-500">
-            <AlertCircle className="w-8 h-8 mx-auto mb-2 opacity-50" />
-            <p className="text-sm">Données non disponibles</p>
+          <div className="flex items-center justify-between">
+            <span className="text-sm text-gray-400">Comment te sens-tu ?</span>
+            <div className="flex gap-2">
+              {moods.map((m) => (
+                <button
+                  key={m.value}
+                  onClick={() => saveMood(m.value)}
+                  className="text-xl hover:scale-110 transition-transform"
+                  title={m.label}
+                >
+                  {m.emoji}
+                </button>
+              ))}
+            </div>
           </div>
         )}
       </div>
 
-      {/* STATS RAPIDES */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-        <StatCard title="Trésorerie" value={formatCurrency(financials.balance)} icon={<Wallet className="w-5 h-5" />} color="text-gold-500" />
-        <StatCard title="Missions actives" value={missions.length.toString()} icon={<Target className="w-5 h-5" />} color="text-blue-400" />
-        <StatCard title="Tâches aujourd'hui" value={todayTasks.length.toString()} icon={<Clock className="w-5 h-5" />} color="text-orange-400" />
-        <StatCard title="Documents" value={pendingDocs.length.toString()} icon={<FileText className="w-5 h-5" />} color="text-red-400" />
-      </div>
+      {/* SECTION 1 : TOP PRIORITÉS */}
+      <CollapsibleSection 
+        title="🎯 Top priorités du jour" 
+        icon={TrendingUp}
+        defaultOpen={true}
+        badge={priorities.length}
+      >
+        {isLoading ? (
+          <div className="flex justify-center py-4"><Loader2 className="w-5 h-5 animate-spin text-gold-500" /></div>
+        ) : (
+          <DashboardPriorities priorities={priorities} />
+        )}
+      </CollapsibleSection>
 
-      {/* SUGGESTIONS PROACTIVES */}
-      {proactiveSuggestions.length > 0 && (
-        <div className="mb-8">
-          <div className="flex items-center gap-2 text-gold-500 mb-3">
-            <Lightbulb className="w-4 h-4" />
-            <h2 className="text-sm font-serif">✨ Suggestions Becks</h2>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {proactiveSuggestions.slice(0, 3).map((suggestion, idx) => (
-              <Link key={idx} href={suggestion.action_url} className="block p-4 bg-gold-500/5 border border-gold-500/20 rounded-xl hover:bg-gold-500/10 transition-all">
+      {/* SECTION 2 : PROCHAINES TÂCHES */}
+      <CollapsibleSection 
+        title="📋 Mes prochaines tâches" 
+        defaultOpen={true}
+        badge={upcomingTasks.length}
+      >
+        {isLoading ? (
+          <div className="flex justify-center py-4"><Loader2 className="w-5 h-5 animate-spin text-gold-500" /></div>
+        ) : (
+          <DashboardTasks tasks={upcomingTasks} />
+        )}
+      </CollapsibleSection>
+
+      {/* SECTION 3 : CARTE DE VIE (repliable) */}
+      <CollapsibleSection 
+        title="🗺️ Carte de vie" 
+        defaultOpen={false}
+      >
+        <SimpleLifeMap 
+          balance={balance}
+          activeMissions={activeMissions}
+          familyEvents={familyEvents}
+          alignmentScore={alignmentScore}
+        />
+      </CollapsibleSection>
+
+      {/* SECTION 4 : SUGGESTIONS BECKS (repliable) */}
+      {suggestions.length > 0 && (
+        <CollapsibleSection 
+          title="💡 Suggestions Becks" 
+          icon={Sparkles}
+          defaultOpen={false}
+          badge={suggestions.length}
+        >
+          <div className="space-y-2">
+            {suggestions.slice(0, 2).map((suggestion, idx) => (
+              <Link
+                key={idx}
+                href={suggestion.action_url}
+                className="block p-3 bg-gold-500/5 border border-gold-500/20 rounded-xl hover:bg-gold-500/10 transition-all"
+              >
                 <p className="text-sm font-medium text-ivory">{suggestion.title}</p>
                 <p className="text-xs text-gray-400 mt-1">{suggestion.message}</p>
-                <span className="inline-block text-xs text-gold-500 mt-3">→ Voir</span>
+                <span className="inline-block text-xs text-gold-500 mt-2">→ {suggestion.action_label}</span>
               </Link>
             ))}
           </div>
-        </div>
+        </CollapsibleSection>
       )}
 
-      {/* TÂCHES DU JOUR */}
-      <div className="mb-8">
-        <div className="flex justify-between items-center mb-3">
-          <h2 className="text-sm font-serif text-gold-500 flex items-center gap-2">
-            <Clock className="w-4 h-4" />
-            📋 Tâches du jour
-          </h2>
-          <Link href="/tasks" className="text-xs text-gray-500 hover:text-gold-500">Voir tout →</Link>
-        </div>
-        {todayTasks.length > 0 ? (
-          <div className="space-y-2">
-            {todayTasks.map(task => (
-              <div key={task.id} className="flex items-center gap-3 p-3 bg-white/5 rounded-xl">
-                <div className="w-1.5 h-1.5 rounded-full bg-gold-500" />
-                <span className="text-ivory text-sm">{task.title}</span>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <p className="text-gray-500 text-sm text-center py-4">Aucune tâche planifiée pour aujourd'hui ✨</p>
-        )}
-      </div>
-
-      {/* VICTOIRES RÉCENTES */}
-      {recentWins.length > 0 && (
-        <div className="mb-8">
-          <div className="flex justify-between items-center mb-3">
-            <h2 className="text-sm font-serif text-gold-500 flex items-center gap-2">
-              <Trophy className="w-4 h-4" />
-              🏆 Victoires récentes
-            </h2>
-            <Link href="/wins" className="text-xs text-gray-500 hover:text-gold-500">Voir tout →</Link>
-          </div>
-          <div className="space-y-2">
-            {recentWins.map(win => (
-              <div key={win.id} className="flex items-center gap-3 p-3 bg-white/5 rounded-xl">
-                <span className="text-xl">{win.celebration_emoji || "🎉"}</span>
-                <span className="text-ivory text-sm">{win.title}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* DOCUMENTS EN ATTENTE */}
-      {pendingDocs.length > 0 && (
-        <div className="mb-8">
-          <div className="flex justify-between items-center mb-3">
-            <h2 className="text-sm font-serif text-gold-500 flex items-center gap-2">
-              <FileText className="w-4 h-4" />
-              📄 Documents à traiter
-            </h2>
-            <Link href="/documents" className="text-xs text-gray-500 hover:text-gold-500">Voir tout →</Link>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            {pendingDocs.map(doc => (
-              <span key={doc.id} className="px-3 py-1.5 bg-yellow-500/10 text-yellow-400 rounded-full text-xs">
-                {doc.name}
-              </span>
-            ))}
-          </div>
-        </div>
-      )}
-
-       {/* AVATAR FLOTTANT + BOUTON CHAT */}
-      <div className="fixed bottom-6 right-6 z-40 flex items-center gap-3">
-        {/* Avatar flottant de Becks */}
-        <div className="relative">
-          <div className="w-12 h-12 rounded-full bg-gradient-to-br from-gold-500/20 to-gold-500/10 border border-gold-500/30 flex items-center justify-center shadow-lg animate-pulse-slow">
-            <svg viewBox="0 0 100 100" className="w-8 h-8">
-              <circle cx="50" cy="50" r="45" fill="#D4AF37" opacity="0.15" />
-              <ellipse cx="35" cy="45" rx="8" ry="10" fill="#D4AF37" opacity="0.8" />
-              <ellipse cx="65" cy="45" rx="8" ry="10" fill="#D4AF37" opacity="0.8" />
-              <circle cx="35" cy="45" r="4" fill="#1a1a2e" />
-              <circle cx="65" cy="45" r="4" fill="#1a1a2e" />
-              <circle cx="33" cy="43" r="1.5" fill="white" />
-              <circle cx="63" cy="43" r="1.5" fill="white" />
-              <path d="M40 60 Q50 68 60 60" stroke="#D4AF37" strokeWidth="2" fill="none" strokeLinecap="round" />
-            </svg>
-          </div>
-          {/* Bulle de présence */}
-          <div className="absolute -top-1 -right-1 w-3 h-3 bg-emerald-500 rounded-full animate-pulse" />
-        </div>
-        
-        {/* Bouton chat */}
+      {/* BOUTON D'AIDE FLOTTANT */}
+      <div className="fixed bottom-6 right-6 z-40">
         <Link 
           href="/chat" 
-          className="bg-gold-500 text-midnight p-4 rounded-full shadow-lg hover:scale-105 transition-transform"
+          className="bg-gold-500 text-midnight p-4 rounded-full shadow-lg hover:scale-105 transition-transform flex items-center gap-2"
         >
-          <MessageSquare className="w-6 h-6" />
+          <Crown className="w-5 h-5" />
+          <span className="hidden md:inline text-sm">Becks</span>
         </Link>
       </div>
-    </div>
-  );
-}
-
-// Composant StatCard
-function StatCard({ title, value, icon, color }: { title: string; value: string; icon: React.ReactNode; color: string }) {
-  return (
-    <div className="bg-white/5 border border-white/10 rounded-xl p-4">
-      <div className={`${color} mb-2`}>{icon}</div>
-      <div className="text-xl font-serif text-ivory">{value}</div>
-      <div className="text-xs text-gray-500 mt-1">{title}</div>
     </div>
   );
 }
