@@ -9,16 +9,20 @@ import {
   Sprout, AlertCircle, CheckCircle, Clock, TrendingUp,
   Calendar, Sparkles, ArrowRight, MessageSquare, Shield,
   FileText, Users, Wallet, Globe, Zap, Lightbulb, 
-  PieChart, LineChart, Smile, Meh, Frown, Sun, Moon
+  PieChart, LineChart, Smile, Meh, Frown, Sun, Moon, Bell
 } from "lucide-react";
 
-// Types (existants)
+// Types
 type Mission = { id: string; name: string; status: string; priority: string };
 type Task = { id: string; title: string; status: string; due_date: string | null };
 type Document = { id: string; name: string; status: string };
 type Win = { id: string; title: string; celebration_emoji: string };
+type FamilyEvent = { id: string; title: string; date: string | null };
+type RelocationTask = { id: string; title: string; status: string };
+type FarmUnit = { id: string; name: string; status: string };
 type Suggestion = { type: string; priority: string; title: string; message: string; action_url: string; action_label: string };
 type AiPriority = { id: string; title: string; score: number; due_date: string | null; priority_reason: string };
+type Reminder = { id: string; title: string; type: string; due_date: string | null; urgency: string };
 
 const API_URL = "https://sovereign-bridge.onrender.com";
 
@@ -44,11 +48,9 @@ function MoodWidget() {
     localStorage.setItem("todayMood", selectedMood);
     localStorage.setItem("todayMoodDate", today);
     
-    // Sauvegarder en base
     await supabase.from("mood_entries").insert({
       mood: selectedMood,
       date: today,
-      user_id: (await supabase.auth.getUser()).data.user?.id
     });
     setIsLoading(false);
   };
@@ -80,6 +82,15 @@ function MoodWidget() {
             Modifier
           </button>
         </div>
+        {mood === "fatiguée" && (
+          <p className="text-xs text-gold-400 mt-3 pt-2 border-t border-gold-500/20">✨ Prends soin de toi. Une petite chose à la fois.</p>
+        )}
+        {mood === "stressée" && (
+          <p className="text-xs text-gold-400 mt-3 pt-2 border-t border-gold-500/20">🌿 On respire. Une seule priorité pour commencer.</p>
+        )}
+        {mood === "excellent" && (
+          <p className="text-xs text-gold-400 mt-3 pt-2 border-t border-gold-500/20">🔥 C'est le moment d'attaquer les gros dossiers !</p>
+        )}
       </div>
     );
   }
@@ -110,14 +121,18 @@ export default function DashboardPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [proactiveSuggestions, setProactiveSuggestions] = useState<Suggestion[]>([]);
   const [aiPriorities, setAiPriorities] = useState<AiPriority[]>([]);
+  const [reminders, setReminders] = useState<Reminder[]>([]);
   
-  // Données
+  // Données pour la carte de vie dynamique
   const [missions, setMissions] = useState<Mission[]>([]);
   const [todayTasks, setTodayTasks] = useState<Task[]>([]);
-  const [urgentTasks, setUrgentTasks] = useState<Task[]>([]);
   const [pendingDocs, setPendingDocs] = useState<Document[]>([]);
   const [recentWins, setRecentWins] = useState<Win[]>([]);
+  const [familyEvents, setFamilyEvents] = useState<FamilyEvent[]>([]);
+  const [relocationTasks, setRelocationTasks] = useState<RelocationTask[]>([]);
+  const [farmUnits, setFarmUnits] = useState<FarmUnit[]>([]);
   const [financials, setFinancials] = useState({ revenue: 0, spending: 0, balance: 0 });
+  const [alignmentScore, setAlignmentScore] = useState(0);
 
   useEffect(() => {
     const hour = new Date().getHours();
@@ -146,9 +161,57 @@ export default function DashboardPage() {
       fetchWins(),
       fetchFinancials(),
       fetchAiPriorities(),
-      fetchProactiveSuggestions()
+      fetchProactiveSuggestions(),
+      fetchFamilyEvents(),
+      fetchRelocationTasks(),
+      fetchFarmUnits(),
+      fetchReminders()
     ]);
+    calculateAlignmentScore();
     setIsLoading(false);
+  }
+
+  async function fetchReminders() {
+    const today = new Date().toISOString().split('T')[0];
+    const tomorrow = new Date(Date.now() + 86400000).toISOString().split('T')[0];
+    
+    // Tâches en retard ou aujourd'hui
+    const { data: tasks } = await supabase
+      .from("tasks")
+      .select("*")
+      .in("due_date", [today, tomorrow])
+      .neq("status", "done");
+    
+    // Documents en retard
+    const { data: docs } = await supabase
+      .from("documents")
+      .select("*")
+      .lt("due_date", today)
+      .neq("status", "approved");
+    
+    const allReminders: Reminder[] = [];
+    
+    tasks?.forEach(task => {
+      allReminders.push({
+        id: task.id,
+        title: task.title,
+        type: "task",
+        due_date: task.due_date,
+        urgency: task.due_date === today ? "high" : "medium"
+      });
+    });
+    
+    docs?.forEach(doc => {
+      allReminders.push({
+        id: doc.id,
+        title: doc.name,
+        type: "document",
+        due_date: doc.due_date,
+        urgency: "high"
+      });
+    });
+    
+    setReminders(allReminders.slice(0, 5));
   }
 
   async function fetchProactiveSuggestions() {
@@ -179,8 +242,6 @@ export default function DashboardPage() {
   async function fetchTasks() {
     const { data } = await supabase.from("tasks").select("*").eq("status", "today").limit(5);
     setTodayTasks(data || []);
-    const { data: urgent } = await supabase.from("tasks").select("*").eq("status", "today").neq("status", "done");
-    setUrgentTasks(urgent || []);
   }
 
   async function fetchDocuments() {
@@ -203,12 +264,32 @@ export default function DashboardPage() {
     setFinancials({ revenue, spending, balance: revenue - spending });
   }
 
+  async function fetchFamilyEvents() {
+    const { data } = await supabase.from("family_events").select("*").gte("date", new Date().toISOString().split('T')[0]).limit(10);
+    setFamilyEvents(data || []);
+  }
+
+  async function fetchRelocationTasks() {
+    const { data } = await supabase.from("relocation_tasks").select("*").neq("status", "completed");
+    setRelocationTasks(data || []);
+  }
+
+  async function fetchFarmUnits() {
+    const { data } = await supabase.from("farm_production_units").select("*").eq("status", "active");
+    setFarmUnits(data || []);
+  }
+
+  function calculateAlignmentScore() {
+    // Score basé sur: missions actives + victoires récentes + humeur
+    const baseScore = Math.min(100, (missions.length * 5) + (recentWins.length * 3));
+    setAlignmentScore(baseScore);
+  }
+
   const formatCurrency = (val: number) => {
     return new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'XOF', maximumFractionDigits: 0 }).format(val);
   };
 
   const handleHelpMeMoveForward = () => {
-    // Ouvre le chat en mode "Fais-le avec moi"
     window.location.href = "/chat?mode=execute";
   };
 
@@ -276,21 +357,105 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* CARTE DE VIE SIMPLIFIÉE (Life Map) */}
+      {/* SECTION RAPPELS IMPORTANTS - NOUVEAU */}
+      {reminders.length > 0 && (
+        <div className="mb-8">
+          <div className="flex items-center gap-2 text-gold-500 mb-3">
+            <Bell className="w-4 h-4" />
+            <h2 className="text-sm font-serif">🔔 Rappels importants</h2>
+          </div>
+          <div className="space-y-2">
+            {reminders.map(reminder => (
+              <div key={reminder.id} className={`p-3 rounded-xl border-l-4 ${reminder.urgency === "high" ? "border-l-red-500 bg-red-950/10" : "border-l-yellow-500 bg-yellow-950/10"}`}>
+                <p className="text-sm text-ivory">{reminder.title}</p>
+                <div className="flex items-center gap-3 mt-1">
+                  <span className={`text-xs px-2 py-0.5 rounded-full ${reminder.type === "task" ? "bg-blue-500/20 text-blue-400" : "bg-orange-500/20 text-orange-400"}`}>
+                    {reminder.type === "task" ? "📋 Tâche" : "📄 Document"}
+                  </span>
+                  {reminder.due_date && (
+                    <span className={`text-xs ${reminder.urgency === "high" ? "text-red-400" : "text-yellow-400"}`}>
+                      ⚠️ {new Date(reminder.due_date).toLocaleDateString('fr-FR')}
+                    </span>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* CARTE DE VIE DYNAMIQUE - AMÉLIORÉE */}
       <div className="mb-8">
         <div className="flex items-center gap-2 text-gold-500 mb-3">
           <Globe className="w-4 h-4" />
           <h2 className="text-sm font-serif">🗺️ Carte de vie</h2>
         </div>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          <LifeMapCard title="Famille" icon={Heart} count={4} status="plusieurs" color="text-pink-400" href="/family" />
-          <LifeMapCard title="Argent" icon={DollarSign} count={financials.balance} status="finance" color="text-emerald-400" href="/money" />
-          <LifeMapCard title="Business" icon={Briefcase} count={missions.length} status="missions" color="text-blue-400" href="/missions" />
-          <LifeMapCard title="Ferme" icon={Sprout} count={3} status="projets" color="text-green-400" href="/farm" />
-          <LifeMapCard title="Documents" icon={FileText} count={pendingDocs.length} status="en attente" color="text-orange-400" href="/documents" />
-          <LifeMapCard title="Victoires" icon={Trophy} count={recentWins.length} status="récentes" color="text-yellow-400" href="/wins" />
-          <LifeMapCard title="Relocation" icon={Globe} count={2} status="en cours" color="text-cyan-400" href="/relocation" />
-          <LifeMapCard title="Alignement" icon={Shield} count={0} status="check" color="text-purple-400" href="/alignment" />
+          <LifeMapCard 
+            title="Famille" 
+            icon={Heart} 
+            count={familyEvents.length} 
+            status="événements" 
+            color="text-pink-400" 
+            href="/family" 
+          />
+          <LifeMapCard 
+            title="Argent" 
+            icon={DollarSign} 
+            count={financials.balance} 
+            status="CFA" 
+            color="text-emerald-400" 
+            href="/money" 
+            isCurrency={true}
+          />
+          <LifeMapCard 
+            title="Business" 
+            icon={Briefcase} 
+            count={missions.length} 
+            status="missions" 
+            color="text-blue-400" 
+            href="/missions" 
+          />
+          <LifeMapCard 
+            title="Ferme" 
+            icon={Sprout} 
+            count={farmUnits.length} 
+            status="unités" 
+            color="text-green-400" 
+            href="/farm" 
+          />
+          <LifeMapCard 
+            title="Documents" 
+            icon={FileText} 
+            count={pendingDocs.length} 
+            status="en attente" 
+            color="text-orange-400" 
+            href="/documents" 
+          />
+          <LifeMapCard 
+            title="Victoires" 
+            icon={Trophy} 
+            count={recentWins.length} 
+            status="récentes" 
+            color="text-yellow-400" 
+            href="/wins" 
+          />
+          <LifeMapCard 
+            title="Relocation" 
+            icon={Globe} 
+            count={relocationTasks.length} 
+            status="tâches" 
+            color="text-cyan-400" 
+            href="/relocation" 
+          />
+          <LifeMapCard 
+            title="Alignement" 
+            icon={Shield} 
+            count={alignmentScore} 
+            status="%" 
+            color="text-purple-400" 
+            href="/alignment" 
+          />
         </div>
       </div>
 
@@ -385,7 +550,7 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* BOUTON CHAT */}
+      {/* BOUTON CHAT FLOTTANT */}
       <Link href="/chat" className="fixed bottom-6 right-6 z-40 bg-gold-500 text-midnight p-4 rounded-full shadow-lg hover:scale-105 transition-transform">
         <MessageSquare className="w-6 h-6" />
       </Link>
@@ -393,7 +558,7 @@ export default function DashboardPage() {
   );
 }
 
-// Composants utilitaires
+// Composant StatCard
 function StatCard({ title, value, icon, color }: { title: string; value: string; icon: React.ReactNode; color: string }) {
   return (
     <div className="bg-white/5 border border-white/10 rounded-xl p-4">
@@ -404,12 +569,17 @@ function StatCard({ title, value, icon, color }: { title: string; value: string;
   );
 }
 
-function LifeMapCard({ title, icon: Icon, count, status, color, href }: { title: string; icon: any; count: number | string; status: string; color: string; href: string }) {
+// Composant LifeMapCard amélioré avec support devise
+function LifeMapCard({ title, icon: Icon, count, status, color, href, isCurrency = false }: { title: string; icon: any; count: number | string; status: string; color: string; href: string; isCurrency?: boolean }) {
+  const displayValue = isCurrency && typeof count === 'number' 
+    ? new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'XOF', maximumFractionDigits: 0 }).format(count)
+    : count;
+  
   return (
     <Link href={href} className="bg-white/5 border border-white/10 rounded-xl p-3 hover:bg-white/10 transition-all">
       <Icon className={`w-4 h-4 ${color} mb-2`} />
       <p className="text-xs font-medium text-ivory">{title}</p>
-      <p className="text-[10px] text-gray-500 mt-0.5">{typeof count === 'number' ? `${count} ${status}` : status}</p>
+      <p className="text-[10px] text-gray-500 mt-0.5">{displayValue} {!isCurrency && status}</p>
     </Link>
   );
 }
