@@ -1,10 +1,11 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Bell, BellRing, Loader2 } from "lucide-react";
+import { Bell, BellRing, Loader2, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
 const VAPID_PUBLIC_KEY = "BBBlTgNIZqh8TWsKy73wptSd69jogrECwImktCKW3YbWeQgDkSwhvmsbhxr2mo57fJt_rhrgddIwQfgj3p9_0C0";
+const API_URL = "https://sovereign-bridge.onrender.com";
 
 function urlBase64ToUint8Array(base64String: string) {
   const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
@@ -20,6 +21,7 @@ function urlBase64ToUint8Array(base64String: string) {
 export default function NotificationBell() {
   const [isSubscribed, setIsSubscribed] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [isCleaning, setIsCleaning] = useState(false);
   const [isSupported, setIsSupported] = useState(true);
   const [hasRequestedPermission, setHasRequestedPermission] = useState(false);
 
@@ -51,7 +53,6 @@ export default function NotificationBell() {
     }
   }
 
-  // NOUVELLE FONCTION : Demande automatique de permission
   async function autoRequestPermission() {
     if (Notification.permission !== "default") return;
     
@@ -79,7 +80,6 @@ export default function NotificationBell() {
     setIsLoading(true);
 
     try {
-      // Demander la permission si pas encore accordée
       let permission = Notification.permission;
       if (permission !== "granted") {
         permission = await Notification.requestPermission();
@@ -101,7 +101,7 @@ export default function NotificationBell() {
       });
       console.log("Subscription créée:", subscription);
 
-      const response = await fetch("https://sovereign-bridge.onrender.com/api/subscribe", {
+      const response = await fetch(`${API_URL}/api/subscribe`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(subscription)
@@ -140,7 +140,7 @@ export default function NotificationBell() {
       if (subscription) {
         await subscription.unsubscribe();
         
-        await fetch("https://sovereign-bridge.onrender.com/api/unsubscribe", {
+        await fetch(`${API_URL}/api/unsubscribe`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ endpoint: subscription.endpoint })
@@ -159,7 +159,7 @@ export default function NotificationBell() {
 
   async function testNotification() {
     try {
-      const response = await fetch("https://sovereign-bridge.onrender.com/api/send-notification", {
+      const response = await fetch(`${API_URL}/api/send-notification`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -172,6 +172,30 @@ export default function NotificationBell() {
       console.log("Notification test envoyée:", result);
     } catch (error) {
       console.error("Erreur test notification:", error);
+    }
+  }
+
+  async function cleanExpiredSubscriptions() {
+    setIsCleaning(true);
+    try {
+      const response = await fetch(`${API_URL}/api/clean-expired-subscriptions`, {
+        method: "POST"
+      });
+      const result = await response.json();
+      if (result.success) {
+        toast.success(`${result.deleted} subscription(s) expirée(s) supprimée(s)`, {
+          description: `${result.total} subscriptions au total, ${result.deleted} nettoyées`
+        });
+        // Vérifier si la subscription actuelle est encore valide
+        await checkSubscription();
+      } else {
+        toast.error("Erreur: " + result.error);
+      }
+    } catch (error) {
+      console.error("Erreur nettoyage:", error);
+      toast.error("Erreur lors du nettoyage des subscriptions");
+    } finally {
+      setIsCleaning(false);
     }
   }
 
@@ -189,27 +213,42 @@ export default function NotificationBell() {
   };
 
   return (
-    <button
-      onClick={handleClick}
-      disabled={isLoading}
-      className={`p-2 rounded-full transition-all duration-300 ${
-        isSubscribed 
-          ? "text-gold-500 bg-gold-500/10" 
-          : "text-gray-500 hover:text-ivory hover:bg-white/5"
-      } disabled:opacity-50 relative`}
-      title={isSubscribed ? "Désactiver les alertes" : "Activer les alertes"}
-    >
-      {isLoading ? (
-        <Loader2 className="w-5 h-5 animate-spin" />
-      ) : isSubscribed ? (
-        <BellRing className="w-5 h-5" />
-      ) : (
-        <Bell className="w-5 h-5" />
-      )}
-      {/* Indicateur visuel si permission non accordée */}
-      {!isSubscribed && Notification.permission === "default" && (
-        <span className="absolute -top-1 -right-1 w-2 h-2 bg-gold-500 rounded-full animate-pulse" />
-      )}
-    </button>
+    <div className="flex items-center gap-2">
+      <button
+        onClick={cleanExpiredSubscriptions}
+        disabled={isCleaning}
+        className="p-2 rounded-full bg-white/5 text-gray-500 hover:text-red-400 hover:bg-red-500/10 transition-all duration-300 disabled:opacity-50"
+        title="Nettoyer les anciennes subscriptions"
+      >
+        {isCleaning ? (
+          <Loader2 className="w-4 h-4 animate-spin" />
+        ) : (
+          <Trash2 className="w-4 h-4" />
+        )}
+      </button>
+      
+      <button
+        onClick={handleClick}
+        disabled={isLoading}
+        className={`p-2 rounded-full transition-all duration-300 ${
+          isSubscribed 
+            ? "text-gold-500 bg-gold-500/10" 
+            : "text-gray-500 hover:text-ivory hover:bg-white/5"
+        } disabled:opacity-50 relative`}
+        title={isSubscribed ? "Désactiver les alertes" : "Activer les alertes"}
+      >
+        {isLoading ? (
+          <Loader2 className="w-5 h-5 animate-spin" />
+        ) : isSubscribed ? (
+          <BellRing className="w-5 h-5" />
+        ) : (
+          <Bell className="w-5 h-5" />
+        )}
+        {/* Indicateur visuel si permission non accordée */}
+        {!isSubscribed && Notification.permission === "default" && (
+          <span className="absolute -top-1 -right-1 w-2 h-2 bg-gold-500 rounded-full animate-pulse" />
+        )}
+      </button>
+    </div>
   );
 }
