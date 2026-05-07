@@ -1,5 +1,4 @@
-// components/VoiceToggle.tsx
-"use client";
+ "use client";
 import { Mic, MicOff, Volume2 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
