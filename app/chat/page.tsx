@@ -681,11 +681,14 @@ export default function ChatPage() {
         
         {/* Avatar + Voice Assistant */}
         <div className="flex items-center gap-3">
-          <SovereignAvatar 
-            state={avatarState} 
-            size="sm"
-            lastMessage={lastAssistantMessage}
-          />
+        <SovereignAvatar 
+          state={avatarState} 
+          size="sm"
+          lastMessage={lastAssistantMessage}
+          isVoiceActive={isVoiceActive}
+          isVoiceListening={isVoiceListening}
+          isVoiceSpeaking={isVoiceSpeaking}
+        />
           
           {/* Nouveau VoiceToggle intégré */}
           <VoiceToggle
