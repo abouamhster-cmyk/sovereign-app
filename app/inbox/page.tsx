@@ -9,7 +9,8 @@ import {
   Clock, AlertCircle, Lightbulb, Heart, DollarSign,
   Briefcase, FileText, Globe, Sprout, User, X,
   Loader2, Filter, Mic, Paperclip, XCircle, Brain,
-  TrendingUp, Smile, Frown, Meh, Zap, Target
+  TrendingUp, Smile, Frown, Meh, Zap, Target,
+  ChevronDown, ChevronUp
 } from "lucide-react";
 import { toast } from "sonner";
 import { useDropzone } from "react-dropzone";
@@ -21,11 +22,9 @@ type InboxItem = {
   content: string;
   type: "task" | "idea" | "note" | "opportunity" | "reminder" | "content" | "question" | "worry";
   area: "life" | "family" | "money" | "business" | "content" | "documents" | "relocation" | "farm" | "self";
-  mission_id: string | null;
   urgency: "low" | "medium" | "high";
   needs_processing: boolean;
   processed_at: string | null;
-  converted_to: string | null;
   created_at: string;
 };
 
@@ -36,20 +35,19 @@ type BrainAnalysis = {
   urgency_level: string;
   priorities: { title: string; reason: string }[];
   suggested_tasks: { title: string; project: string; priority: string }[];
-  suggested_missions: { name: string; category: string; priority: string }[];
   insights: string;
   calming_response: string;
 };
 
 const typeConfig = {
-  task: { icon: CheckCircle, label: "Tâche", color: "bg-blue-500/20 text-blue-400" },
-  idea: { icon: Lightbulb, label: "Idée", color: "bg-yellow-500/20 text-yellow-400" },
-  note: { icon: FileText, label: "Note", color: "bg-gray-500/20 text-gray-400" },
-  opportunity: { icon: DollarSign, label: "Opportunité", color: "bg-emerald-500/20 text-emerald-400" },
-  reminder: { icon: Clock, label: "Rappel", color: "bg-orange-500/20 text-orange-400" },
-  content: { icon: Sparkles, label: "Contenu", color: "bg-purple-500/20 text-purple-400" },
-  question: { icon: AlertCircle, label: "Question", color: "bg-red-500/20 text-red-400" },
-  worry: { icon: Heart, label: "Stress", color: "bg-pink-500/20 text-pink-400" }
+  task: { icon: CheckCircle, label: "Tâche", color: "bg-blue-500/20 text-blue-400", border: "border-l-blue-500" },
+  idea: { icon: Lightbulb, label: "Idée", color: "bg-yellow-500/20 text-yellow-400", border: "border-l-yellow-500" },
+  note: { icon: FileText, label: "Note", color: "bg-gray-500/20 text-gray-400", border: "border-l-gray-500" },
+  opportunity: { icon: DollarSign, label: "Opportunité", color: "bg-emerald-500/20 text-emerald-400", border: "border-l-emerald-500" },
+  reminder: { icon: Clock, label: "Rappel", color: "bg-orange-500/20 text-orange-400", border: "border-l-orange-500" },
+  content: { icon: Sparkles, label: "Contenu", color: "bg-purple-500/20 text-purple-400", border: "border-l-purple-500" },
+  question: { icon: AlertCircle, label: "Question", color: "bg-red-500/20 text-red-400", border: "border-l-red-500" },
+  worry: { icon: Heart, label: "Stress", color: "bg-pink-500/20 text-pink-400", border: "border-l-pink-500" }
 };
 
 const areaConfig = {
@@ -64,33 +62,20 @@ const areaConfig = {
   self: { icon: User, label: "Personnel", color: "bg-indigo-500/20 text-indigo-400" }
 };
 
-const emotionIcons: Record<string, { icon: any; color: string }> = {
-  stress: { icon: AlertCircle, color: "text-red-400" },
-  fatigue: { icon: Clock, color: "text-yellow-400" },
-  excitation: { icon: Zap, color: "text-orange-400" },
-  frustration: { icon: AlertCircle, color: "text-red-400" },
-  clarté: { icon: Lightbulb, color: "text-green-400" },
-  confusion: { icon: Meh, color: "text-gray-400" },
-  sérénité: { icon: Smile, color: "text-emerald-400" },
-  anxiété: { icon: Heart, color: "text-pink-400" },
-  motivation: { icon: TrendingUp, color: "text-purple-400" },
-  tristesse: { icon: Frown, color: "text-blue-400" },
-  joie: { icon: Smile, color: "text-emerald-400" }
-};
-
 export default function InboxPage() {
   const [items, setItems] = useState<InboxItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [input, setInput] = useState("");
-  const [filter, setFilter] = useState<string>("all");
-  const [selectedType, setSelectedType] = useState<string>("all");
+  const [filterArea, setFilterArea] = useState<string>("all");
+  const [filterType, setFilterType] = useState<string>("all");
   const [analysis, setAnalysis] = useState<BrainAnalysis | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [showFilters, setShowFilters] = useState(false);
   
   // États pour les fichiers
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
   
-  // États pour le micro intégré
+  // États pour le micro
   const [isRecording, setIsRecording] = useState(false);
   const [isVoiceLocked, setIsVoiceLocked] = useState(false);
   const [pressTimer, setPressTimer] = useState<NodeJS.Timeout | null>(null);
@@ -99,7 +84,6 @@ export default function InboxPage() {
   
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
-  // Speech recognition
   const {
     transcript,
     resetTranscript,
@@ -131,7 +115,6 @@ export default function InboxPage() {
     };
   }, [pressTimer]);
 
-  // Dropzone
   const onDrop = (acceptedFiles: File[]) => {
     setUploadedFiles(prev => [...prev, ...acceptedFiles]);
   };
@@ -197,7 +180,6 @@ export default function InboxPage() {
     setIsSending(true);
     setIsAnalyzing(true);
     
-    // Upload des fichiers
     const uploadedFilesData = await uploadFilesToStorage();
     
     let fullContent = content || "📎 Fichier(s) joint(s)";
@@ -211,7 +193,6 @@ export default function InboxPage() {
       fullContent += "\n\n📎 Fichiers joints:\n" + otherFiles.map(f => `- **${f.name}** : ${f.url}`).join("\n");
     }
     
-    // 1. Sauvegarder dans inbox
     const { data, error } = await supabase
       .from("inbox")
       .insert({
@@ -228,7 +209,6 @@ export default function InboxPage() {
       setUploadedFiles([]);
       fetchItems();
       
-      // 2. Analyser avec l'IA
       toast.info("🧠 Analyse en cours...");
       
       try {
@@ -242,25 +222,20 @@ export default function InboxPage() {
         
         if (result.success && result.analysis) {
           setAnalysis(result.analysis);
-          
-          // Afficher le message réconfortant
           toast.success(result.analysis.calming_response || "✨ Prise en compte !");
           
-          // 3. Créer les tâches suggérées automatiquement
           if (result.analysis.suggested_tasks?.length > 0) {
             for (const task of result.analysis.suggested_tasks.slice(0, 3)) {
               await supabase.from("tasks").insert({
                 title: task.title,
                 status: "today",
                 priority: task.priority || "normal",
-                project: task.project || "Général",
-                created_at: new Date().toISOString()
+                project: task.project || "Général"
               });
             }
             toast.success(`✅ ${result.analysis.suggested_tasks.length} tâche(s) créée(s)`);
           }
           
-          // 4. Mettre à jour l'item inbox avec l'analyse
           await supabase
             .from("inbox")
             .update({ 
@@ -289,7 +264,6 @@ export default function InboxPage() {
     if (!error) fetchItems();
   }
 
-  // Gestion du micro
   const startVoiceRecording = () => {
     resetTranscript();
     SpeechRecognition.startListening({ continuous: true, language: 'fr-FR' });
@@ -339,8 +313,8 @@ export default function InboxPage() {
   };
 
   const filteredItems = items.filter(item => {
-    if (filter !== "all" && item.area !== filter) return false;
-    if (selectedType !== "all" && item.type !== selectedType) return false;
+    if (filterArea !== "all" && item.area !== filterArea) return false;
+    if (filterType !== "all" && item.type !== filterType) return false;
     return true;
   });
 
@@ -354,8 +328,11 @@ export default function InboxPage() {
     <div className="p-4 md:p-6 lg:p-8 h-full flex flex-col overflow-y-auto bg-midnight">
       {/* HEADER */}
       <div className="mb-6">
-        <h1 className="text-3xl md:text-4xl font-serif text-gold-500 tracking-tight">Brain Dump</h1>
-        <p className="text-gray-500 text-sm mt-1 italic">
+        <div className="flex items-center gap-3 mb-2">
+          <Brain className="w-8 h-8 text-gold-500" />
+          <h1 className="text-3xl md:text-4xl font-serif text-gold-500 tracking-tight">Brain Dump</h1>
+        </div>
+        <p className="text-gray-500 text-sm italic">
           Vide ton esprit. Je trie, j'analyse, j'agis.
         </p>
       </div>
@@ -363,20 +340,20 @@ export default function InboxPage() {
       {/* STATS */}
       <div className="grid grid-cols-3 gap-3 mb-6">
         <div className="bg-white/5 border border-white/10 rounded-xl p-3 text-center">
-          <div className="text-xl font-serif text-ivory">{stats.total}</div>
+          <div className="text-2xl font-serif text-ivory">{stats.total}</div>
           <div className="text-[10px] text-gray-500">Total</div>
         </div>
         <div className="bg-white/5 border border-white/10 rounded-xl p-3 text-center">
-          <div className="text-xl font-serif text-yellow-400">{stats.pending}</div>
+          <div className="text-2xl font-serif text-yellow-400">{stats.pending}</div>
           <div className="text-[10px] text-gray-500">En cours</div>
         </div>
         <div className="bg-white/5 border border-white/10 rounded-xl p-3 text-center">
-          <div className="text-xl font-serif text-red-400">{stats.highUrgency}</div>
+          <div className="text-2xl font-serif text-red-400">{stats.highUrgency}</div>
           <div className="text-[10px] text-gray-500">Urgent</div>
         </div>
       </div>
 
-      {/* INPUT AREA */}
+      {/* INPUT AREA - STYLISÉE */}
       <div className="mb-6">
         {uploadedFiles.length > 0 && (
           <div className="flex flex-wrap gap-2 mb-2">
@@ -398,28 +375,14 @@ export default function InboxPage() {
           </div>
         )}
         
-        <div className="flex items-start gap-2">
-          <button
-            onClick={() => document.getElementById('file-upload-input')?.click()}
-            className="p-2 rounded-full bg-white/10 text-gray-400 hover:bg-white/20 transition-colors flex-shrink-0 mt-2"
-          >
-            <Paperclip className="w-5 h-5" />
-          </button>
-          
-          <input
-            id="file-upload-input"
-            type="file"
-            {...getInputProps()}
-            className="hidden"
-          />
-          
+        <div className="bg-white/5 border border-white/10 rounded-2xl p-4 focus-within:border-gold-500 transition-all">
           <textarea
             ref={inputRef}
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            placeholder={isRecording || isVoiceLocked ? "🎤 Enregistrement vocal..." : "Écris tout ce qui te traverse l'esprit... (tâches, idées, stress, opportunités, questions)"}
-            className="flex-1 bg-white/10 border border-white/20 rounded-2xl px-4 py-3 text-sm focus:outline-none focus:border-gold-500 transition-all text-ivory placeholder:text-gray-500 resize-none"
-            rows={3}
+            placeholder="Écris tout ce qui te traverse l'esprit... (tâches, idées, stress, opportunités, questions)"
+            className="w-full bg-transparent text-ivory placeholder:text-gray-500 resize-none focus:outline-none text-sm"
+            rows={4}
             onKeyDown={(e) => {
               if (e.key === "Enter" && !e.shiftKey && !isRecording && !isVoiceLocked && !isSending) {
                 e.preventDefault();
@@ -428,33 +391,51 @@ export default function InboxPage() {
             }}
           />
           
-          <button
-            onMouseDown={handleSendButtonMouseDown}
-            onMouseUp={handleSendButtonMouseUp}
-            onMouseLeave={() => {
-              if (isRecording && !isVoiceLocked) stopVoiceRecording();
-            }}
-            onTouchStart={handleSendButtonMouseDown}
-            onTouchEnd={handleSendButtonMouseUp}
-            onClick={() => { if (isVoiceLocked) stopVoiceLock(); }}
-            disabled={(!input.trim() && uploadedFiles.length === 0 && !isRecording && !isVoiceLocked) || isSending}
-            className={`p-2 rounded-full transition-all flex-shrink-0 mt-2 ${
-              isRecording || isVoiceLocked
-                ? "bg-red-500 text-white animate-pulse"
-                : "bg-gold-500 text-midnight hover:scale-105"
-            } disabled:opacity-50 disabled:hover:scale-100`}
-            title={isRecording || isVoiceLocked ? "Enregistrement vocal" : "Envoyer (appui long pour dicter)"}
-          >
-            {isSending || isAnalyzing ? (
-              <Loader2 className="w-5 h-5 animate-spin" />
-            ) : isRecording || isVoiceLocked ? (
-              <Mic className="w-5 h-5" />
-            ) : (
-              <Send className="w-5 h-5" />
-            )}
-          </button>
+          <div className="flex justify-between items-center mt-3 pt-2 border-t border-white/10">
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => document.getElementById('file-upload-input')?.click()}
+                className="p-1.5 rounded-full bg-white/5 text-gray-400 hover:bg-white/10 transition-colors"
+                title="Joindre un fichier"
+              >
+                <Paperclip className="w-4 h-4" />
+              </button>
+              <input
+                id="file-upload-input"
+                type="file"
+                {...getInputProps()}
+                className="hidden"
+              />
+              <span className="text-[10px] text-gray-600">Appui long = dicter</span>
+            </div>
+            
+            <button
+              onMouseDown={handleSendButtonMouseDown}
+              onMouseUp={handleSendButtonMouseUp}
+              onMouseLeave={() => {
+                if (isRecording && !isVoiceLocked) stopVoiceRecording();
+              }}
+              onTouchStart={handleSendButtonMouseDown}
+              onTouchEnd={handleSendButtonMouseUp}
+              onClick={() => { if (isVoiceLocked) stopVoiceLock(); }}
+              disabled={(!input.trim() && uploadedFiles.length === 0 && !isRecording && !isVoiceLocked) || isSending}
+              className={`px-4 py-1.5 rounded-full transition-all flex items-center gap-2 ${
+                isRecording || isVoiceLocked
+                  ? "bg-red-500 text-white animate-pulse"
+                  : "bg-gold-500 text-midnight hover:scale-105"
+              } disabled:opacity-50 disabled:hover:scale-100 text-sm font-medium`}
+            >
+              {isSending || isAnalyzing ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : isRecording || isVoiceLocked ? (
+                <Mic className="w-4 h-4" />
+              ) : (
+                <Send className="w-4 h-4" />
+              )}
+              {isSending || isAnalyzing ? "Envoi..." : "Envoyer"}
+            </button>
+          </div>
         </div>
-        <p className="text-xs text-gray-600 mt-2">💡 Entrée = envoyer | Shift+Entrée = retour à la ligne | Appui long = dicter</p>
       </div>
 
       {/* RÉSULTAT DE L'ANALYSE */}
@@ -477,23 +458,15 @@ export default function InboxPage() {
               </button>
             </div>
             
-            {/* Message réconfortant */}
             <p className="text-sm text-ivory italic mb-3">"{analysis.calming_response}"</p>
             
-            {/* Émotions et urgence */}
             <div className="flex flex-wrap gap-2 mb-3">
-              {analysis.emotions?.map((emotion, i) => {
-                const emotionConfig = emotionIcons[emotion.toLowerCase()];
-                const EmotionIcon = emotionConfig?.icon || Heart;
-                const color = emotionConfig?.color || "text-gray-400";
-                return (
-                  <span key={i} className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs bg-white/10 ${color}`}>
-                    <EmotionIcon className="w-3 h-3" />
-                    {emotion}
-                  </span>
-                );
-              })}
-              <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs ${
+              {analysis.emotions?.map((emotion, i) => (
+                <span key={i} className="text-xs px-2 py-0.5 rounded-full bg-white/10 text-gray-300">
+                  {emotion}
+                </span>
+              ))}
+              <span className={`text-xs px-2 py-0.5 rounded-full ${
                 analysis.urgency_level === "high" ? "bg-red-500/20 text-red-400" :
                 analysis.urgency_level === "medium" ? "bg-yellow-500/20 text-yellow-400" :
                 "bg-green-500/20 text-green-400"
@@ -504,47 +477,11 @@ export default function InboxPage() {
               </span>
             </div>
             
-            {/* RÉSUMÉ COMPLET */}
             <div className="mb-3 p-3 bg-black/20 rounded-lg">
               <p className="text-xs text-gold-500 mb-1">📋 Résumé</p>
-              <p className="text-sm text-gray-200 whitespace-pre-wrap leading-relaxed">{analysis.summary}</p>
+              <p className="text-sm text-gray-200">{analysis.summary}</p>
             </div>
             
-            {/* Sujets principaux */}
-            {analysis.main_topics?.length > 0 && (
-              <div className="flex flex-wrap gap-2 mb-3">
-                {analysis.main_topics.map((topic, i) => (
-                  <span key={i} className="px-2 py-0.5 rounded-full text-xs bg-white/5 text-gray-300">
-                    #{topic}
-                  </span>
-                ))}
-              </div>
-            )}
-            
-            {/* Priorités */}
-            {analysis.priorities?.length > 0 && (
-              <div className="mt-3 pt-2 border-t border-white/10">
-                <p className="text-xs text-gold-500 mb-2">🎯 Ce qui est prioritaire :</p>
-                <ul className="text-xs text-gray-300 space-y-1.5">
-                  {analysis.priorities.map((p, i) => (
-                    <li key={i} className="flex items-start gap-2">
-                      <span className="text-gold-500">•</span>
-                      <span><strong>{p.title}</strong> — {p.reason}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-            
-            {/* Insights */}
-            {analysis.insights && (
-              <div className="mt-3 pt-2 border-t border-white/10">
-                <p className="text-xs text-gold-500 mb-1">💡 Insight</p>
-                <p className="text-xs text-gray-300 italic">{analysis.insights}</p>
-              </div>
-            )}
-            
-            {/* Tâches créées */}
             {analysis.suggested_tasks?.length > 0 && (
               <div className="mt-3 pt-2 border-t border-white/10">
                 <p className="text-xs text-gold-500 mb-2">✅ Tâches créées :</p>
@@ -553,7 +490,6 @@ export default function InboxPage() {
                     <li key={i} className="flex items-center gap-2">
                       <CheckCircle className="w-3 h-3 text-emerald-400" />
                       <span>{task.title}</span>
-                      <span className="text-gray-500 text-[10px]">({task.project})</span>
                     </li>
                   ))}
                 </ul>
@@ -563,30 +499,53 @@ export default function InboxPage() {
         )}
       </AnimatePresence>
 
-      {/* FILTRES */}
-      <div className="flex flex-wrap gap-2 mb-4">
-        <select
-          value={filter}
-          onChange={(e) => setFilter(e.target.value)}
-          className="bg-white/5 border border-white/10 rounded-full px-3 py-1.5 text-xs focus:outline-none focus:border-gold-500"
+      {/* FILTRES - VERSION COMPACTE */}
+      <div className="flex items-center justify-between mb-4">
+        <button
+          onClick={() => setShowFilters(!showFilters)}
+          className="flex items-center gap-2 text-sm text-gray-400 hover:text-gold-500 transition-colors"
         >
-          <option value="all">📁 Tous domaines</option>
-          {Object.entries(areaConfig).map(([key, conf]) => (
-            <option key={key} value={key}>{conf.label}</option>
-          ))}
-        </select>
-        
-        <select
-          value={selectedType}
-          onChange={(e) => setSelectedType(e.target.value)}
-          className="bg-white/5 border border-white/10 rounded-full px-3 py-1.5 text-xs focus:outline-none focus:border-gold-500"
-        >
-          <option value="all">🏷️ Tous types</option>
-          {Object.entries(typeConfig).map(([key, conf]) => (
-            <option key={key} value={key}>{conf.label}</option>
-          ))}
-        </select>
+          <Filter className="w-4 h-4" />
+          Filtres
+          {showFilters ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+        </button>
+        <span className="text-xs text-gray-500">{filteredItems.length} résultat(s)</span>
       </div>
+
+      <AnimatePresence>
+        {showFilters && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: "auto" }}
+            exit={{ opacity: 0, height: 0 }}
+            className="overflow-hidden mb-4"
+          >
+            <div className="flex flex-wrap gap-2 p-3 bg-white/5 rounded-xl">
+              <select
+                value={filterArea}
+                onChange={(e) => setFilterArea(e.target.value)}
+                className="bg-white/10 border border-white/10 rounded-full px-3 py-1.5 text-xs focus:outline-none focus:border-gold-500 text-ivory"
+              >
+                <option value="all">📁 Tous domaines</option>
+                {Object.entries(areaConfig).map(([key, conf]) => (
+                  <option key={key} value={key}>{conf.label}</option>
+                ))}
+              </select>
+              
+              <select
+                value={filterType}
+                onChange={(e) => setFilterType(e.target.value)}
+                className="bg-white/10 border border-white/10 rounded-full px-3 py-1.5 text-xs focus:outline-none focus:border-gold-500 text-ivory"
+              >
+                <option value="all">🏷️ Tous types</option>
+                {Object.entries(typeConfig).map(([key, conf]) => (
+                  <option key={key} value={key}>{conf.label}</option>
+                ))}
+              </select>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* LISTE DES ENTREES */}
       <div className="space-y-2">
@@ -600,8 +559,10 @@ export default function InboxPage() {
           </div>
         ) : (
           filteredItems.map((item, idx) => {
-            const TypeIcon = typeConfig[item.type]?.icon || FileText;
-            const AreaIcon = areaConfig[item.area]?.icon || User;
+            const typeConf = typeConfig[item.type] || typeConfig.note;
+            const TypeIcon = typeConf.icon;
+            const areaConf = areaConfig[item.area] || areaConfig.life;
+            const AreaIcon = areaConf.icon;
             
             return (
               <motion.div
@@ -618,21 +579,18 @@ export default function InboxPage() {
                   <div className="flex-1">
                     <p className="text-sm whitespace-pre-wrap line-clamp-3">{item.content}</p>
                     <div className="flex flex-wrap gap-1.5 mt-2">
-                      <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] ${typeConfig[item.type]?.color || "bg-gray-500/20 text-gray-400"}`}>
-                        <TypeIcon className="w-3 h-3" /> {typeConfig[item.type]?.label || "Note"}
+                      <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] ${typeConf.color}`}>
+                        <TypeIcon className="w-3 h-3" /> {typeConf.label}
                       </span>
-                      <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] ${areaConfig[item.area]?.color || "bg-gray-500/20 text-gray-400"}`}>
-                        <AreaIcon className="w-3 h-3" /> {areaConfig[item.area]?.label || "Autre"}
+                      <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] ${areaConf.color}`}>
+                        <AreaIcon className="w-3 h-3" /> {areaConf.label}
                       </span>
-                      {item.urgency === "high" && (
-                        <span className="text-[10px] text-red-400 bg-red-500/10 px-2 py-0.5 rounded-full">⚠️ Urgent</span>
-                      )}
                       <span className="text-[10px] text-gray-600">{new Date(item.created_at).toLocaleString('fr-FR')}</span>
                     </div>
                   </div>
                   <button
                     onClick={() => deleteItem(item.id)}
-                    className="p-1.5 text-gray-500 hover:text-red-400 transition-colors ml-2"
+                    className="p-1.5 text-gray-500 hover:text-red-400 transition-colors ml-2 flex-shrink-0"
                   >
                     <Trash2 className="w-3.5 h-3.5" />
                   </button>
