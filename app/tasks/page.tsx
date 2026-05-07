@@ -117,7 +117,6 @@ async function saveTask() {
     let result;
     
     if (editingId) {
-      // Pour la modification
       response = await fetch(`https://sovereign-bridge.onrender.com/tasks/${editingId}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
@@ -125,7 +124,6 @@ async function saveTask() {
       });
       result = await response.json();
     } else {
-      // Pour la création
       response = await fetch(`https://sovereign-bridge.onrender.com/tasks`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -140,14 +138,13 @@ async function saveTask() {
       resetForm();
       fetchTasks();
       
-      // Afficher une notification si l'événement a été synchronisé
       if (syncCalendar && formData.due_date && result.data?.calendar_link) {
         alert(`✅ Tâche synchronisée avec Google Calendar !\nLien: ${result.data.calendar_link}`);
       } else if (syncCalendar && formData.due_date) {
-        alert("📅 Tâche créée, la synchronisation Calendar est en cours...");
+        alert("📅 Tâche créée, synchronisation Calendar en cours...");
       }
     } else {
-      alert("Erreur: " + JSON.stringify(result.error || "Inconnue"));
+      alert("Erreur: " + JSON.stringify(result.error));
     }
   } catch (error) {
     console.error("Erreur saveTask:", error);
