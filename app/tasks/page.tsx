@@ -100,44 +100,56 @@ export default function TasksPage() {
     setIsLoading(false);
   }
 
-  async function saveTask() {
-    const data = {
-      title: formData.title,
-      status: formData.status,
-      priority: formData.priority,
-      project: formData.project,
-      due_date: formData.due_date || null,
-      estimated_time: formData.estimated_time ? parseInt(formData.estimated_time) : null,
-      sync_calendar: syncCalendar
-    };
-    
-    let error;
-    let result;
+async function saveTask() {
+  const data = {
+    title: formData.title,
+    status: formData.status,
+    priority: formData.priority,
+    project: formData.project,
+    due_date: formData.due_date || null,
+    estimated_time: formData.estimated_time ? parseInt(formData.estimated_time) : null,
+    sync_calendar: syncCalendar
+  };
+  
+  try {
+    let response;
     
     if (editingId) {
-      const updateResult = await supabase.from("tasks").update(data).eq("id", editingId);
-      error = updateResult.error;
+      // Pour la modification, on utilise l'endpoint PUT
+      response = await fetch(`https://sovereign-bridge.onrender.com/tasks/${editingId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ table: "tasks", id: editingId, data: data })
+      });
     } else {
-      const insertResult = await supabase.from("tasks").insert(data).select();
-      error = insertResult.error;
-      result = insertResult.data?.[0];
+      // Pour la création, on utilise l'endpoint POST
+      response = await fetch(`https://sovereign-bridge.onrender.com/tasks`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ table: "tasks", data: data })
+      });
     }
     
-    if (!error) {
+    const result = await response.json();
+    
+    if (result.success) {
       resetForm();
       fetchTasks();
       
       // Afficher une notification si l'événement a été synchronisé
-      if (syncCalendar && formData.due_date && result?.calendar_link) {
-        alert(`✅ Tâche synchronisée avec Google Calendar !\nLien: ${result.calendar_link}`);
+      if (syncCalendar && formData.due_date && result.data?.calendar_link) {
+        alert(`✅ Tâche synchronisée avec Google Calendar !\nLien: ${result.data.calendar_link}`);
       } else if (syncCalendar && formData.due_date) {
         alert("📅 Tâche créée, la synchronisation Calendar est en cours...");
       }
     } else {
-      alert("Erreur: " + error.message);
+      alert("Erreur: " + (result.error || "Inconnue"));
     }
+  } catch (error) {
+    console.error("Erreur saveTask:", error);
+    alert("Erreur de connexion au serveur");
   }
-
+}
   async function updateStatus(id: string, newStatus: Task["status"]) {
     const { error } = await supabase.from("tasks").update({ status: newStatus }).eq("id", id);
     if (!error) fetchTasks();
