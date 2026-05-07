@@ -6,7 +6,7 @@ import {
   Send, ArrowLeft, Plus, Trash2, ChevronLeft, ChevronRight, 
   Search, Edit2, Check, X, Loader2, Menu, Mic, Paperclip, 
   File, XCircle, Heart, Zap, Trophy, Baby, DollarSign, 
-  FileText, Crown, ChevronDown
+  FileText, Crown, ChevronDown, Sparkles
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
@@ -350,6 +350,114 @@ export default function ChatPage() {
       .eq("id", conversationId);
   }
 
+  // Fonction pour l'envoi normal
+  const sendRegularMessage = async (allMessages: any[]) => {
+    const response = await fetch(`${API_URL}/chat`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ messages: allMessages }),
+    });
+    
+    if (!response.ok) throw new Error(`Erreur ${response.status}`);
+    
+    const data = await response.json();
+    return data.reply;
+  };
+
+  // Fonction pour le mode exécution
+  const handleExecuteMode = async (userMessageContent: string) => {
+    try {
+      // Analyser la demande
+      const analysisRes = await fetch(`${API_URL}/api/execute/analyze-request`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ query: userMessageContent })
+      });
+      const analysis = await analysisRes.json();
+      
+      if (analysis.success && analysis.execution_plan) {
+        const plan = analysis.execution_plan;
+        
+        // Construire la réponse
+        let responseText = `🎯 **Mode Exécution activé**\n\n`;
+        responseText += `**${plan.title}**\n\n`;
+        
+        // Afficher les étapes
+        if (plan.steps && plan.steps.length > 0) {
+          responseText += `**📋 Plan d'action :**\n`;
+          plan.steps.forEach((step: string, i: number) => {
+            responseText += `${i + 1}. ${step}\n`;
+          });
+          responseText += `\n`;
+        }
+        
+        // Créer une checklist
+        if (plan.type === "checklist" || (plan.steps && plan.steps.length > 0)) {
+          const checklistRes = await fetch(`${API_URL}/api/execute/create-checklist`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              title: plan.title,
+              steps: plan.steps || plan.suggested_tasks?.map((t: any) => t.title) || []
+            })
+          });
+          const checklist = await checklistRes.json();
+          if (checklist.success) {
+            responseText += `✅ **Checklist créée** - Tu peux suivre ta progression\n\n`;
+          }
+        }
+        
+        // Créer les tâches suggérées
+        if (plan.suggested_tasks && plan.suggested_tasks.length > 0) {
+          responseText += `**📝 Tâches créées automatiquement :**\n`;
+          for (const task of plan.suggested_tasks) {
+            await fetch(`${API_URL}/api/execute/create-task`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                title: task.title,
+                priority: task.priority || "normal",
+                due_date: null
+              })
+            });
+            responseText += `- ${task.title}\n`;
+          }
+          responseText += `\n`;
+        }
+        
+        // Générer un draft
+        if (plan.type === "email" || plan.type === "document") {
+          const draftRes = await fetch(`${API_URL}/api/execute/create-draft`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              type: plan.type,
+              context: userMessageContent
+            })
+          });
+          const draft = await draftRes.json();
+          if (draft.success && draft.draft) {
+            responseText += `**✏️ Brouillon généré :**\n\n`;
+            responseText += `\`\`\`\n${draft.draft.content}\n\`\`\`\n\n`;
+            responseText += `*Copie et colle ce contenu ou demande-moi de le modifier.*\n\n`;
+          }
+        }
+        
+        // Prochaine action
+        if (plan.next_action) {
+          responseText += `**⚡ Prochaine action :** ${plan.next_action}\n\n`;
+        }
+        
+        responseText += `\n---\n💡 *Ce plan a été généré automatiquement. Dis-moi quand tu avances ou si tu veux ajuster quelque chose.*`;
+        
+        return responseText;
+      }
+    } catch (error) {
+      console.error("Erreur execute mode:", error);
+    }
+    return null;
+  };
+
   const sendMessage = async () => {
     if (isSending || (!input.trim() && uploadedFiles.length === 0) || isLoading || !currentConversationId) return;
     
@@ -375,8 +483,8 @@ export default function ChatPage() {
     };
     
     // Récupérer le prompt du mode sélectionné
-    const currentMode = modes.find(m => m.id === selectedMode);
-    const systemPrompt = currentMode?.prompt || modes[0].prompt;
+    const currentModeConfig = modes.find(m => m.id === selectedMode);
+    const systemPrompt = currentModeConfig?.prompt || modes[0].prompt;
     
     // Construire les messages avec le prompt système
     const allMessages = [
@@ -393,16 +501,19 @@ export default function ChatPage() {
     resetTranscript();
 
     try {
-      const response = await fetch(`${API_URL}/chat`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messages: allMessages }),
-      });
+      let assistantContent: string;
       
-      if (!response.ok) throw new Error(`Erreur ${response.status}`);
-      
-      const data = await response.json();
-      const assistantContent = data.reply;
+      // Vérifier si on est en mode exécution (fais-le-avec-moi)
+      if (selectedMode === "fais-le-avec-moi") {
+        const executeResult = await handleExecuteMode(userMessageContent);
+        if (executeResult) {
+          assistantContent = executeResult;
+        } else {
+          assistantContent = await sendRegularMessage(allMessages);
+        }
+      } else {
+        assistantContent = await sendRegularMessage(allMessages);
+      }
       
       setMessages(prev => [...prev, { role: "assistant", content: assistantContent }]);
       await saveMessage(currentConversationId, "assistant", assistantContent);
@@ -490,8 +601,8 @@ export default function ChatPage() {
   };
 
   // Récupérer le mode actuel pour l'affichage
-  const currentMode = modes.find(m => m.id === selectedMode);
-  const CurrentIcon = currentMode?.icon;
+  const currentModeConfig = modes.find(m => m.id === selectedMode);
+  const CurrentIcon = currentModeConfig?.icon;
 
   return (
     <div className="fixed inset-0 bg-midnight flex flex-col">
@@ -662,9 +773,9 @@ export default function ChatPage() {
             onClick={() => setIsModeSelectorOpen(!isModeSelectorOpen)}
             className="flex items-center gap-2 px-3 py-1.5 rounded-full text-xs transition-colors hover:bg-white/5"
           >
-            {CurrentIcon && <CurrentIcon className={`w-3.5 h-3.5 ${currentMode?.color}`} />}
-            <span className="text-gray-400">{currentMode?.name}</span>
-            <span className="text-[10px] text-gray-600 hidden sm:inline">{currentMode?.description}</span>
+            {CurrentIcon && <CurrentIcon className={`w-3.5 h-3.5 ${currentModeConfig?.color}`} />}
+            <span className="text-gray-400">{currentModeConfig?.name}</span>
+            <span className="text-[10px] text-gray-600 hidden sm:inline">{currentModeConfig?.description}</span>
             <ChevronDown className={`w-3 h-3 text-gray-500 transition-transform ${isModeSelectorOpen ? "rotate-180" : ""}`} />
           </button>
           
@@ -747,7 +858,7 @@ export default function ChatPage() {
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder={isRecording || isVoiceLocked ? "🎤 Enregistrement vocal..." : `Mode ${currentMode?.name} : écris ton message...`}
+            placeholder={isRecording || isVoiceLocked ? "🎤 Enregistrement vocal..." : `Mode ${currentModeConfig?.name} : écris ton message...`}
             className="flex-1 bg-white/10 border border-white/20 rounded-full py-3 px-4 text-sm focus:outline-none focus:border-gold-500 text-ivory placeholder:text-gray-500"
           />
           
@@ -777,6 +888,16 @@ export default function ChatPage() {
             )}
           </button>
         </div>
+        
+        {/* Indicateur de mode exécution */}
+        {selectedMode === "fais-le-avec-moi" && (
+          <div className="mt-2 text-center">
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] bg-gold-500/20 text-gold-400">
+              <Sparkles className="w-3 h-3" />
+              Mode Exécution activé - Je transforme tes demandes en actions
+            </span>
+          </div>
+        )}
       </div>
     </div>
   );
