@@ -5,14 +5,14 @@ import {
   LayoutDashboard, MessageSquare, Inbox, CheckSquare, Calendar,
   Wallet, TrendingUp, FileText, Target, Briefcase, Sprout, Globe,
   Trophy, Heart, Users, Zap, ShieldAlert, Menu, X, LogOut,
-  ChevronDown, ChevronRight, Download
+  ChevronDown, ChevronRight, Download, Settings
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import NotificationBell from "@/components/NotificationBell";
 import { useAuth } from "@/contexts/AuthContext";
 
-// Structure du menu simplifiée
+// Structure du menu
 const menuItems = [
   { name: "Dashboard", icon: LayoutDashboard, href: "/", group: "main" },
   { name: "Chat", icon: MessageSquare, href: "/chat", group: "main" },
@@ -35,7 +35,9 @@ const menuItems = [
   { name: "Motherhood", icon: Users, href: "/motherhood", group: "vie" },
   
   { name: "Alignment", icon: Zap, href: "/alignment", group: "alignment" },
-  { name: "Rescue Mode", icon: ShieldAlert, href: "/rescue", group: "alignment" }
+  { name: "Rescue Mode", icon: ShieldAlert, href: "/rescue", group: "alignment" },
+  
+  { name: "Settings", icon: Settings, href: "/settings", group: "settings" }
 ];
 
 const groupLabels: Record<string, string> = {
@@ -44,7 +46,8 @@ const groupLabels: Record<string, string> = {
   strategies: "STRATÉGIES",
   projects: "PROJETS",
   vie: "VIE",
-  alignment: "ALIGNEMENT"
+  alignment: "ALIGNEMENT",
+  settings: "RÉGLAGES"
 };
 
 // État par défaut - tous ouverts
@@ -54,12 +57,9 @@ const DEFAULT_OPEN_GROUPS: Record<string, boolean> = {
   strategies: true,
   projects: true,
   vie: true,
-  alignment: true
+  alignment: true,
+  settings: true
 };
-
-
-
-
 
 // Composant d'invite d'installation PWA - UNIQUEMENT SUR MOBILE
 function InstallButton() {
@@ -67,10 +67,7 @@ function InstallButton() {
   const [isVisible, setIsVisible] = useState(false);
   const [isInstalled, setIsInstalled] = useState(true);
   
-  // Détecter si on est sur mobile
   const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
-  
-  // NE RIEN AFFICHER SUR ORDINATEUR
   if (!isMobile) return null;
 
   useEffect(() => {
@@ -151,7 +148,7 @@ function InstallButton() {
       className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-gold-500 bg-gold-500/10 hover:bg-gold-500/20 transition-colors mb-2"
     >
       <Download className="w-4 h-4" />
-      <span className="text-sm">Installer l'application</span>
+      <span className="text-sm">Installer</span>
     </button>
   );
 }
@@ -162,10 +159,7 @@ function InstallBanner() {
   const [showPrompt, setShowPrompt] = useState(false);
   const [isInstalled, setIsInstalled] = useState(true);
   
-  // Détecter si on est sur mobile
   const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
-  
-  // NE RIEN AFFICHER SUR ORDINATEUR
   if (!isMobile) return null;
 
   useEffect(() => {
@@ -230,7 +224,7 @@ function InstallBanner() {
         <div className="flex-1">
           <h3 className="text-sm font-serif text-gold-500">Installer SOVEREIGN</h3>
           <p className="text-xs text-gray-400 mt-1">
-            Installe l'application pour y accéder plus rapidement et recevoir les notifications.
+            Installe l'application pour y accéder plus rapidement.
           </p>
           <div className="flex gap-3 mt-3">
             <button
@@ -255,7 +249,6 @@ function InstallBanner() {
   );
 }
 
-
 export default function ClientLayout({ children }: { children: React.ReactNode }) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>(DEFAULT_OPEN_GROUPS);
@@ -263,7 +256,6 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
   const router = useRouter();
   const { user, signOut } = useAuth();
 
-  // Détecter si on est sur la page chat
   const isChatPage = pathname === '/chat';
 
   // Charger les préférences
@@ -311,26 +303,37 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
     }, {} as Record<string, typeof menuItems>);
 
     return (
-      <div className="flex flex-col h-full p-6">
-        <nav className="flex-1 overflow-y-auto">
+      <div className="flex flex-col h-full">
+        {/* Header du menu */}
+        <div className="px-4 py-5 border-b border-white/10">
+          <Link href="/" className="flex items-center gap-2">
+            <div className="w-8 h-8 bg-gold-500 rounded-full flex items-center justify-center">
+              <span className="text-midnight font-bold text-sm">S</span>
+            </div>
+            <span className="text-base font-serif text-gold-500 tracking-wider">SOVEREIGN</span>
+          </Link>
+        </div>
+
+        {/* Navigation */}
+        <nav className="flex-1 overflow-y-auto py-4 px-3 space-y-1">
           <InstallButton />
           
           {Object.entries(grouped).map(([groupKey, items]) => (
-            <div key={groupKey} className="mb-6">
+            <div key={groupKey} className="mb-2">
               <button
                 onClick={() => toggleGroup(groupKey)}
-                className="w-full flex items-center justify-between text-xs text-gray-500 uppercase tracking-wider py-2.5 hover:text-gold-400 transition-colors"
+                className="w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-medium text-gray-500 hover:text-gold-400 transition-colors"
               >
-                <span>{groupLabels[groupKey] || groupKey}</span>
+                <span className="tracking-wider">{groupLabels[groupKey] || groupKey}</span>
                 {openGroups[groupKey] ? (
-                  <ChevronDown className="w-3 h-3" />
+                  <ChevronDown className="w-3.5 h-3.5" />
                 ) : (
-                  <ChevronRight className="w-3 h-3" />
+                  <ChevronRight className="w-3.5 h-3.5" />
                 )}
               </button>
               
               {openGroups[groupKey] && (
-                <div className="space-y-1">
+                <div className="ml-2 space-y-0.5 mt-1">
                   {items.map((item) => {
                     const isActive = pathname === item.href;
                     return (
@@ -338,14 +341,14 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
                         key={item.href}
                         href={item.href}
                         onClick={() => setIsMobileMenuOpen(false)}
-                        className={`flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors ${
+                        className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-all ${
                           isActive 
                             ? "bg-gold-500/10 text-gold-400" 
                             : "text-gray-400 hover:bg-white/5 hover:text-white"
                         }`}
                       >
                         <item.icon className="w-4 h-4" />
-                        <span className="text-sm font-light">{item.name}</span>
+                        <span className="font-light">{item.name}</span>
                       </Link>
                     );
                   })}
@@ -355,24 +358,22 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
           ))}
         </nav>
 
-        <div className="border-t border-white/10 pt-4 mt-2">
-          <div className="flex justify-between items-center mb-4">
-            <div>
-              <div className="text-[10px] text-gray-600 uppercase tracking-wider">STATUS</div>
-              <div className="flex items-center gap-2 mt-1">
-                <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full" />
-                <span className="text-xs text-gold-400">ACTIVE</span>
-              </div>
+        {/* Footer du menu */}
+        <div className="border-t border-white/10 p-4 space-y-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full" />
+              <span className="text-[10px] text-gray-500">Connecté</span>
             </div>
             <NotificationBell />
           </div>
           
           <button
             onClick={handleSignOut}
-            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-500 hover:bg-red-500/10 hover:text-red-400 transition-colors"
+            className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-gray-500 hover:bg-red-500/10 hover:text-red-400 transition-colors"
           >
             <LogOut className="w-4 h-4" />
-            <span className="text-sm">Déconnexion</span>
+            <span>Déconnexion</span>
           </button>
         </div>
       </div>
@@ -383,13 +384,13 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
     return <>{children}</>;
   }
 
-  // Version mobile avec détection de la page chat
   const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
   
+  // Version mobile
   if (isMobile) {
     return (
       <div className="min-h-screen bg-midnight">
-        {/* Barre d'en-tête mobile - masquée sur la page chat */}
+        {/* Header mobile (masqué sur la page chat) */}
         {!isChatPage && (
           <header className="sticky top-0 z-30 flex items-center justify-between h-12 px-3 bg-midnight/95 backdrop-blur-lg border-b border-white/10">
             <button
@@ -412,27 +413,17 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
           </header>
         )}
 
-        {/* Mobile Menu Button (seulement sur les pages non-chat) */}
-        {!isChatPage && (
-          <div className="lg:hidden fixed top-0 left-0 right-0 z-50 p-4 bg-black/80 backdrop-blur-lg border-b border-white/10 flex justify-between items-center">
-            <span className="text-gold-500 tracking-wider text-sm">SOVEREIGN</span>
-            <button onClick={() => setIsMobileMenuOpen(true)} className="p-2">
-              <Menu className="w-5 h-5 text-gold-500" />
-            </button>
-          </div>
-        )}
-
-        {/* Mobile Menu */}
+        {/* Menu mobile */}
         {isMobileMenuOpen && (
           <>
             <div
               onClick={() => setIsMobileMenuOpen(false)}
-              className="fixed inset-0 bg-black/70 z-50 lg:hidden"
+              className="fixed inset-0 bg-black/70 z-40"
             />
-            <aside className="fixed inset-y-0 right-0 w-72 bg-black z-50 border-l border-white/10 flex flex-col">
-              <div className="flex justify-end p-4">
-                <button onClick={() => setIsMobileMenuOpen(false)} className="p-2">
-                  <X className="w-5 h-5 text-gray-500" />
+            <aside className="fixed inset-y-0 right-0 w-72 bg-midnight z-50 border-l border-white/10 flex flex-col shadow-2xl">
+              <div className="flex justify-end p-3">
+                <button onClick={() => setIsMobileMenuOpen(false)} className="p-2 text-gray-500 hover:text-white">
+                  <X className="w-5 h-5" />
                 </button>
               </div>
               <div className="flex-1 overflow-y-auto">
@@ -442,13 +433,12 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
           </>
         )}
 
-        {/* Main Content - pas de padding sur le chat */}
-        {/* Main Content - pas de padding sur le chat */}
+        {/* Contenu principal */}
         <main className={isChatPage ? "h-screen" : "h-[calc(100vh-48px)] overflow-y-auto"}>
           {isChatPage ? (
             children
           ) : (
-                <div className="w-full px-3 md:px-5 pt-6 pb-12 md:pt-8 md:pb-16">
+            <div className="w-full px-3 pt-6 pb-12">
               {children}
               <InstallBanner />
             </div>
@@ -460,23 +450,19 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
 
   // Version desktop
   return (
-    <div className="flex h-screen overflow-hidden">
-      {/* Sidebar Desktop */}
-      <aside className="hidden lg:block w-64 border-r border-white/10 bg-black/40 flex-col overflow-y-auto">
+    <div className="flex h-screen overflow-hidden bg-midnight">
+      {/* Sidebar desktop */}
+      <aside className="hidden lg:flex w-64 flex-col border-r border-white/10 bg-black/30 backdrop-blur-sm overflow-y-auto">
         <SidebarContent />
       </aside>
 
-      {/* Main Content Desktop */}
-        <main className={isChatPage ? "h-screen" : "h-[calc(100vh-48px)] overflow-y-auto"}>
-          {isChatPage ? (
-            children
-          ) : (
-              <div className="w-full px-3 md:px-5 pt-6 pb-12 md:pt-8 md:pb-16">
-              {children}
-              <InstallBanner />
-            </div>
-          )}
-        </main>
+      {/* Contenu principal */}
+      <main className="flex-1 overflow-y-auto">
+        <div className="w-full px-4 md:px-6 py-6 md:py-8">
+          {children}
+          <InstallBanner />
+        </div>
+      </main>
     </div>
   );
 }
