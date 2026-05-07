@@ -15,6 +15,8 @@ import { useDropzone } from "react-dropzone";
 import SpeechRecognition, { useSpeechRecognition } from "react-speech-recognition";
 import SovereignAvatar from "@/components/SovereignAvatar";
 import VoiceAssistant from "@/components/VoiceAssistant";
+import VoiceToggle from "@/components/VoiceToggle";
+import { useVoiceConversation } from "@/hooks/useVoiceConversation";
 
 const API_URL = "https://sovereign-bridge.onrender.com";
 
@@ -133,16 +135,37 @@ export default function ChatPage() {
   const [isSpeaking, setIsSpeaking] = useState(false);
   const utteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
   
+  // Mode conversation vocale mains libres (comme Siri)
+  const {
+    isActive: isVoiceActive,
+    isListening: isVoiceListening,
+    isSpeaking: isVoiceSpeaking,
+    activate: activateVoiceMode,
+    deactivate: deactivateVoiceMode,
+    triggerManual: triggerVoiceManual,
+  } = useVoiceConversation({
+    onUserSpeech: async (text) => {
+      console.log("🎤 Parole détectée (mode mains libres):", text);
+      setInput(text);
+      setTimeout(() => sendMessage(), 100);
+    },
+    isProcessing: isLoading || isSending,
+    lastResponse: lastAssistantMessage,
+    wakeWords: ["hey becks", "dis becks", "becks", "sovereign", "hey sovereign"],
+    autoListenAfterResponse: true,
+    silenceTimeout: 2500,
+  });
+
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // Speech recognition
+  // Speech recognition (pour le push-to-talk)
   const {
     transcript,
     resetTranscript,
   } = useSpeechRecognition();
 
-  // Fonction de synthèse vocale native
+  // Fonction de synthèse vocale native (push-to-talk)
   const speakNative = (text: string) => {
     if (!window.speechSynthesis || !text) return;
     
@@ -160,13 +183,23 @@ export default function ChatPage() {
     window.speechSynthesis.speak(utterance);
   };
 
-  // Mettre à jour l'input quand le transcript change
+  // Mettre à jour l'input quand le transcript change (push-to-talk)
   useEffect(() => {
     if (transcript) {
       setInput(prev => prev + " " + transcript);
       resetTranscript();
     }
   }, [transcript, resetTranscript]);
+
+  // Détecter mobile
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+    checkMobile();
+    window.addEventListener("resize", checkMobile);
+    return () => window.removeEventListener("resize", checkMobile);
+  }, []);
 
   // Charger les conversations
   useEffect(() => {
@@ -262,8 +295,6 @@ export default function ChatPage() {
     return uploaded;
   }
 
-
-  
   async function fetchConversations() {
     const { data } = await supabase
       .from("conversations")
@@ -526,7 +557,8 @@ export default function ChatPage() {
       setAvatarState("speaking");
       setLastAssistantMessage(assistantContent);
       
-      if (assistantContent.length < 500) {
+      // Synthèse vocale pour la réponse (si pas trop longue et si pas en mode mains libres qui gère déjà la parole)
+      if (assistantContent.length < 500 && !isVoiceActive) {
         speakNative(assistantContent);
       }
             
@@ -614,7 +646,7 @@ export default function ChatPage() {
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !e.shiftKey && !isRecording && !isVoiceLocked && !isSending) {
+    if (e.key === 'Enter' && !e.shiftKey && !isRecording && !isVoiceLocked && !isSending && !isVoiceListening) {
       e.preventDefault();
       sendMessage();
     }
@@ -622,6 +654,17 @@ export default function ChatPage() {
 
   const currentModeConfig = modes.find(m => m.id === selectedMode);
   const CurrentIcon = currentModeConfig?.icon;
+
+  // Synchroniser l'avatar avec l'état vocal mains libres
+  useEffect(() => {
+    if (isVoiceListening) {
+      setAvatarState("listening");
+    } else if (isVoiceSpeaking) {
+      setAvatarState("speaking");
+    } else if (isLoading || isSending) {
+      setAvatarState("thinking");
+    }
+  }, [isVoiceListening, isVoiceSpeaking, isLoading, isSending]);
 
   return (
     <div className="fixed inset-0 bg-midnight flex flex-col">
@@ -643,14 +686,17 @@ export default function ChatPage() {
             size="sm"
             lastMessage={lastAssistantMessage}
           />
-          <VoiceAssistant
-            onUserSpeech={(text) => {
-              setInput(text);
-              setTimeout(() => sendMessage(), 100);
-            }}
-            isProcessing={isLoading}
-            lastResponse={lastAssistantMessage}
+          
+          {/* Nouveau VoiceToggle intégré */}
+          <VoiceToggle
+            isActive={isVoiceActive}
+            isListening={isVoiceListening}
+            isSpeaking={isVoiceSpeaking}
+            onActivate={activateVoiceMode}
+            onDeactivate={deactivateVoiceMode}
+            onManualTrigger={triggerVoiceManual}
           />
+          
           <div className="text-left hidden sm:block">
             <h1 className="text-sm font-serif text-gold-500">Becks</h1>
             <p className="text-[9px] text-gray-500">Sovereign Life Agent</p>
@@ -851,9 +897,11 @@ export default function ChatPage() {
         )}
         
         {/* Indicateur d'enregistrement vocal */}
-        {(isRecording || isVoiceLocked) && (
+        {(isRecording || isVoiceLocked || isVoiceListening) && (
           <div className="text-center text-xs text-red-400 animate-pulse mb-2">
-            {isVoiceLocked ? "🔒 Enregistrement vocal en cours... recliquez pour arrêter" : "🎤 Parlez... relâchez pour arrêter"}
+            {isVoiceLocked ? "🔒 Enregistrement vocal en cours... recliquez pour arrêter" :
+             isVoiceListening ? "🎤 Je t'écoute... (dis 'Hey Becks' pour parler)" :
+             "🎤 Parlez... relâchez pour arrêter"}
           </div>
         )}
         
@@ -885,7 +933,7 @@ export default function ChatPage() {
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder={isRecording || isVoiceLocked ? "🎤 Enregistrement vocal..." : `Mode ${currentModeConfig?.name} : écris ton message...`}
+            placeholder={isVoiceListening ? "🎤 Je t'écoute..." : (isRecording || isVoiceLocked ? "🎤 Enregistrement vocal..." : `Mode ${currentModeConfig?.name} : écris ton message...`)}
             className="flex-1 bg-white/10 border border-white/20 rounded-full py-3 px-4 text-sm focus:outline-none focus:border-gold-500 text-ivory placeholder:text-gray-500"
           />
           
@@ -898,13 +946,13 @@ export default function ChatPage() {
             onTouchStart={handleSendButtonMouseDown}
             onTouchEnd={handleSendButtonMouseUp}
             onClick={() => { if (isVoiceLocked) stopVoiceLock(); }}
-            disabled={(!input.trim() && uploadedFiles.length === 0 && !isRecording && !isVoiceLocked) || isLoading || isSending}
+            disabled={(!input.trim() && uploadedFiles.length === 0 && !isRecording && !isVoiceLocked && !isVoiceListening) || isLoading || isSending}
             className={`p-2 rounded-full transition-all flex-shrink-0 ${
-              isRecording || isVoiceLocked
+              isRecording || isVoiceLocked || isVoiceListening
                 ? "bg-red-500 text-white animate-pulse"
                 : "bg-gold-500 text-midnight hover:scale-105"
             } disabled:opacity-50 disabled:hover:scale-100`}
-            title={isRecording || isVoiceLocked ? "Enregistrement vocal" : "Envoyer (appui long pour dicter)"}
+            title={isRecording || isVoiceLocked || isVoiceListening ? "Enregistrement vocal" : "Envoyer (appui long pour dicter)"}
           >
             {isSending ? (
               <Loader2 className="w-5 h-5 animate-spin" />
@@ -920,6 +968,16 @@ export default function ChatPage() {
             <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] bg-gold-500/20 text-gold-400">
               <Sparkles className="w-3 h-3" />
               Mode Exécution activé - Je transforme tes demandes en actions
+            </span>
+          </div>
+        )}
+
+        {/* Indicateur de mode vocal actif */}
+        {isVoiceActive && (
+          <div className="mt-2 text-center">
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] bg-emerald-500/20 text-emerald-400">
+              <Volume2 className="w-3 h-3" />
+              Mode vocal activé - Dis "Hey Becks" pour parler
             </span>
           </div>
         )}
