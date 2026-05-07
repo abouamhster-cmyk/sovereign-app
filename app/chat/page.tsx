@@ -1,5 +1,6 @@
 "use client";
 import "regenerator-runtime/runtime";
+import VoiceAssistant from "@/components/VoiceAssistant";
 import { useState, useRef, useEffect } from "react";
 import ReactMarkdown from 'react-markdown';
 import { 
@@ -519,6 +520,7 @@ export default function ChatPage() {
       
       setMessages(prev => [...prev, { role: "assistant", content: assistantContent }]);
       await saveMessage(currentConversationId, "assistant", assistantContent);
+      setLastAssistantMessage(assistantContent);   
       fetchConversations();
       inputRef.current?.focus();
       
@@ -614,29 +616,28 @@ export default function ChatPage() {
       {/* HEADER */}
       <header className="sticky top-0 z-10 h-14 border-b border-white/10 flex items-center justify-between px-4 bg-midnight/90 backdrop-blur-lg shrink-0">
         <div className="flex items-center gap-2">
-          <button
-            onClick={() => setIsSidebarOpen(true)}
-            className="p-2 text-gray-400 hover:text-gold-500 transition-colors rounded-lg hover:bg-white/5"
-            title="Historique des conversations"
-          >
+          <button onClick={() => setIsSidebarOpen(true)} className="p-2 text-gray-400 hover:text-gold-500">
             <Menu className="w-5 h-5" />
           </button>
-          <button
-            onClick={createNewConversation}
-            className="p-2 text-gray-400 hover:text-gold-500 transition-colors rounded-lg hover:bg-white/5 lg:hidden"
-            title="Nouvelle conversation"
-          >
+          <button onClick={createNewConversation} className="p-2 text-gray-400 hover:text-gold-500 lg:hidden">
             <Plus className="w-5 h-5" />
           </button>
         </div>
         
+        {/* Avatar + Voice Assistant */}
         <div className="flex items-center gap-3">
           <SovereignAvatar 
             state={avatarState} 
             size="sm"
             lastMessage={lastAssistantMessage}
-            onSpeak={() => speak({ text: lastAssistantMessage, rate: 0.9 })}
-            isSpeaking={speaking}
+          />
+          <VoiceAssistant
+            onUserSpeech={(text) => {
+              setInput(text);
+              setTimeout(() => sendMessage(), 100);
+            }}
+            isProcessing={isLoading}
+            lastResponse={lastAssistantMessage}
           />
           <div className="text-left hidden sm:block">
             <h1 className="text-sm font-serif text-gold-500">Becks</h1>
@@ -644,7 +645,7 @@ export default function ChatPage() {
           </div>
         </div>
         
-        <Link href="/" className="p-2 text-gray-400 hover:text-gold-500 transition-colors rounded-lg hover:bg-white/5">
+        <Link href="/" className="p-2 text-gray-400 hover:text-gold-500">
           <ArrowLeft className="w-5 h-5" />
         </Link>
       </header>
@@ -895,8 +896,6 @@ export default function ChatPage() {
           >
             {isSending ? (
               <Loader2 className="w-5 h-5 animate-spin" />
-            ) : isRecording || isVoiceLocked ? (
-              <Mic className="w-5 h-5" />
             ) : (
               <Send className="w-5 h-5" />
             )}
