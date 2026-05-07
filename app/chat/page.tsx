@@ -6,13 +6,15 @@ import {
   Send, ArrowLeft, Plus, Trash2, ChevronLeft, ChevronRight, 
   Search, Edit2, Check, X, Loader2, Menu, Mic, Paperclip, 
   File, XCircle, Heart, Zap, Trophy, Baby, DollarSign, 
-  FileText, Crown, ChevronDown, Sparkles
+  FileText, Crown, ChevronDown, Sparkles, Volume2, VolumeX
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import { useDropzone } from "react-dropzone";
 import SpeechRecognition, { useSpeechRecognition } from "react-speech-recognition";
+import { useSpeechSynthesis } from "react-speech-kit";
+import SovereignAvatar from "@/components/SovereignAvatar";
 
 const API_URL = "https://sovereign-bridge.onrender.com";
 
@@ -123,6 +125,10 @@ export default function ChatPage() {
   const [pressTimer, setPressTimer] = useState<NodeJS.Timeout | null>(null);
   const [pressStartTime, setPressStartTime] = useState(0);
   
+  // États pour l'avatar et la voix
+  const [avatarState, setAvatarState] = useState<"idle" | "listening" | "thinking" | "speaking" | "happy">("idle");
+  const [lastAssistantMessage, setLastAssistantMessage] = useState("");
+  
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -131,6 +137,9 @@ export default function ChatPage() {
     transcript,
     resetTranscript,
   } = useSpeechRecognition();
+
+  // Speech synthesis
+  const { speak, speaking, supported: speechSupported } = useSpeechSynthesis();
 
   // Détecter le mobile
   useEffect(() => {
@@ -350,7 +359,6 @@ export default function ChatPage() {
       .eq("id", conversationId);
   }
 
-  // Fonction pour l'envoi normal
   const sendRegularMessage = async (allMessages: any[]) => {
     const response = await fetch(`${API_URL}/chat`, {
       method: "POST",
@@ -364,10 +372,8 @@ export default function ChatPage() {
     return data.reply;
   };
 
-  // Fonction pour le mode exécution
   const handleExecuteMode = async (userMessageContent: string) => {
     try {
-      // Analyser la demande
       const analysisRes = await fetch(`${API_URL}/api/execute/analyze-request`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -378,11 +384,9 @@ export default function ChatPage() {
       if (analysis.success && analysis.execution_plan) {
         const plan = analysis.execution_plan;
         
-        // Construire la réponse
         let responseText = `🎯 **Mode Exécution activé**\n\n`;
         responseText += `**${plan.title}**\n\n`;
         
-        // Afficher les étapes
         if (plan.steps && plan.steps.length > 0) {
           responseText += `**📋 Plan d'action :**\n`;
           plan.steps.forEach((step: string, i: number) => {
@@ -391,7 +395,6 @@ export default function ChatPage() {
           responseText += `\n`;
         }
         
-        // Créer une checklist
         if (plan.type === "checklist" || (plan.steps && plan.steps.length > 0)) {
           const checklistRes = await fetch(`${API_URL}/api/execute/create-checklist`, {
             method: "POST",
@@ -407,7 +410,6 @@ export default function ChatPage() {
           }
         }
         
-        // Créer les tâches suggérées
         if (plan.suggested_tasks && plan.suggested_tasks.length > 0) {
           responseText += `**📝 Tâches créées automatiquement :**\n`;
           for (const task of plan.suggested_tasks) {
@@ -425,7 +427,6 @@ export default function ChatPage() {
           responseText += `\n`;
         }
         
-        // Générer un draft
         if (plan.type === "email" || plan.type === "document") {
           const draftRes = await fetch(`${API_URL}/api/execute/create-draft`, {
             method: "POST",
@@ -443,7 +444,6 @@ export default function ChatPage() {
           }
         }
         
-        // Prochaine action
         if (plan.next_action) {
           responseText += `**⚡ Prochaine action :** ${plan.next_action}\n\n`;
         }
@@ -462,6 +462,8 @@ export default function ChatPage() {
     if (isSending || (!input.trim() && uploadedFiles.length === 0) || isLoading || !currentConversationId) return;
     
     setIsSending(true);
+    setAvatarState("thinking");
+    
     const uploadedFilesData = await uploadFilesToStorage();
     
     let userMessageContent = input.trim() || "📎 Fichier(s) joint(s)";
@@ -482,11 +484,9 @@ export default function ChatPage() {
       files: uploadedFilesData.length > 0 ? uploadedFilesData : undefined
     };
     
-    // Récupérer le prompt du mode sélectionné
     const currentModeConfig = modes.find(m => m.id === selectedMode);
     const systemPrompt = currentModeConfig?.prompt || modes[0].prompt;
     
-    // Construire les messages avec le prompt système
     const allMessages = [
       { role: "system", content: systemPrompt },
       ...messages.map(msg => ({ role: msg.role, content: msg.content })),
@@ -503,41 +503,47 @@ export default function ChatPage() {
     try {
       let assistantContent: string;
       
-      // Vérifier si on est en mode exécution (fais-le-avec-moi)
       if (selectedMode === "fais-le-avec-moi") {
         const executeResult = await handleExecuteMode(userMessageContent);
-        if (executeResult) {
-          assistantContent = executeResult;
-        } else {
-          assistantContent = await sendRegularMessage(allMessages);
-        }
+        assistantContent = executeResult || await sendRegularMessage(allMessages);
       } else {
         assistantContent = await sendRegularMessage(allMessages);
+      }
+      
+      setAvatarState("speaking");
+      setLastAssistantMessage(assistantContent);
+      
+      if (speechSupported && assistantContent.length < 500) {
+        speak({ text: assistantContent, rate: 0.9 });
       }
       
       setMessages(prev => [...prev, { role: "assistant", content: assistantContent }]);
       await saveMessage(currentConversationId, "assistant", assistantContent);
       fetchConversations();
       inputRef.current?.focus();
+      
+      setTimeout(() => setAvatarState("idle"), 3000);
     } catch (error) {
       console.error("Erreur:", error);
       setMessages(prev => [...prev, { role: "assistant", content: "Erreur de connexion. Vérifie que le backend est bien démarré." }]);
+      setAvatarState("idle");
     } finally {
       setIsLoading(false);
       setIsSending(false);
     }
   };
 
-  // Gestion du micro
   const startVoiceRecording = () => {
     resetTranscript();
     SpeechRecognition.startListening({ continuous: true, language: 'fr-FR' });
     setIsRecording(true);
+    setAvatarState("listening");
   };
 
   const stopVoiceRecording = () => {
     SpeechRecognition.stopListening();
     setIsRecording(false);
+    setAvatarState("idle");
   };
 
   const handleSendButtonMouseDown = () => {
@@ -600,7 +606,6 @@ export default function ChatPage() {
     }
   };
 
-  // Récupérer le mode actuel pour l'affichage
   const currentModeConfig = modes.find(m => m.id === selectedMode);
   const CurrentIcon = currentModeConfig?.icon;
 
@@ -625,9 +630,18 @@ export default function ChatPage() {
           </button>
         </div>
         
-        <div className="flex-1 text-center">
-          <h1 className="text-base font-serif text-gold-500">SOVEREIGN AI</h1>
-          <p className="text-[9px] text-gold-500/60 uppercase tracking-widest hidden sm:block">Executive Mode</p>
+        <div className="flex items-center gap-3">
+          <SovereignAvatar 
+            state={avatarState} 
+            size="sm"
+            lastMessage={lastAssistantMessage}
+            onSpeak={() => speak({ text: lastAssistantMessage, rate: 0.9 })}
+            isSpeaking={speaking}
+          />
+          <div className="text-left hidden sm:block">
+            <h1 className="text-sm font-serif text-gold-500">Becks</h1>
+            <p className="text-[9px] text-gray-500">Sovereign Life Agent</p>
+          </div>
         </div>
         
         <Link href="/" className="p-2 text-gray-400 hover:text-gold-500 transition-colors rounded-lg hover:bg-white/5">
