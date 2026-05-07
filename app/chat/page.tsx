@@ -1,6 +1,5 @@
 "use client";
 import "regenerator-runtime/runtime";
-import VoiceAssistant from "@/components/VoiceAssistant";
 import { useState, useRef, useEffect } from "react";
 import ReactMarkdown from 'react-markdown';
 import { 
@@ -14,8 +13,8 @@ import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import { useDropzone } from "react-dropzone";
 import SpeechRecognition, { useSpeechRecognition } from "react-speech-recognition";
-import { useSpeechSynthesis } from "react-speech-kit";
 import SovereignAvatar from "@/components/SovereignAvatar";
+import VoiceAssistant from "@/components/VoiceAssistant";
 
 const API_URL = "https://sovereign-bridge.onrender.com";
 
