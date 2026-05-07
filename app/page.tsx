@@ -9,7 +9,8 @@ import {
   Sprout, AlertCircle, CheckCircle, Clock, TrendingUp,
   Calendar, Sparkles, ArrowRight, MessageSquare, Shield,
   FileText, Users, Wallet, Globe, Zap, Lightbulb, 
-  PieChart, LineChart, Smile, Meh, Frown, Sun, Moon, Bell
+  PieChart, LineChart, Smile, Meh, Frown, Sun, Moon, Bell,
+  Trophy
 } from "lucide-react";
 
 // Types
