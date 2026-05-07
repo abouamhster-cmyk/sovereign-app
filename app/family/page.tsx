@@ -47,9 +47,10 @@ const statusConfig = {
 // Liste des enfants (à adapter selon tes enfants)
 const childrenList = [
   "Tous",
-  "Enfant 1",
-  "Enfant 2",
-  "Enfant 3"
+  "Neriah Fumi",
+  "Nylah Tiwa", 
+  "Norah Ife",
+  "Nyrel Sheyi"
 ];
 
 export default function FamilyPage() {
