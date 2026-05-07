@@ -1,6 +1,6 @@
 "use client";
 import { useState } from "react";
-import { Send, Mail, FileText, Clock } from "lucide-react";
+import { Send, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
 const API_URL = "https://sovereign-bridge.onrender.com";
@@ -41,40 +41,11 @@ export default function EmailPage() {
     }
   };
 
-  const sendQuickReport = async () => {
-    setIsSending(true);
-    try {
-      const response = await fetch(`${API_URL}/api/email/report-weekly`, {
-        method: "POST"
-      });
-      const data = await response.json();
-      if (data.success) {
-        toast.success("Rapport hebdomadaire envoyé !");
-      } else {
-        toast.error("Erreur: " + data.error);
-      }
-    } catch (error) {
-      toast.error("Erreur de connexion");
-    } finally {
-      setIsSending(false);
-    }
-  };
-
   return (
     <div className="p-8 max-w-4xl mx-auto">
-      <div className="flex justify-between items-center mb-8">
-        <div>
-          <h1 className="text-4xl font-serif text-gold-500">📧 Email Command</h1>
-          <p className="text-gray-500 mt-2">Envoi d'emails via Brevo</p>
-        </div>
-        <button
-          onClick={sendQuickReport}
-          disabled={isSending}
-          className="bg-purple-500/20 text-purple-400 px-4 py-2 rounded-full text-sm font-medium flex items-center gap-2"
-        >
-          <FileText className="w-4 h-4" />
-          Envoyer rapport semaine
-        </button>
+      <div className="mb-8">
+        <h1 className="text-4xl font-serif text-gold-500">📧 Email Command</h1>
+        <p className="text-gray-500 mt-2">Envoi d'emails via Brevo</p>
       </div>
 
       <div className="bg-white/5 border border-white/10 rounded-2xl p-6">
@@ -102,13 +73,13 @@ export default function EmailPage() {
           </div>
 
           <div>
-            <label className="block text-sm text-gray-400 mb-2">Message</label>
+            <label className="block text-sm text-gray-400 mb-2">Message (HTML supporté)</label>
             <textarea
               value={body}
               onChange={(e) => setBody(e.target.value)}
-              placeholder="Écris ton message ici..."
-              rows={10}
-              className="w-full bg-white/10 border border-white/10 rounded-xl px-4 py-3 text-ivory focus:outline-none focus:border-gold-500 resize-none"
+              placeholder="Écris ton message ici...&lt;br&gt;Tu peux utiliser du HTML"
+              rows={8}
+              className="w-full bg-white/10 border border-white/10 rounded-xl px-4 py-3 text-ivory focus:outline-none focus:border-gold-500 resize-none font-mono text-sm"
             />
           </div>
 
