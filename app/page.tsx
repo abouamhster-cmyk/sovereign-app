@@ -1,6 +1,5 @@
 "use client";
 import { useEffect, useState } from "react";
-import "regenerator-runtime/runtime";
 import { supabase } from "@/lib/supabase";
 import { motion } from "framer-motion";
 import LoadingSpinner from "@/components/LoadingSpinner";
@@ -10,143 +9,133 @@ import {
   Sprout, AlertCircle, CheckCircle, Clock, TrendingUp,
   Calendar, Sparkles, ArrowRight, MessageSquare, Shield,
   FileText, Users, Wallet, Globe, Zap, Lightbulb, 
-  PieChart, LineChart
+  PieChart, LineChart, Smile, Meh, Frown, Sun, Moon
 } from "lucide-react";
-import { Chart as ChartJS, ArcElement, Tooltip, Legend, CategoryScale, LinearScale, BarElement, PointElement, LineElement, Title } from 'chart.js';
-import { Bar, Pie, Line } from 'react-chartjs-2';
 
-// Enregistrement ChartJS
-ChartJS.register(ArcElement, Tooltip, Legend, CategoryScale, LinearScale, BarElement, PointElement, LineElement, Title);
-
-// Types
-type Mission = {
-  id: string;
-  name: string;
-  status: string;
-  priority: string;
-};
-
-type Task = {
-  id: string;
-  title: string;
-  status: string;
-  due_date: string | null;
-};
-
-type Document = {
-  id: string;
-  name: string;
-  status: string;
-};
-
-type Opportunity = {
-  id: string;
-  title: string;
-  stage: string;
-  estimated_value: number;
-};
-
-type Win = {
-  id: string;
-  title: string;
-  celebration_emoji: string;
-};
-
-type FarmStats = {
-  totalSpent: number;
-  activeUnits: number;
-  nextMilestone: string;
-};
-
-type Suggestion = {
-  type: string;
-  priority: "high" | "medium" | "low";
-  title: string;
-  message: string;
-  action_url: string;
-  action_label: string;
-};
-
-type AiPriority = {
-  id: string;
-  title: string;
-  score: number;
-  due_date: string | null;
-  priority_reason: string;
-  action_url?: string;
-};
-
-type CalmGuidance = {
-  message: string;
-  tone: string;
-  advice: string;
-  load_score: number;
-  specific_advice: string[];
-  time_context: string;
-};
-
-type CategoryData = {
-  value: string;
-  label: string;
-  total: number;
-  color: string;
-};
-
-type MonthlyEvolution = {
-  labels: string[];
-  revenue: number[];
-  spending: number[];
-};
+// Types (existants)
+type Mission = { id: string; name: string; status: string; priority: string };
+type Task = { id: string; title: string; status: string; due_date: string | null };
+type Document = { id: string; name: string; status: string };
+type Win = { id: string; title: string; celebration_emoji: string };
+type Suggestion = { type: string; priority: string; title: string; message: string; action_url: string; action_label: string };
+type AiPriority = { id: string; title: string; score: number; due_date: string | null; priority_reason: string };
 
 const API_URL = "https://sovereign-bridge.onrender.com";
 
+// Composant Widget Humeur
+function MoodWidget() {
+  const [mood, setMood] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+
+  useEffect(() => {
+    const savedMood = localStorage.getItem("todayMood");
+    const savedDate = localStorage.getItem("todayMoodDate");
+    const today = new Date().toISOString().split('T')[0];
+    
+    if (savedMood && savedDate === today) {
+      setMood(savedMood);
+    }
+  }, []);
+
+  const saveMood = async (selectedMood: string) => {
+    setIsLoading(true);
+    const today = new Date().toISOString().split('T')[0];
+    setMood(selectedMood);
+    localStorage.setItem("todayMood", selectedMood);
+    localStorage.setItem("todayMoodDate", today);
+    
+    // Sauvegarder en base
+    await supabase.from("mood_entries").insert({
+      mood: selectedMood,
+      date: today,
+      user_id: (await supabase.auth.getUser()).data.user?.id
+    });
+    setIsLoading(false);
+  };
+
+  const moods = [
+    { value: "excellent", emoji: "🌟", label: "Excellent", icon: Sun },
+    { value: "bien", emoji: "😊", label: "Bien", icon: Smile },
+    { value: "neutre", emoji: "😐", label: "Neutre", icon: Meh },
+    { value: "fatiguée", emoji: "😴", label: "Fatiguée", icon: Moon },
+    { value: "stressée", emoji: "😰", label: "Stressée", icon: Frown },
+  ];
+
+  if (mood) {
+    const currentMood = moods.find(m => m.value === mood);
+    return (
+      <div className="bg-gold-500/10 border border-gold-500/20 rounded-xl p-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <span className="text-2xl">{currentMood?.emoji}</span>
+            <div>
+              <p className="text-xs text-gray-500">Humeur du jour</p>
+              <p className="text-sm text-gold-400">{currentMood?.label}</p>
+            </div>
+          </div>
+          <button
+            onClick={() => { setMood(null); localStorage.removeItem("todayMood"); }}
+            className="text-xs text-gray-500 hover:text-gold-400"
+          >
+            Modifier
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="bg-white/5 border border-white/10 rounded-xl p-4">
+      <p className="text-xs text-gray-500 mb-3">Comment te sens-tu aujourd'hui ?</p>
+      <div className="flex justify-between">
+        {moods.map((m) => (
+          <button
+            key={m.value}
+            onClick={() => saveMood(m.value)}
+            disabled={isLoading}
+            className="flex flex-col items-center gap-1 p-2 rounded-lg hover:bg-white/10 transition-colors disabled:opacity-50"
+          >
+            <span className="text-xl">{m.emoji}</span>
+            <span className="text-[10px] text-gray-500">{m.label}</span>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export default function DashboardPage() {
   const [greeting, setGreeting] = useState("");
+  const [userName, setUserName] = useState("Rebecca");
   const [isLoading, setIsLoading] = useState(true);
   const [proactiveSuggestions, setProactiveSuggestions] = useState<Suggestion[]>([]);
   const [aiPriorities, setAiPriorities] = useState<AiPriority[]>([]);
-  const [calmGuidance, setCalmGuidance] = useState<CalmGuidance | null>(null);
   
   // Données
   const [missions, setMissions] = useState<Mission[]>([]);
   const [todayTasks, setTodayTasks] = useState<Task[]>([]);
   const [urgentTasks, setUrgentTasks] = useState<Task[]>([]);
   const [pendingDocs, setPendingDocs] = useState<Document[]>([]);
-  const [opportunities, setOpportunities] = useState<Opportunity[]>([]);
   const [recentWins, setRecentWins] = useState<Win[]>([]);
-  const [farmStats, setFarmStats] = useState<FarmStats>({
-    totalSpent: 0,
-    activeUnits: 0,
-    nextMilestone: "Chargement..."
-  });
-  const [financials, setFinancials] = useState({
-    revenue: 0,
-    spending: 0,
-    balance: 0
-  });
-  const [spendingByCategory, setSpendingByCategory] = useState<CategoryData[]>([]);
-  const [monthlyEvolution, setMonthlyEvolution] = useState<MonthlyEvolution>({ 
-    labels: [], 
-    revenue: [], 
-    spending: [] 
-  });
-  
+  const [financials, setFinancials] = useState({ revenue: 0, spending: 0, balance: 0 });
+
   useEffect(() => {
     const hour = new Date().getHours();
     if (hour < 12) setGreeting("Bonjour");
     else if (hour < 18) setGreeting("Bon après-midi");
     else setGreeting("Bonsoir");
     
+    fetchUserName();
     fetchAllData();
-    
-    const channels = [
-      supabase.channel('dashboard_missions').on('postgres_changes', { event: '*', schema: 'public', table: 'missions' }, () => fetchMissions()).subscribe(),
-      supabase.channel('dashboard_tasks').on('postgres_changes', { event: '*', schema: 'public', table: 'tasks' }, () => fetchTasks()).subscribe(),
-      supabase.channel('dashboard_docs').on('postgres_changes', { event: '*', schema: 'public', table: 'documents' }, () => fetchDocuments()).subscribe(),
-    ];
-    
-    return () => channels.forEach(ch => ch.unsubscribe());
   }, []);
+
+  async function fetchUserName() {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user?.email) {
+      const name = user.email.split('@')[0];
+      setUserName(name.charAt(0).toUpperCase() + name.slice(1));
+    }
+  }
 
   async function fetchAllData() {
     setIsLoading(true);
@@ -154,15 +143,10 @@ export default function DashboardPage() {
       fetchMissions(),
       fetchTasks(),
       fetchDocuments(),
-      fetchOpportunities(),
       fetchWins(),
-      fetchFarmStats(),
       fetchFinancials(),
       fetchAiPriorities(),
-      fetchSpendingByCategory(),
-      fetchMonthlyEvolution(),
-      fetchProactiveSuggestions(),
-      fetchCalmGuidance()
+      fetchProactiveSuggestions()
     ]);
     setIsLoading(false);
   }
@@ -183,92 +167,30 @@ export default function DashboardPage() {
       const data = await response.json();
       setAiPriorities(data.priorities || []);
     } catch (error) {
-      console.error("Erreur récupération priorités:", error);
-    }
-  }
-
-  async function fetchCalmGuidance() {
-    try {
-      const response = await fetch(`${API_URL}/api/calm-guidance`);
-      const data = await response.json();
-      setCalmGuidance(data);
-    } catch (error) {
-      console.error("Erreur récupération calm guidance:", error);
-      setCalmGuidance({
-        message: "🌿 Respire. Une chose à la fois.",
-        tone: "calm",
-        advice: "Prends soin de toi.",
-        load_score: 0,
-        specific_advice: [],
-        time_context: "neutral"
-      });
+      console.error("Erreur priorités:", error);
     }
   }
 
   async function fetchMissions() {
-    const { data } = await supabase
-      .from("missions")
-      .select("*")
-      .eq("status", "active");
+    const { data } = await supabase.from("missions").select("*").eq("status", "active");
     setMissions(data || []);
   }
 
   async function fetchTasks() {
-    const { data } = await supabase
-      .from("tasks")
-      .select("*")
-      .eq("status", "today")
-      .limit(5);
+    const { data } = await supabase.from("tasks").select("*").eq("status", "today").limit(5);
     setTodayTasks(data || []);
-    
-    const { data: urgent } = await supabase
-      .from("tasks")
-      .select("*")
-      .eq("status", "today")  
-      .neq("status", "done");
+    const { data: urgent } = await supabase.from("tasks").select("*").eq("status", "today").neq("status", "done");
     setUrgentTasks(urgent || []);
   }
 
   async function fetchDocuments() {
-    const { data } = await supabase
-      .from("documents")
-      .select("*")
-      .neq("status", "approved")
-      .limit(3);
+    const { data } = await supabase.from("documents").select("*").neq("status", "approved").limit(3);
     setPendingDocs(data || []);
   }
 
-  async function fetchOpportunities() {
-    const { data } = await supabase
-      .from("opportunities")
-      .select("*")
-      .eq("stage", "preparing")
-      .limit(3);
-    setOpportunities(data || []);
-  }
-
   async function fetchWins() {
-    const { data } = await supabase
-      .from("wins")
-      .select("*")
-      .order("date", { ascending: false })
-      .limit(3);
+    const { data } = await supabase.from("wins").select("*").order("date", { ascending: false }).limit(3);
     setRecentWins(data || []);
-  }
-
-  async function fetchFarmStats() {
-    const [spendingRes, unitsRes] = await Promise.all([
-      supabase.from("farm_spending").select("amount"),
-      supabase.from("farm_production_units").select("status").eq("status", "active")
-    ]);
-    
-    const totalSpent = (spendingRes.data || []).reduce((sum, s) => sum + (s.amount || 0), 0);
-    
-    setFarmStats({
-      totalSpent,
-      activeUnits: (unitsRes.data || []).length,
-      nextMilestone: "Installation poissons"
-    });
   }
 
   async function fetchFinancials() {
@@ -276,135 +198,54 @@ export default function DashboardPage() {
       supabase.from("revenue").select("amount"),
       supabase.from("spending").select("amount")
     ]);
-    
     const revenue = (revenueRes.data || []).reduce((sum, r) => sum + (r.amount || 0), 0);
     const spending = (spendingRes.data || []).reduce((sum, s) => sum + (s.amount || 0), 0);
-    
     setFinancials({ revenue, spending, balance: revenue - spending });
-  }
-
-  async function fetchSpendingByCategory() {
-    const { data } = await supabase.from("spending").select("amount, category");
-    if (!data) return;
-    
-    const categories: CategoryData[] = [
-      { value: "materials", label: "Matériaux", total: 0, color: "rgba(212, 175, 55, 0.8)" },
-      { value: "construction", label: "Construction", total: 0, color: "rgba(212, 175, 55, 0.6)" },
-      { value: "labor", label: "Main d'œuvre", total: 0, color: "rgba(212, 175, 55, 0.5)" },
-      { value: "livestock", label: "Élevage", total: 0, color: "rgba(212, 175, 55, 0.4)" },
-      { value: "crops", label: "Cultures", total: 0, color: "rgba(212, 175, 55, 0.3)" },
-      { value: "other", label: "Autre", total: 0, color: "rgba(212, 175, 55, 0.2)" }
-    ];
-    
-    data.forEach(item => {
-      const cat = categories.find(c => c.value === item.category);
-      if (cat) cat.total += item.amount;
-    });
-    
-    setSpendingByCategory(categories.filter(c => c.total > 0));
-  }
-
-  async function fetchMonthlyEvolution() {
-    const [revenueData, spendingData] = await Promise.all([
-      supabase.from("revenue").select("amount, date"),
-      supabase.from("spending").select("amount, date")
-    ]);
-    
-    const monthlyMap = new Map<string, { label: string; revenue: number; spending: number }>();
-    
-    revenueData.data?.forEach(r => {
-      const date = new Date(r.date);
-      const monthKey = `${date.getMonth() + 1}/${date.getFullYear()}`;
-      const monthLabel = date.toLocaleString('fr-FR', { month: 'short' });
-      if (!monthlyMap.has(monthKey)) monthlyMap.set(monthKey, { label: monthLabel, revenue: 0, spending: 0 });
-      monthlyMap.get(monthKey)!.revenue += r.amount;
-    });
-    
-    spendingData.data?.forEach(s => {
-      const date = new Date(s.date);
-      const monthKey = `${date.getMonth() + 1}/${date.getFullYear()}`;
-      const monthLabel = date.toLocaleString('fr-FR', { month: 'short' });
-      if (!monthlyMap.has(monthKey)) monthlyMap.set(monthKey, { label: monthLabel, revenue: 0, spending: 0 });
-      monthlyMap.get(monthKey)!.spending += s.amount;
-    });
-    
-    const sorted = Array.from(monthlyMap.entries())
-      .sort((a, b) => {
-        const [aMonth, aYear] = a[0].split('/');
-        const [bMonth, bYear] = b[0].split('/');
-        return parseInt(aYear) - parseInt(bYear) || parseInt(aMonth) - parseInt(bMonth);
-      })
-      .slice(-6);
-    
-    setMonthlyEvolution({
-      labels: sorted.map(s => s[1].label),
-      revenue: sorted.map(s => s[1].revenue),
-      spending: sorted.map(s => s[1].spending)
-    });
   }
 
   const formatCurrency = (val: number) => {
     return new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'XOF', maximumFractionDigits: 0 }).format(val);
   };
-  
+
+  const handleHelpMeMoveForward = () => {
+    // Ouvre le chat en mode "Fais-le avec moi"
+    window.location.href = "/chat?mode=execute";
+  };
+
   return (
-    <div className="h-full flex flex-col overflow-y-auto bg-midnight">
+    <div className="p-4 md:p-6 lg:p-8 h-full flex flex-col overflow-y-auto bg-midnight">
       
-      {/* HEADER */}
-      <div className="flex justify-between items-start mb-8">
-        <div>
-          <h1 className="text-3xl lg:text-4xl font-serif text-ivory tracking-tight">
-            {greeting}, Rebecca.
-          </h1>
-          <p className="text-gray-500 text-sm mt-1">Ton empire est sous contrôle.</p>
-        </div>
-        <Link 
-          href="/chat"
-          className="flex items-center gap-2 bg-gold-500/10 text-gold-500 px-4 py-2 rounded-full text-sm hover:bg-gold-500/20 transition-colors"
-        >
-          <MessageSquare className="w-4 h-4" />
-          <span className="hidden sm:inline">Sovereign</span>
-        </Link>
+      {/* HEADER avec prénom */}
+      <div className="mb-6">
+        <h1 className="text-2xl md:text-3xl lg:text-4xl font-serif text-ivory tracking-tight">
+          {greeting}, {userName}. 👑
+        </h1>
+        <p className="text-gray-500 text-sm mt-1">Aujourd'hui avec Becks</p>
       </div>
 
-      {/* CALM GUIDANCE DYNAMIQUE */}
-      {calmGuidance && (
-        <div className="mb-8 bg-gradient-to-r from-gold-500/10 to-transparent border border-gold-500/20 rounded-2xl p-5">
-          <div className="flex items-center gap-2 mb-2">
-            <Sparkles className="w-5 h-5 text-gold-500" />
-            <span className="text-xs text-gold-500 uppercase tracking-wider">✨ Sovereign ✨</span>
-          </div>
-          <p className="text-ivory text-sm leading-relaxed whitespace-pre-line">
-            {calmGuidance.message}
-          </p>
-          <div className="mt-3 flex items-center justify-between">
-            <p className="text-xs text-gray-500">{calmGuidance.advice}</p>
-            <div className="flex items-center gap-2">
-              <div className="text-xs text-gray-600">Charge: {calmGuidance.load_score}</div>
-              <div className="w-16 bg-white/10 rounded-full h-1">
-                <div 
-                  className="h-1 rounded-full bg-gold-500"
-                  style={{ width: `${Math.min(100, calmGuidance.load_score)}%` }}
-                />
-              </div>
-            </div>
-          </div>
-          {calmGuidance.specific_advice && calmGuidance.specific_advice.length > 0 && (
-            <div className="mt-3 pt-3 border-t border-white/10">
-              {calmGuidance.specific_advice.map((advice, idx) => (
-                <p key={idx} className="text-xs text-gray-400">{advice}</p>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
+      {/* WIDGET HUMEUR */}
+      <div className="mb-6">
+        <MoodWidget />
+      </div>
+
+      {/* BOUTON "Aide-moi à avancer" */}
+      <motion.button
+        whileHover={{ scale: 1.01 }}
+        whileTap={{ scale: 0.99 }}
+        onClick={handleHelpMeMoveForward}
+        className="mb-8 w-full py-4 bg-gradient-to-r from-gold-500/20 to-gold-500/5 border border-gold-500/30 rounded-2xl text-gold-500 font-medium flex items-center justify-center gap-3 hover:bg-gold-500/30 transition-all group"
+      >
+        <Sparkles className="w-5 h-5 group-hover:rotate-12 transition-transform" />
+        <span>🧠 Aide-moi à avancer maintenant</span>
+        <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+      </motion.button>
 
       {/* TOP 3 PRIORITÉS IA */}
       {aiPriorities.length > 0 && (
         <div className="mb-8">
           <div className="flex items-center gap-2 text-gold-500 mb-3">
             <Target className="w-4 h-4" />
-            <h2 className="text-sm font-serif">🎯 Top priorités du jour (IA)</h2>
+            <h2 className="text-sm font-serif">🎯 Top priorités du jour</h2>
           </div>
           <div className="space-y-3">
             {aiPriorities.map((priority, idx) => (
@@ -421,25 +262,13 @@ export default function DashboardPage() {
                     <p className="text-ivory font-medium">{priority.title}</p>
                     <p className="text-xs text-gray-400 mt-1">{priority.priority_reason}</p>
                     {priority.due_date && (
-                      <p className="text-xs text-gray-500 mt-1">
-                        📅 {new Date(priority.due_date).toLocaleDateString('fr-FR')}
-                      </p>
+                      <p className="text-xs text-gray-500 mt-1">📅 {new Date(priority.due_date).toLocaleDateString('fr-FR')}</p>
                     )}
                   </div>
-                  <Link
-                    href={priority.action_url || "/tasks"}
-                    className="text-gold-500 text-sm hover:underline"
-                  >
-                    → Voir
-                  </Link>
+                  <Link href="/tasks" className="text-gold-500 text-sm hover:underline">→</Link>
                 </div>
                 <div className="mt-2 w-full bg-white/10 rounded-full h-1">
-                  <div 
-                    className={`h-1 rounded-full ${
-                      idx === 0 ? "bg-red-500" : idx === 1 ? "bg-orange-500" : "bg-gold-500"
-                    }`}
-                    style={{ width: `${(priority.score / 40) * 100}%` }}
-                  />
+                  <div className={`h-1 rounded-full ${idx === 0 ? "bg-red-500" : idx === 1 ? "bg-orange-500" : "bg-gold-500"}`} style={{ width: `${(priority.score / 40) * 100}%` }} />
                 </div>
               </div>
             ))}
@@ -447,305 +276,106 @@ export default function DashboardPage() {
         </div>
       )}
 
+      {/* CARTE DE VIE SIMPLIFIÉE (Life Map) */}
+      <div className="mb-8">
+        <div className="flex items-center gap-2 text-gold-500 mb-3">
+          <Globe className="w-4 h-4" />
+          <h2 className="text-sm font-serif">🗺️ Carte de vie</h2>
+        </div>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <LifeMapCard title="Famille" icon={Heart} count={4} status="plusieurs" color="text-pink-400" href="/family" />
+          <LifeMapCard title="Argent" icon={DollarSign} count={financials.balance} status="finance" color="text-emerald-400" href="/money" />
+          <LifeMapCard title="Business" icon={Briefcase} count={missions.length} status="missions" color="text-blue-400" href="/missions" />
+          <LifeMapCard title="Ferme" icon={Sprout} count={3} status="projets" color="text-green-400" href="/farm" />
+          <LifeMapCard title="Documents" icon={FileText} count={pendingDocs.length} status="en attente" color="text-orange-400" href="/documents" />
+          <LifeMapCard title="Victoires" icon={Trophy} count={recentWins.length} status="récentes" color="text-yellow-400" href="/wins" />
+          <LifeMapCard title="Relocation" icon={Globe} count={2} status="en cours" color="text-cyan-400" href="/relocation" />
+          <LifeMapCard title="Alignement" icon={Shield} count={0} status="check" color="text-purple-400" href="/alignment" />
+        </div>
+      </div>
+
+      {/* STATS RAPIDES */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+        <StatCard title="Trésorerie" value={formatCurrency(financials.balance)} icon={<Wallet className="w-5 h-5" />} color="text-gold-500" />
+        <StatCard title="Missions actives" value={missions.length.toString()} icon={<Target className="w-5 h-5" />} color="text-blue-400" />
+        <StatCard title="Tâches aujourd'hui" value={todayTasks.length.toString()} icon={<Clock className="w-5 h-5" />} color="text-orange-400" />
+        <StatCard title="Documents" value={pendingDocs.length.toString()} icon={<FileText className="w-5 h-5" />} color="text-red-400" />
+      </div>
+
       {/* SUGGESTIONS PROACTIVES */}
       {proactiveSuggestions.length > 0 && (
         <div className="mb-8">
           <div className="flex items-center gap-2 text-gold-500 mb-3">
             <Lightbulb className="w-4 h-4" />
-            <h2 className="text-sm font-serif">Suggestions Sovereign</h2>
+            <h2 className="text-sm font-serif">✨ Suggestions Becks</h2>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {proactiveSuggestions.map((suggestion, idx) => {
-              const priorityColor = suggestion.priority === "high" ? "border-red-500/30 bg-red-950/20" :
-                                    suggestion.priority === "medium" ? "border-yellow-500/30 bg-yellow-950/20" :
-                                    "border-gold-500/30 bg-gold-500/5";
-              const actionColor = suggestion.priority === "high" ? "text-red-400 hover:bg-red-500/20" :
-                                  suggestion.priority === "medium" ? "text-yellow-400 hover:bg-yellow-500/20" :
-                                  "text-gold-500 hover:bg-gold-500/20";
-              
-              return (
-                <Link
-                  key={idx}
-                  href={suggestion.action_url}
-                  className={`block p-4 rounded-xl border transition-all hover:scale-[1.02] ${priorityColor}`}
-                >
-                  <p className="text-sm font-medium text-ivory">{suggestion.title}</p>
-                  <p className="text-xs text-gray-400 mt-1">{suggestion.message}</p>
-                  <span className={`inline-block text-xs mt-3 px-2 py-1 rounded-full ${actionColor}`}>
-                    {suggestion.action_label} →
-                  </span>
-                </Link>
-              );
-            })}
+            {proactiveSuggestions.slice(0, 3).map((suggestion, idx) => (
+              <Link key={idx} href={suggestion.action_url} className="block p-4 bg-gold-500/5 border border-gold-500/20 rounded-xl hover:bg-gold-500/10 transition-all">
+                <p className="text-sm font-medium text-ivory">{suggestion.title}</p>
+                <p className="text-xs text-gray-400 mt-1">{suggestion.message}</p>
+                <span className="inline-block text-xs text-gold-500 mt-3">→ Voir</span>
+              </Link>
+            ))}
           </div>
         </div>
       )}
 
-      {/* STATS RAPIDES */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-        <StatCard 
-          title="Trésorerie" 
-          value={formatCurrency(financials.balance)} 
-          icon={<Wallet className="w-5 h-5" />}
-          color="text-gold-500"
-        />
-        <StatCard 
-          title="Missions actives" 
-          value={missions.length.toString()} 
-          icon={<Target className="w-5 h-5" />}
-          color="text-blue-400"
-        />
-        <StatCard 
-          title="Tâches aujourd'hui" 
-          value={todayTasks.length.toString()} 
-          icon={<Clock className="w-5 h-5" />}
-          color="text-orange-400"
-        />
-        <StatCard 
-          title="Investissement Ferme" 
-          value={formatCurrency(farmStats.totalSpent)} 
-          icon={<Sprout className="w-5 h-5" />}
-          color="text-emerald-400"
-        />
-      </div>
-
-      {/* GRAPHIQUES */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-        {spendingByCategory.length > 0 && (
-          <div className="bg-white/5 border border-white/10 rounded-2xl p-5">
-            <h2 className="text-sm font-serif text-gold-500 mb-4 flex items-center gap-2">
-              <PieChart className="w-4 h-4" />
-              Dépenses par catégorie
-            </h2>
-            <div className="h-64">
-              <Pie 
-                data={{
-                  labels: spendingByCategory.map(c => c.label),
-                  datasets: [{
-                    data: spendingByCategory.map(c => c.total),
-                    backgroundColor: spendingByCategory.map(c => c.color),
-                    borderColor: '#D4AF37',
-                    borderWidth: 1,
-                  }]
-                }}
-                options={{
-                  responsive: true,
-                  maintainAspectRatio: false,
-                  plugins: {
-                    legend: { position: 'bottom', labels: { color: '#9CA3AF' } },
-                    tooltip: { callbacks: { label: (ctx) => `${ctx.label}: ${ctx.raw?.toLocaleString()} CFA` } }
-                  }
-                }}
-              />
-            </div>
+      {/* TÂCHES DU JOUR */}
+      <div className="mb-8">
+        <div className="flex justify-between items-center mb-3">
+          <h2 className="text-sm font-serif text-gold-500 flex items-center gap-2">
+            <Clock className="w-4 h-4" />
+            📋 Tâches du jour
+          </h2>
+          <Link href="/tasks" className="text-xs text-gray-500 hover:text-gold-500">Voir tout →</Link>
+        </div>
+        {todayTasks.length > 0 ? (
+          <div className="space-y-2">
+            {todayTasks.map(task => (
+              <div key={task.id} className="flex items-center gap-3 p-3 bg-white/5 rounded-xl">
+                <div className="w-1.5 h-1.5 rounded-full bg-gold-500" />
+                <span className="text-ivory text-sm">{task.title}</span>
+              </div>
+            ))}
           </div>
-        )}
-        
-        {monthlyEvolution.labels.length > 0 && (
-          <div className="bg-white/5 border border-white/10 rounded-2xl p-5">
-            <h2 className="text-sm font-serif text-gold-500 mb-4 flex items-center gap-2">
-              <LineChart className="w-4 h-4" />
-              Évolution 6 mois
-            </h2>
-            <div className="h-64">
-              <Bar
-                data={{
-                  labels: monthlyEvolution.labels,
-                  datasets: [
-                    {
-                      label: 'Revenus',
-                      data: monthlyEvolution.revenue,
-                      backgroundColor: 'rgba(16, 185, 129, 0.6)',
-                      borderColor: '#10b981',
-                      borderWidth: 2,
-                    },
-                    {
-                      label: 'Dépenses',
-                      data: monthlyEvolution.spending,
-                      backgroundColor: 'rgba(239, 68, 68, 0.6)',
-                      borderColor: '#ef4444',
-                      borderWidth: 2,
-                    }
-                  ]
-                }}
-                options={{
-                  responsive: true,
-                  maintainAspectRatio: false,
-                  plugins: {
-                    legend: { position: 'top', labels: { color: '#9CA3AF' } },
-                    tooltip: { callbacks: { label: (ctx) => `${ctx.dataset.label}: ${ctx.raw?.toLocaleString()} CFA` } }
-                  },
-                  scales: {
-                    x: { ticks: { color: '#9CA3AF' } },
-                    y: { ticks: { color: '#9CA3AF' }, title: { display: true, text: 'CFA', color: '#9CA3AF' } }
-                  }
-                }}
-              />
-            </div>
-          </div>
+        ) : (
+          <p className="text-gray-500 text-sm text-center py-4">Aucune tâche planifiée pour aujourd'hui ✨</p>
         )}
       </div>
-      
-      {/* ZONE PRIORITAIRE */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-        
-        {/* URGENT & TODAY */}
-        <div className="lg:col-span-2 space-y-6">
-          {urgentTasks.length > 0 && (
-            <div className="bg-red-950/20 border border-red-500/30 rounded-2xl p-5">
-              <div className="flex items-center gap-2 text-red-400 mb-3">
-                <AlertCircle className="w-5 h-5" />
-                <span className="text-sm font-medium">URGENT - À traiter aujourd'hui</span>
-              </div>
-              <div className="space-y-2">
-                {urgentTasks.map(task => (
-                  <div key={task.id} className="flex items-center justify-between p-2 bg-midnight/50 rounded-lg">
-                    <span className="text-ivory text-sm">{task.title}</span>
-                    {task.due_date && <span className="text-xs text-red-400">⚠️ {new Date(task.due_date).toLocaleDateString('fr-FR')}</span>}
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
 
-          <div className="bg-white/5 border border-white/10 rounded-2xl p-5">
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-sm font-serif text-gold-500 flex items-center gap-2">
-                <Clock className="w-4 h-4" />
-                📋 Tâches prioritaires
-              </h2>
-              <Link href="/tasks" className="text-xs text-gray-500 hover:text-gold-500">Voir tout →</Link>
-            </div>
-            {todayTasks.length > 0 ? (
-              <div className="space-y-2">
-                {todayTasks.map(task => (
-                  <div key={task.id} className="flex items-center gap-3 p-2 hover:bg-white/5 rounded-lg transition-colors">
-                    <div className="w-1.5 h-1.5 rounded-full bg-gold-500" />
-                    <span className="text-ivory text-sm">{task.title}</span>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <p className="text-gray-500 text-sm text-center py-4">Aucune tâche planifiée pour aujourd'hui</p>
-            )}
-          </div>
-
-          <div className="bg-white/5 border border-white/10 rounded-2xl p-5">
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-sm font-serif text-gold-500 flex items-center gap-2">
-                <Target className="w-4 h-4" />
-                🚀 Missions actives
-              </h2>
-              <Link href="/missions" className="text-xs text-gray-500 hover:text-gold-500">Voir tout →</Link>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              {missions.map(mission => (
-                <span key={mission.id} className="px-3 py-1.5 bg-midnight rounded-full text-xs text-ivory border border-white/10">
-                  {mission.name}
-                </span>
-              ))}
-              {missions.length === 0 && <p className="text-gray-500 text-sm">Aucune mission active</p>}
-            </div>
-          </div>
-        </div>
-
-        {/* FARM PULSE & QUICK ACTIONS */}
-        <div className="space-y-6">
-          <div className="bg-white/5 border border-white/10 rounded-2xl p-5">
-            <div className="flex items-center gap-2 text-emerald-400 mb-3">
-              <Sprout className="w-5 h-5" />
-              <h2 className="text-sm font-serif">Ifè Farm - Pulse</h2>
-            </div>
-            <div className="space-y-2 text-sm">
-              <p className="flex justify-between">
-                <span className="text-gray-500">Investi :</span>
-                <span className="text-ivory">{formatCurrency(farmStats.totalSpent)}</span>
-              </p>
-              <p className="flex justify-between">
-                <span className="text-gray-500">Productions :</span>
-                <span className="text-ivory">{farmStats.activeUnits} actives</span>
-              </p>
-              <p className="flex justify-between">
-                <span className="text-gray-500">Prochaine étape :</span>
-                <span className="text-gold-500">{farmStats.nextMilestone}</span>
-              </p>
-            </div>
-            <Link href="/farm" className="block text-center mt-4 text-xs text-gold-500 hover:underline">
-              → Gérer la ferme
-            </Link>
-          </div>
-
-          <div className="bg-white/5 border border-white/10 rounded-2xl p-5">
-            <h2 className="text-sm font-serif text-gold-500 mb-3">⚡ Accès rapide</h2>
-            <div className="grid grid-cols-2 gap-2">
-              <Link href="/inbox" className="text-center p-2 bg-midnight rounded-xl text-xs text-gray-400 hover:text-gold-500 transition-colors">🧠 Brain Dump</Link>
-              <Link href="/brief" className="text-center p-2 bg-midnight rounded-xl text-xs text-gray-400 hover:text-gold-500 transition-colors">📋 Daily Brief</Link>
-              <Link href="/money" className="text-center p-2 bg-midnight rounded-xl text-xs text-gray-400 hover:text-gold-500 transition-colors">💰 Money</Link>
-              <Link href="/rescue" className="text-center p-2 bg-midnight rounded-xl text-xs text-gray-400 hover:text-gold-500 transition-colors">🛡️ Rescue</Link>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* SECTION BASSE - OPPORTUNITÉS & VICTOIRES */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        
-        <div className="bg-white/5 border border-white/10 rounded-2xl p-5">
-          <div className="flex justify-between items-center mb-4">
+      {/* VICTOIRES RÉCENTES */}
+      {recentWins.length > 0 && (
+        <div className="mb-8">
+          <div className="flex justify-between items-center mb-3">
             <h2 className="text-sm font-serif text-gold-500 flex items-center gap-2">
-              <TrendingUp className="w-4 h-4" />
-              💰 Opportunités en cours
-            </h2>
-            <Link href="/opportunities" className="text-xs text-gray-500 hover:text-gold-500">Voir tout →</Link>
-          </div>
-          {opportunities.length > 0 ? (
-            <div className="space-y-3">
-              {opportunities.map(opp => (
-                <div key={opp.id} className="flex justify-between items-center p-2 border-b border-white/5">
-                  <span className="text-ivory text-sm">{opp.title}</span>
-                  <span className="text-xs text-emerald-400">{opp.estimated_value?.toLocaleString()} CFA</span>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <p className="text-gray-500 text-sm text-center py-4">Aucune opportunité en préparation</p>
-          )}
-        </div>
-
-        <div className="bg-white/5 border border-white/10 rounded-2xl p-5">
-          <div className="flex justify-between items-center mb-4">
-            <h2 className="text-sm font-serif text-gold-500 flex items-center gap-2">
-              <CheckCircle className="w-4 h-4" />
+              <Trophy className="w-4 h-4" />
               🏆 Victoires récentes
             </h2>
             <Link href="/wins" className="text-xs text-gray-500 hover:text-gold-500">Voir tout →</Link>
           </div>
-          {recentWins.length > 0 ? (
-            <div className="space-y-2">
-              {recentWins.map(win => (
-                <div key={win.id} className="flex items-center gap-3 p-2 bg-midnight/30 rounded-lg">
-                  <span className="text-xl">{win.celebration_emoji || "🎉"}</span>
-                  <span className="text-ivory text-sm">{win.title}</span>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <p className="text-gray-500 text-sm text-center py-4">Ajoute ta première victoire ✨</p>
-          )}
+          <div className="space-y-2">
+            {recentWins.map(win => (
+              <div key={win.id} className="flex items-center gap-3 p-3 bg-white/5 rounded-xl">
+                <span className="text-xl">{win.celebration_emoji || "🎉"}</span>
+                <span className="text-ivory text-sm">{win.title}</span>
+              </div>
+            ))}
+          </div>
         </div>
-      </div>
+      )}
 
       {/* DOCUMENTS EN ATTENTE */}
       {pendingDocs.length > 0 && (
-        <div className="mt-6 bg-white/5 border border-white/10 rounded-2xl p-5">
-          <div className="flex justify-between items-center mb-4">
+        <div className="mb-8">
+          <div className="flex justify-between items-center mb-3">
             <h2 className="text-sm font-serif text-gold-500 flex items-center gap-2">
               <FileText className="w-4 h-4" />
-              📄 Documents en attente
+              📄 Documents à traiter
             </h2>
             <Link href="/documents" className="text-xs text-gray-500 hover:text-gold-500">Voir tout →</Link>
           </div>
-          <div className="flex flex-wrap gap-3">
+          <div className="flex flex-wrap gap-2">
             {pendingDocs.map(doc => (
               <span key={doc.id} className="px-3 py-1.5 bg-yellow-500/10 text-yellow-400 rounded-full text-xs">
                 {doc.name}
@@ -754,17 +384,32 @@ export default function DashboardPage() {
           </div>
         </div>
       )}
+
+      {/* BOUTON CHAT */}
+      <Link href="/chat" className="fixed bottom-6 right-6 z-40 bg-gold-500 text-midnight p-4 rounded-full shadow-lg hover:scale-105 transition-transform">
+        <MessageSquare className="w-6 h-6" />
+      </Link>
     </div>
   );
 }
 
-// Composant StatCard
+// Composants utilitaires
 function StatCard({ title, value, icon, color }: { title: string; value: string; icon: React.ReactNode; color: string }) {
   return (
-    <div className="bg-white/5 border border-white/10 rounded-2xl p-5">
+    <div className="bg-white/5 border border-white/10 rounded-xl p-4">
       <div className={`${color} mb-2`}>{icon}</div>
-      <div className="text-2xl font-serif text-ivory">{value}</div>
+      <div className="text-xl font-serif text-ivory">{value}</div>
       <div className="text-xs text-gray-500 mt-1">{title}</div>
     </div>
+  );
+}
+
+function LifeMapCard({ title, icon: Icon, count, status, color, href }: { title: string; icon: any; count: number | string; status: string; color: string; href: string }) {
+  return (
+    <Link href={href} className="bg-white/5 border border-white/10 rounded-xl p-3 hover:bg-white/10 transition-all">
+      <Icon className={`w-4 h-4 ${color} mb-2`} />
+      <p className="text-xs font-medium text-ivory">{title}</p>
+      <p className="text-[10px] text-gray-500 mt-0.5">{typeof count === 'number' ? `${count} ${status}` : status}</p>
+    </Link>
   );
 }
