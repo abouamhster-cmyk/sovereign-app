@@ -18,6 +18,7 @@ export default function VoiceAssistant({
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [isActive, setIsActive] = useState(false);
   const recognitionRef = useRef<any>(null);
+  const utteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
 
   // Initialiser la reconnaissance vocale
   useEffect(() => {
@@ -40,30 +41,43 @@ export default function VoiceAssistant({
       };
       
       recognitionRef.current.onerror = () => {
+        console.log("Erreur reconnaissance vocale");
         stopListening();
+      };
+      
+      recognitionRef.current.onend = () => {
+        setIsListening(false);
       };
     }
   }, [onUserSpeech]);
 
   const startListening = () => {
     if (recognitionRef.current) {
-      recognitionRef.current.start();
-      setIsListening(true);
+      try {
+        recognitionRef.current.start();
+        setIsListening(true);
+      } catch (e) {
+        console.log("Déjà en écoute");
+      }
     }
   };
 
   const stopListening = () => {
     if (recognitionRef.current) {
-      recognitionRef.current.stop();
+      try {
+        recognitionRef.current.stop();
+      } catch (e) {}
       setIsListening(false);
     }
   };
 
-  // Faire parler l'assistant
+  // Faire parler l'assistant avec l'API native
   const speak = (text: string) => {
     if (!window.speechSynthesis || !text) return;
     
+    // Annuler toute parole en cours
     window.speechSynthesis.cancel();
+    
     const utterance = new SpeechSynthesisUtterance(text);
     utterance.lang = 'fr-FR';
     utterance.rate = 0.9;
@@ -77,13 +91,17 @@ export default function VoiceAssistant({
         setTimeout(() => startListening(), 500);
       }
     };
+    utterance.onerror = () => {
+      setIsSpeaking(false);
+    };
     
+    utteranceRef.current = utterance;
     window.speechSynthesis.speak(utterance);
   };
 
   // Déclencher la parole quand une nouvelle réponse arrive
   useEffect(() => {
-    if (lastResponse && !isProcessing && !isSpeaking && isActive) {
+    if (lastResponse && !isProcessing && !isSpeaking && isActive && lastResponse.length > 0) {
       speak(lastResponse);
     }
   }, [lastResponse, isProcessing, isActive]);
@@ -93,6 +111,7 @@ export default function VoiceAssistant({
       stopListening();
       window.speechSynthesis.cancel();
       setIsActive(false);
+      setIsSpeaking(false);
     } else {
       setIsActive(true);
       startListening();
