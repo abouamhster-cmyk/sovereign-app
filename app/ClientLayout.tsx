@@ -21,12 +21,14 @@ const menuItems = [
   { name: "Tasks", icon: CheckSquare, href: "/tasks", group: "operations" },
   { name: "Calendar", icon: Calendar, href: "/calendar", group: "operations" },
   
+  
   { name: "Money", icon: Wallet, href: "/money", group: "strategies" },
   { name: "Opportunities", icon: TrendingUp, href: "/opportunities", group: "strategies" },
   { name: "Documents", icon: FileText, href: "/documents", group: "strategies" },
   
   { name: "Missions", icon: Target, href: "/missions", group: "projects" },
   { name: "Business", icon: Briefcase, href: "/business", group: "projects" },
+  { name: "Love & Fire Sport", icon: Trophy, href: "/love-fire-sport", group: "projects" },
   { name: "Ifè Farm", icon: Sprout, href: "/farm", group: "projects" },
   { name: "Relocation", icon: Globe, href: "/relocation", group: "projects" },
   
