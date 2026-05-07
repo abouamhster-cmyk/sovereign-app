@@ -100,6 +100,7 @@ export default function TasksPage() {
     setIsLoading(false);
   }
 
+
 async function saveTask() {
   const data = {
     title: formData.title,
@@ -113,24 +114,27 @@ async function saveTask() {
   
   try {
     let response;
+    let result;
     
     if (editingId) {
-      // Pour la modification, on utilise l'endpoint PUT
+      // Pour la modification
       response = await fetch(`https://sovereign-bridge.onrender.com/tasks/${editingId}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ table: "tasks", id: editingId, data: data })
       });
+      result = await response.json();
     } else {
-      // Pour la création, on utilise l'endpoint POST
+      // Pour la création
       response = await fetch(`https://sovereign-bridge.onrender.com/tasks`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ table: "tasks", data: data })
       });
+      result = await response.json();
     }
     
-    const result = await response.json();
+    console.log("Réponse backend:", result);
     
     if (result.success) {
       resetForm();
@@ -143,13 +147,17 @@ async function saveTask() {
         alert("📅 Tâche créée, la synchronisation Calendar est en cours...");
       }
     } else {
-      alert("Erreur: " + (result.error || "Inconnue"));
+      alert("Erreur: " + JSON.stringify(result.error || "Inconnue"));
     }
   } catch (error) {
     console.error("Erreur saveTask:", error);
-    alert("Erreur de connexion au serveur");
+    alert("Erreur de connexion au serveur: " + error);
   }
 }
+
+
+
+  
   async function updateStatus(id: string, newStatus: Task["status"]) {
     const { error } = await supabase.from("tasks").update({ status: newStatus }).eq("id", id);
     if (!error) fetchTasks();
