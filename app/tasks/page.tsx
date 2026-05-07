@@ -20,6 +20,10 @@ type Task = {
   estimated_time: number | null;
   mission_id: string | null;
   created_at: string;
+  sync_calendar?: boolean;
+  calendar_synced?: boolean;
+  calendar_link?: string;
+  calendar_event_id?: string;
 };
 
 const statusConfig = {
@@ -53,6 +57,7 @@ export default function TasksPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [filterStatus, setFilterStatus] = useState<string>("all");
   const [filterPriority, setFilterPriority] = useState<string>("all");
+  const [syncCalendar, setSyncCalendar] = useState(false);
 
  const scrollToForm = () => {
   setTimeout(() => {
@@ -102,21 +107,32 @@ export default function TasksPage() {
       priority: formData.priority,
       project: formData.project,
       due_date: formData.due_date || null,
-      estimated_time: formData.estimated_time ? parseInt(formData.estimated_time) : null
+      estimated_time: formData.estimated_time ? parseInt(formData.estimated_time) : null,
+      sync_calendar: syncCalendar
     };
     
     let error;
+    let result;
+    
     if (editingId) {
-      const result = await supabase.from("tasks").update(data).eq("id", editingId);
-      error = result.error;
+      const updateResult = await supabase.from("tasks").update(data).eq("id", editingId);
+      error = updateResult.error;
     } else {
-      const result = await supabase.from("tasks").insert(data);
-      error = result.error;
+      const insertResult = await supabase.from("tasks").insert(data).select();
+      error = insertResult.error;
+      result = insertResult.data?.[0];
     }
     
     if (!error) {
       resetForm();
       fetchTasks();
+      
+      // Afficher une notification si l'événement a été synchronisé
+      if (syncCalendar && formData.due_date && result?.calendar_link) {
+        alert(`✅ Tâche synchronisée avec Google Calendar !\nLien: ${result.calendar_link}`);
+      } else if (syncCalendar && formData.due_date) {
+        alert("📅 Tâche créée, la synchronisation Calendar est en cours...");
+      }
     } else {
       alert("Erreur: " + error.message);
     }
@@ -143,6 +159,7 @@ function editTask(task: Task) {
     due_date: task.due_date || "",
     estimated_time: task.estimated_time?.toString() || ""
   });
+  setSyncCalendar(task.sync_calendar || false);
   setEditingId(task.id);
   setShowForm(true);
   scrollToForm(); 
@@ -151,6 +168,7 @@ function editTask(task: Task) {
   function resetForm() {
     setShowForm(false);
     setEditingId(null);
+    setSyncCalendar(false);
     setFormData({
       title: "",
       status: "not_started",
@@ -194,6 +212,7 @@ function editTask(task: Task) {
               onClick={() => { 
                 setShowForm(true); 
                 setEditingId(null);
+                setSyncCalendar(false);
                 scrollToForm();
               }}
               className="bg-gold-500 text-midnight px-5 py-2 rounded-full text-sm font-medium flex items-center gap-2 hover:bg-gold-400 transition-colors"
@@ -301,6 +320,20 @@ function editTask(task: Task) {
               />
             </div>
             
+            {/* Checkbox synchronisation Calendar */}
+            <div className="flex items-center gap-2 mt-4 pt-2 border-t border-white/10">
+              <input
+                type="checkbox"
+                id="syncCalendar"
+                checked={syncCalendar}
+                onChange={(e) => setSyncCalendar(e.target.checked)}
+                className="w-4 h-4 rounded border-white/20 bg-white/5 text-gold-500 focus:ring-gold-500"
+              />
+              <label htmlFor="syncCalendar" className="text-sm text-gray-400">
+                📅 Synchroniser avec Google Calendar
+              </label>
+            </div>
+            
             <div className="flex gap-3 mt-6">
               <button onClick={saveTask} className="bg-gold-500 text-midnight px-6 py-2 rounded-full font-medium hover:bg-gold-400 transition-colors">
                 {editingId ? "Mettre à jour" : "Enregistrer"}
@@ -311,7 +344,7 @@ function editTask(task: Task) {
         )}
       </AnimatePresence>
 
-      {/* LISTE DES TÂCHES - CORRIGÉE AVEC FALLBACK */}
+      {/* LISTE DES TÂCHES */}
       <div className="space-y-3">
         {isLoading ? (
           <LoadingSpinner />
@@ -319,7 +352,6 @@ function editTask(task: Task) {
           <div className="text-center py-12 text-gray-500">Aucune tâche</div>
         ) : (
           filteredTasks.map((task) => {
-            // Fallback pour éviter les erreurs si status ou priority est invalide
             const statusConf = statusConfig[task.status as keyof typeof statusConfig] || statusConfig.not_started;
             const priorityConf = priorityConfig[task.priority as keyof typeof priorityConfig] || priorityConfig.normal;
             const StatusIcon = statusConf.icon;
@@ -344,11 +376,27 @@ function editTask(task: Task) {
                         <StatusIcon className="w-3 h-3 inline mr-1" />
                         {statusConf.label}
                       </span>
+                      {task.calendar_synced && (
+                        <span className="text-xs text-emerald-400 flex items-center gap-1">
+                          <CheckCircle className="w-3 h-3" />
+                          📅 Synchronisé
+                        </span>
+                      )}
                     </div>
                     <div className="flex flex-wrap gap-4 text-xs text-gray-500">
                       <span className="flex items-center gap-1"><FolderOpen className="w-3 h-3" /> {task.project}</span>
                       {task.due_date && <span className="flex items-center gap-1"><Calendar className="w-3 h-3" /> {new Date(task.due_date).toLocaleDateString('fr-FR')}</span>}
                       {task.estimated_time && <span>⏱️ {task.estimated_time} min</span>}
+                      {task.calendar_link && (
+                        <a 
+                          href={task.calendar_link} 
+                          target="_blank" 
+                          rel="noopener noreferrer" 
+                          className="text-gold-500 hover:underline flex items-center gap-1"
+                        >
+                          Voir dans Calendar →
+                        </a>
+                      )}
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
