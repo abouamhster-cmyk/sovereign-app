@@ -10,7 +10,8 @@ import {
   Calendar, Sparkles, ArrowRight, MessageSquare, Shield,
   FileText, Users, Wallet, Globe, Zap, Lightbulb, 
   PieChart, LineChart, Smile, Meh, Frown, Sun, Moon, Bell,
-  Trophy
+  Trophy, Loader2, Home, Building2, FileCheck, AlertTriangle, 
+  FolderOpen
 } from "lucide-react";
 
 // Types
@@ -24,6 +25,18 @@ type FarmUnit = { id: string; name: string; status: string };
 type Suggestion = { type: string; priority: string; title: string; message: string; action_url: string; action_label: string };
 type AiPriority = { id: string; title: string; score: number; due_date: string | null; priority_reason: string };
 type Reminder = { id: string; title: string; type: string; due_date: string | null; urgency: string };
+
+// Types pour la Life Map
+type LifeMapData = {
+  family: { status: string; pending_count: number; next_action: string; next_date: string | null; urgency: string };
+  money: { status: string; balance: number; pending_invoices: number; urgency: string };
+  business: { status: string; active_missions: number; high_priority_count: number; urgency: string };
+  farm: { status: string; total_investment: number; active_units: number; next_action: string; urgency: string };
+  documents: { status: string; pending_count: number; urgent_count: number; urgency: string };
+  wins: { status: string; recent_count: number; streak: number; urgency: string };
+  relocation: { status: string; pending_tasks: number; critical_count: number; next_deadline: string; urgency: string };
+  alignment: { status: string; score: number; recommendation: string; urgency: string };
+};
 
 const API_URL = "https://sovereign-bridge.onrender.com";
 
@@ -116,6 +129,102 @@ function MoodWidget() {
   );
 }
 
+// Composant LifeMapCard amélioré
+function LifeMapCard({ 
+  title, 
+  icon: Icon, 
+  data, 
+  href 
+}: { 
+  title: string; 
+  icon: any; 
+  data: any; 
+  href: string 
+}) {
+  const getStatusColor = (status: string) => {
+    switch(status) {
+      case "🟢": return "bg-emerald-500/20 text-emerald-400";
+      case "🟡": return "bg-yellow-500/20 text-yellow-400";
+      case "🔴": return "bg-red-500/20 text-red-400";
+      default: return "bg-gray-500/20 text-gray-400";
+    }
+  };
+  
+  const getUrgencyBadge = (urgency: string) => {
+    switch(urgency) {
+      case "high": return <span className="text-[10px] bg-red-500/20 text-red-400 px-1.5 py-0.5 rounded">⚠️ Urgent</span>;
+      case "medium": return <span className="text-[10px] bg-yellow-500/20 text-yellow-400 px-1.5 py-0.5 rounded">🟡 À suivre</span>;
+      default: return null;
+    }
+  };
+  
+  return (
+    <Link href={href} className="block">
+      <div className="bg-white/5 border border-white/10 rounded-xl p-4 hover:bg-white/10 transition-all hover:border-gold-500/30">
+        <div className="flex items-center justify-between mb-2">
+          <Icon className="w-5 h-5 text-gold-500" />
+          <span className={`text-xs px-2 py-0.5 rounded-full ${getStatusColor(data?.status)}`}>
+            {data?.status}
+          </span>
+        </div>
+        <h3 className="text-sm font-medium text-ivory">{title}</h3>
+        
+        {/* Contenu spécifique par domaine */}
+        {title === "Famille" && (
+          <p className="text-xs text-gray-400 mt-2">
+            {data?.pending_count > 0 ? `${data.pending_count} événement(s)` : "Aucun événement"}
+          </p>
+        )}
+        {title === "Argent" && (
+          <p className={`text-xs font-medium mt-2 ${data?.balance >= 0 ? "text-emerald-400" : "text-red-400"}`}>
+            {data?.balance?.toLocaleString()} CFA
+          </p>
+        )}
+        {title === "Business" && (
+          <p className="text-xs text-gray-400 mt-2">
+            {data?.active_missions} mission(s) active(s)
+            {data?.high_priority_count > 0 && <span className="text-red-400 ml-1">({data.high_priority_count} prioritaires)</span>}
+          </p>
+        )}
+        {title === "Ferme" && (
+          <p className="text-xs text-gray-400 mt-2">
+            {data?.active_units} unité(s) active(s)
+          </p>
+        )}
+        {title === "Documents" && (
+          <p className="text-xs text-gray-400 mt-2">
+            {data?.pending_count} en attente
+            {data?.urgent_count > 0 && <span className="text-red-400 ml-1">({data.urgent_count} urgent)</span>}
+          </p>
+        )}
+        {title === "Victoires" && (
+          <p className="text-xs text-gray-400 mt-2">
+            🎉 {data?.recent_count} cette semaine
+          </p>
+        )}
+        {title === "Relocation" && (
+          <p className="text-xs text-gray-400 mt-2">
+            {data?.pending_tasks} tâche(s)
+            {data?.critical_count > 0 && <span className="text-red-400 ml-1">({data.critical_count} critiques)</span>}
+          </p>
+        )}
+        {title === "Alignement" && (
+          <div className="mt-2">
+            <div className="w-full bg-white/10 rounded-full h-1.5">
+              <div className="bg-gold-500 h-1.5 rounded-full" style={{ width: `${data?.score || 0}%` }} />
+            </div>
+            <p className="text-xs text-gray-400 mt-1">{data?.score}%</p>
+          </div>
+        )}
+        
+        <div className="mt-2">
+          {getUrgencyBadge(data?.urgency)}
+        </div>
+      </div>
+    </Link>
+  );
+}
+
 export default function DashboardPage() {
   const [greeting, setGreeting] = useState("");
   const [userName, setUserName] = useState("Rebecca");
@@ -123,6 +232,8 @@ export default function DashboardPage() {
   const [proactiveSuggestions, setProactiveSuggestions] = useState<Suggestion[]>([]);
   const [aiPriorities, setAiPriorities] = useState<AiPriority[]>([]);
   const [reminders, setReminders] = useState<Reminder[]>([]);
+  const [lifeMapData, setLifeMapData] = useState<LifeMapData | null>(null);
+  const [isLifeMapLoading, setIsLifeMapLoading] = useState(true);
   
   // Données pour la carte de vie dynamique
   const [missions, setMissions] = useState<Mission[]>([]);
@@ -143,6 +254,7 @@ export default function DashboardPage() {
     
     fetchUserName();
     fetchAllData();
+    fetchLifeMap();
   }, []);
 
   async function fetchUserName() {
@@ -150,6 +262,20 @@ export default function DashboardPage() {
     if (user?.email) {
       const name = user.email.split('@')[0];
       setUserName(name.charAt(0).toUpperCase() + name.slice(1));
+    }
+  }
+
+  async function fetchLifeMap() {
+    try {
+      const response = await fetch(`${API_URL}/api/life-map`);
+      const data = await response.json();
+      if (data.success) {
+        setLifeMapData(data.data);
+      }
+    } catch (error) {
+      console.error("Erreur life map:", error);
+    } finally {
+      setIsLifeMapLoading(false);
     }
   }
 
@@ -176,14 +302,12 @@ export default function DashboardPage() {
     const today = new Date().toISOString().split('T')[0];
     const tomorrow = new Date(Date.now() + 86400000).toISOString().split('T')[0];
     
-    // Tâches en retard ou aujourd'hui
     const { data: tasks } = await supabase
       .from("tasks")
       .select("*")
       .in("due_date", [today, tomorrow])
       .neq("status", "done");
     
-    // Documents en retard
     const { data: docs } = await supabase
       .from("documents")
       .select("*")
@@ -281,7 +405,6 @@ export default function DashboardPage() {
   }
 
   function calculateAlignmentScore() {
-    // Score basé sur: missions actives + victoires récentes + humeur
     const baseScore = Math.min(100, (missions.length * 5) + (recentWins.length * 3));
     setAlignmentScore(baseScore);
   }
@@ -358,7 +481,7 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* SECTION RAPPELS IMPORTANTS - NOUVEAU */}
+      {/* SECTION RAPPELS IMPORTANTS */}
       {reminders.length > 0 && (
         <div className="mb-8">
           <div className="flex items-center gap-2 text-gold-500 mb-3">
@@ -385,79 +508,37 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* CARTE DE VIE DYNAMIQUE - AMÉLIORÉE */}
+      {/* CARTE DE VIE - LIFE MAP */}
       <div className="mb-8">
-        <div className="flex items-center gap-2 text-gold-500 mb-3">
-          <Globe className="w-4 h-4" />
-          <h2 className="text-sm font-serif">🗺️ Carte de vie</h2>
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2">
+            <Globe className="w-5 h-5 text-gold-500" />
+            <h2 className="text-lg font-serif text-gold-500">🗺️ Carte de vie</h2>
+          </div>
+          <span className="text-[10px] text-gray-500">Mise à jour en temps réel</span>
         </div>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          <LifeMapCard 
-            title="Famille" 
-            icon={Heart} 
-            count={familyEvents.length} 
-            status="événements" 
-            color="text-pink-400" 
-            href="/family" 
-          />
-          <LifeMapCard 
-            title="Argent" 
-            icon={DollarSign} 
-            count={financials.balance} 
-            status="CFA" 
-            color="text-emerald-400" 
-            href="/money" 
-            isCurrency={true}
-          />
-          <LifeMapCard 
-            title="Business" 
-            icon={Briefcase} 
-            count={missions.length} 
-            status="missions" 
-            color="text-blue-400" 
-            href="/missions" 
-          />
-          <LifeMapCard 
-            title="Ferme" 
-            icon={Sprout} 
-            count={farmUnits.length} 
-            status="unités" 
-            color="text-green-400" 
-            href="/farm" 
-          />
-          <LifeMapCard 
-            title="Documents" 
-            icon={FileText} 
-            count={pendingDocs.length} 
-            status="en attente" 
-            color="text-orange-400" 
-            href="/documents" 
-          />
-          <LifeMapCard 
-            title="Victoires" 
-            icon={Trophy} 
-            count={recentWins.length} 
-            status="récentes" 
-            color="text-yellow-400" 
-            href="/wins" 
-          />
-          <LifeMapCard 
-            title="Relocation" 
-            icon={Globe} 
-            count={relocationTasks.length} 
-            status="tâches" 
-            color="text-cyan-400" 
-            href="/relocation" 
-          />
-          <LifeMapCard 
-            title="Alignement" 
-            icon={Shield} 
-            count={alignmentScore} 
-            status="%" 
-            color="text-purple-400" 
-            href="/alignment" 
-          />
-        </div>
+        
+        {isLifeMapLoading ? (
+          <div className="flex justify-center py-8">
+            <Loader2 className="w-6 h-6 text-gold-500 animate-spin" />
+          </div>
+        ) : lifeMapData ? (
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <LifeMapCard title="Famille" icon={Heart} data={lifeMapData.family} href="/family" />
+            <LifeMapCard title="Argent" icon={DollarSign} data={lifeMapData.money} href="/money" />
+            <LifeMapCard title="Business" icon={Briefcase} data={lifeMapData.business} href="/business" />
+            <LifeMapCard title="Ferme" icon={Sprout} data={lifeMapData.farm} href="/farm" />
+            <LifeMapCard title="Documents" icon={FileText} data={lifeMapData.documents} href="/documents" />
+            <LifeMapCard title="Victoires" icon={Trophy} data={lifeMapData.wins} href="/wins" />
+            <LifeMapCard title="Relocation" icon={Globe} data={lifeMapData.relocation} href="/relocation" />
+            <LifeMapCard title="Alignement" icon={Shield} data={lifeMapData.alignment} href="/alignment" />
+          </div>
+        ) : (
+          <div className="text-center py-8 text-gray-500">
+            <AlertCircle className="w-8 h-8 mx-auto mb-2 opacity-50" />
+            <p className="text-sm">Données non disponibles</p>
+          </div>
+        )}
       </div>
 
       {/* STATS RAPIDES */}
@@ -567,20 +648,5 @@ function StatCard({ title, value, icon, color }: { title: string; value: string;
       <div className="text-xl font-serif text-ivory">{value}</div>
       <div className="text-xs text-gray-500 mt-1">{title}</div>
     </div>
-  );
-}
-
-// Composant LifeMapCard amélioré avec support devise
-function LifeMapCard({ title, icon: Icon, count, status, color, href, isCurrency = false }: { title: string; icon: any; count: number | string; status: string; color: string; href: string; isCurrency?: boolean }) {
-  const displayValue = isCurrency && typeof count === 'number' 
-    ? new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'XOF', maximumFractionDigits: 0 }).format(count)
-    : count;
-  
-  return (
-    <Link href={href} className="bg-white/5 border border-white/10 rounded-xl p-3 hover:bg-white/10 transition-all">
-      <Icon className={`w-4 h-4 ${color} mb-2`} />
-      <p className="text-xs font-medium text-ivory">{title}</p>
-      <p className="text-[10px] text-gray-500 mt-0.5">{displayValue} {!isCurrency && status}</p>
-    </Link>
   );
 }
