@@ -5,7 +5,7 @@ import {
   LayoutDashboard, MessageSquare, Inbox, CheckSquare, Calendar,
   Wallet, TrendingUp, FileText, Target, Briefcase, Sprout, Globe,
   Trophy, Heart, Users, Zap, ShieldAlert, Menu, X, LogOut,
-  ChevronDown, ChevronRight, Download, Settings
+  ChevronDown, ChevronRight, Download, Settings, Mail
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -17,6 +17,7 @@ const menuItems = [
   { name: "Dashboard", icon: LayoutDashboard, href: "/", group: "main" },
   { name: "Chat", icon: MessageSquare, href: "/chat", group: "main" },
   
+  
   { name: "Brain Dump", icon: Inbox, href: "/inbox", group: "operations" },
   { name: "Tasks", icon: CheckSquare, href: "/tasks", group: "operations" },
   { name: "Calendar", icon: Calendar, href: "/calendar", group: "operations" },
@@ -25,6 +26,7 @@ const menuItems = [
   { name: "Money", icon: Wallet, href: "/money", group: "strategies" },
   { name: "Opportunities", icon: TrendingUp, href: "/opportunities", group: "strategies" },
   { name: "Documents", icon: FileText, href: "/documents", group: "strategies" },
+  { name: "Email", icon: Mail, href: "/email", group: "strategies" },
   
   { name: "Missions", icon: Target, href: "/missions", group: "projects" },
   { name: "Business", icon: Briefcase, href: "/business", group: "projects" },
