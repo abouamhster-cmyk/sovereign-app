@@ -1,165 +1,208 @@
 "use client";
 import { useState, useEffect, useRef } from "react";
-import { Mic, Sparkles } from "lucide-react";
+import { Mic, Sparkles, Volume2, VolumeX } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
 interface VoiceAssistantProps {
   onUserSpeech: (text: string) => void;
   isProcessing: boolean;
   lastResponse?: string;
+  isActive?: boolean;
+  isListening?: boolean;
+  isSpeaking?: boolean;
+  onActivate?: () => void;
+  onDeactivate?: () => void;
+  onManualTrigger?: () => void;
 }
 
 export default function VoiceAssistant({ 
   onUserSpeech, 
   isProcessing,
-  lastResponse 
+  lastResponse,
+  isActive: externalIsActive,
+  isListening: externalIsListening,
+  isSpeaking: externalIsSpeaking,
+  onActivate,
+  onDeactivate,
+  onManualTrigger,
 }: VoiceAssistantProps) {
-  const [isListening, setIsListening] = useState(false);
-  const [isSpeaking, setIsSpeaking] = useState(false);
-  const [isActive, setIsActive] = useState(false);
+  const [internalIsActive, setInternalIsActive] = useState(false);
+  const [internalIsListening, setInternalIsListening] = useState(false);
+  const [internalIsSpeaking, setInternalIsSpeaking] = useState(false);
   const recognitionRef = useRef<any>(null);
   const utteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
+  const silenceTimerRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Initialiser la reconnaissance vocale
+  const isActive = externalIsActive !== undefined ? externalIsActive : internalIsActive;
+  const isListening = externalIsListening !== undefined ? externalIsListening : internalIsListening;
+  const isSpeaking = externalIsSpeaking !== undefined ? externalIsSpeaking : internalIsSpeaking;
+
+  // Initialiser la reconnaissance vocale (mode poussoir)
   useEffect(() => {
     if (typeof window !== 'undefined' && ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window)) {
       const SpeechRecognition = (window as any).webkitSpeechRecognition || (window as any).SpeechRecognition;
       recognitionRef.current = new SpeechRecognition();
-      recognitionRef.current.continuous = true;
-      recognitionRef.current.interimResults = true;
+      recognitionRef.current.continuous = false;
+      recognitionRef.current.interimResults = false;
       recognitionRef.current.lang = 'fr-FR';
       
       recognitionRef.current.onresult = (event: any) => {
-        const transcript = Array.from(event.results)
-          .map((result: any) => result[0].transcript)
-          .join('');
-        
-        if (event.results[0].isFinal) {
-          onUserSpeech(transcript);
-          stopListening();
-        }
+        const transcript = event.results[0][0].transcript;
+        onUserSpeech(transcript);
+        setInternalIsListening(false);
       };
       
       recognitionRef.current.onerror = () => {
-        console.log("Erreur reconnaissance vocale");
-        stopListening();
+        setInternalIsListening(false);
       };
       
       recognitionRef.current.onend = () => {
-        setIsListening(false);
+        setInternalIsListening(false);
       };
     }
   }, [onUserSpeech]);
 
+  // Fonction pour faire parler l'assistant
+  const speak = (text: string) => {
+    if (!window.speechSynthesis || !text) return;
+    
+    window.speechSynthesis.cancel();
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = 'fr-FR';
+    utterance.rate = 0.9;
+    utterance.pitch = 1.1;
+    
+    utterance.onstart = () => setInternalIsSpeaking(true);
+    utterance.onend = () => setInternalIsSpeaking(false);
+    utterance.onerror = () => setInternalIsSpeaking(false);
+    
+    utteranceRef.current = utterance;
+    window.speechSynthesis.speak(utterance);
+  };
+
+  // Parler quand une réponse arrive (mode poussoir uniquement)
+  useEffect(() => {
+    if (lastResponse && !isProcessing && !internalIsSpeaking && lastResponse.length > 0 && !isActive) {
+      speak(lastResponse);
+    }
+  }, [lastResponse, isProcessing, internalIsSpeaking, isActive]);
+
   const startListening = () => {
-    if (recognitionRef.current) {
+    if (recognitionRef.current && !isProcessing && !internalIsSpeaking) {
       try {
         recognitionRef.current.start();
-        setIsListening(true);
+        setInternalIsListening(true);
+        if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
+        silenceTimerRef.current = setTimeout(() => {
+          if (internalIsListening) {
+            try { recognitionRef.current?.stop(); } catch (e) {}
+            setInternalIsListening(false);
+          }
+        }, 10000);
       } catch (e) {
-        console.log("Déjà en écoute");
+        console.log("Erreur démarrage reconnaissance");
       }
     }
   };
 
   const stopListening = () => {
     if (recognitionRef.current) {
-      try {
-        recognitionRef.current.stop();
-      } catch (e) {}
-      setIsListening(false);
+      try { recognitionRef.current.stop(); } catch (e) {}
     }
+    setInternalIsListening(false);
+    if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
   };
 
-  // Faire parler l'assistant avec l'API native
-  const speak = (text: string) => {
-    if (!window.speechSynthesis || !text) return;
-    
-    // Annuler toute parole en cours
-    window.speechSynthesis.cancel();
-    
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.lang = 'fr-FR';
-    utterance.rate = 0.9;
-    utterance.pitch = 1.1;
-    
-    utterance.onstart = () => setIsSpeaking(true);
-    utterance.onend = () => {
-      setIsSpeaking(false);
-      // Réactiver l'écoute après la réponse si le mode est actif
-      if (isActive) {
-        setTimeout(() => startListening(), 500);
-      }
-    };
-    utterance.onerror = () => {
-      setIsSpeaking(false);
-    };
-    
-    utteranceRef.current = utterance;
-    window.speechSynthesis.speak(utterance);
-  };
-
-  // Déclencher la parole quand une nouvelle réponse arrive
-  useEffect(() => {
-    if (lastResponse && !isProcessing && !isSpeaking && isActive && lastResponse.length > 0) {
-      speak(lastResponse);
-    }
-  }, [lastResponse, isProcessing, isActive]);
-
-  const toggleAssistant = () => {
-    if (isActive) {
-      stopListening();
-      window.speechSynthesis.cancel();
-      setIsActive(false);
-      setIsSpeaking(false);
+  const handleManualTrigger = () => {
+    if (onManualTrigger) {
+      onManualTrigger();
     } else {
-      setIsActive(true);
-      startListening();
+      if (internalIsListening) {
+        stopListening();
+      } else {
+        startListening();
+      }
+    }
+  };
+
+  const handleToggleMode = () => {
+    if (onActivate && onDeactivate) {
+      if (isActive) {
+        onDeactivate();
+      } else {
+        onActivate();
+      }
+    } else {
+      setInternalIsActive(!internalIsActive);
+      if (!internalIsActive) {
+        startListening();
+      } else {
+        stopListening();
+        window.speechSynthesis.cancel();
+      }
     }
   };
 
   return (
     <div className="relative">
-      <button
-        onClick={toggleAssistant}
-        className={`relative p-3 rounded-full transition-all duration-300 ${
-          isActive 
-            ? "bg-gold-500 text-midnight shadow-lg shadow-gold-500/30" 
-            : "bg-white/10 text-gray-400 hover:bg-white/20"
-        }`}
-      >
-        {isActive ? <Sparkles className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
-      </button>
+      <div className="flex items-center gap-2">
+        {/* Bouton mode vocal mains libres */}
+        {onActivate && onDeactivate && (
+          <button
+            onClick={handleToggleMode}
+            className={`p-2 rounded-full transition-all ${
+              isActive 
+                ? "bg-emerald-500 text-white" 
+                : "bg-white/10 text-gray-400 hover:bg-white/20"
+            }`}
+            title={isActive ? "Mode vocal activé" : "Activer le mode mains libres"}
+          >
+            {isActive ? <Volume2 className="w-4 h-4" /> : <Sparkles className="w-4 h-4" />}
+          </button>
+        )}
+        
+        {/* Bouton push-to-talk */}
+        <button
+          onClick={handleManualTrigger}
+          disabled={isProcessing || internalIsSpeaking}
+          className={`p-2 rounded-full transition-all ${
+            internalIsListening ? "bg-red-500 text-white animate-pulse" : "bg-gold-500 text-midnight hover:scale-105"
+          } disabled:opacity-50 disabled:hover:scale-100`}
+          title="Appuyer pour parler"
+        >
+          {internalIsListening ? <Mic className="w-4 h-4 animate-pulse" /> : <Mic className="w-4 h-4" />}
+        </button>
+      </div>
 
+      {/* Indicateur de statut */}
       <AnimatePresence>
-        {isActive && (
+        {(internalIsListening || internalIsSpeaking || (isActive && (isListening || isSpeaking))) && (
           <motion.div
-            initial={{ opacity: 0, scale: 0.8 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.8 }}
-            className="absolute -top-10 left-1/2 -translate-x-1/2 bg-midnight border border-gold-500/30 rounded-xl px-3 py-1.5 whitespace-nowrap z-50"
+            initial={{ opacity: 0, y: 5 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -5 }}
+            className="absolute top-full left-0 mt-2 bg-midnight/90 backdrop-blur border border-gold-500/30 rounded-xl px-3 py-1.5 whitespace-nowrap z-50"
           >
             <div className="flex items-center gap-2">
-              {isListening && (
+              {(internalIsListening || (isActive && isListening)) && (
                 <>
                   <div className="w-1.5 h-1.5 bg-red-500 rounded-full animate-pulse" />
-                  <span className="text-[10px] text-gold-400">Je t'écoute...</span>
+                  <span className="text-[10px] text-gold-400">
+                    {isActive ? "🎤 Je t'écoute... (dis 'Hey Becks')" : "🎤 Parle..."}
+                  </span>
                 </>
               )}
-              {isSpeaking && (
+              {(internalIsSpeaking || (isActive && isSpeaking)) && (
                 <>
                   <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse" />
-                  <span className="text-[10px] text-gold-400">Je parle...</span>
+                  <span className="text-[10px] text-gold-400">🔊 Becks parle...</span>
                 </>
               )}
               {isProcessing && (
                 <>
                   <div className="w-1.5 h-1.5 bg-yellow-500 rounded-full animate-spin" />
-                  <span className="text-[10px] text-gold-400">Je réfléchis...</span>
+                  <span className="text-[10px] text-gold-400">🧠 Je réfléchis...</span>
                 </>
-              )}
-              {!isListening && !isSpeaking && !isProcessing && (
-                <span className="text-[10px] text-gold-400">🎤 Parle...</span>
               )}
             </div>
           </motion.div>
