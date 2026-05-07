@@ -129,6 +129,10 @@ export default function ChatPage() {
   const [avatarState, setAvatarState] = useState<"idle" | "listening" | "thinking" | "speaking" | "happy">("idle");
   const [lastAssistantMessage, setLastAssistantMessage] = useState("");
   
+  // États pour la synthèse vocale native
+  const [isSpeaking, setIsSpeaking] = useState(false);
+  const utteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
+  
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -138,16 +142,23 @@ export default function ChatPage() {
     resetTranscript,
   } = useSpeechRecognition();
 
-  // Speech synthesis
-  const { speak, speaking, supported: speechSupported } = useSpeechSynthesis();
-
-  // Détecter le mobile
-  useEffect(() => {
-    const checkMobile = () => setIsMobile(window.innerWidth < 768);
-    checkMobile();
-    window.addEventListener('resize', checkMobile);
-    return () => window.removeEventListener('resize', checkMobile);
-  }, []);
+  // Fonction de synthèse vocale native
+  const speakNative = (text: string) => {
+    if (!window.speechSynthesis || !text) return;
+    
+    window.speechSynthesis.cancel();
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = 'fr-FR';
+    utterance.rate = 0.9;
+    utterance.pitch = 1.1;
+    
+    utterance.onstart = () => setIsSpeaking(true);
+    utterance.onend = () => setIsSpeaking(false);
+    utterance.onerror = () => setIsSpeaking(false);
+    
+    utteranceRef.current = utterance;
+    window.speechSynthesis.speak(utterance);
+  };
 
   // Mettre à jour l'input quand le transcript change
   useEffect(() => {
@@ -251,6 +262,8 @@ export default function ChatPage() {
     return uploaded;
   }
 
+
+  
   async function fetchConversations() {
     const { data } = await supabase
       .from("conversations")
@@ -513,10 +526,10 @@ export default function ChatPage() {
       setAvatarState("speaking");
       setLastAssistantMessage(assistantContent);
       
-      if (speechSupported && assistantContent.length < 500) {
-        speak({ text: assistantContent, rate: 0.9 });
+      if (assistantContent.length < 500) {
+        speakNative(assistantContent);
       }
-      
+            
       setMessages(prev => [...prev, { role: "assistant", content: assistantContent }]);
       await saveMessage(currentConversationId, "assistant", assistantContent);
       setLastAssistantMessage(assistantContent);   
