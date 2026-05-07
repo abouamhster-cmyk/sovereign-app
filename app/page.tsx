@@ -632,10 +632,34 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* BOUTON CHAT FLOTTANT */}
-      <Link href="/chat" className="fixed bottom-6 right-6 z-40 bg-gold-500 text-midnight p-4 rounded-full shadow-lg hover:scale-105 transition-transform">
-        <MessageSquare className="w-6 h-6" />
-      </Link>
+       {/* AVATAR FLOTTANT + BOUTON CHAT */}
+      <div className="fixed bottom-6 right-6 z-40 flex items-center gap-3">
+        {/* Avatar flottant de Becks */}
+        <div className="relative">
+          <div className="w-12 h-12 rounded-full bg-gradient-to-br from-gold-500/20 to-gold-500/10 border border-gold-500/30 flex items-center justify-center shadow-lg animate-pulse-slow">
+            <svg viewBox="0 0 100 100" className="w-8 h-8">
+              <circle cx="50" cy="50" r="45" fill="#D4AF37" opacity="0.15" />
+              <ellipse cx="35" cy="45" rx="8" ry="10" fill="#D4AF37" opacity="0.8" />
+              <ellipse cx="65" cy="45" rx="8" ry="10" fill="#D4AF37" opacity="0.8" />
+              <circle cx="35" cy="45" r="4" fill="#1a1a2e" />
+              <circle cx="65" cy="45" r="4" fill="#1a1a2e" />
+              <circle cx="33" cy="43" r="1.5" fill="white" />
+              <circle cx="63" cy="43" r="1.5" fill="white" />
+              <path d="M40 60 Q50 68 60 60" stroke="#D4AF37" strokeWidth="2" fill="none" strokeLinecap="round" />
+            </svg>
+          </div>
+          {/* Bulle de présence */}
+          <div className="absolute -top-1 -right-1 w-3 h-3 bg-emerald-500 rounded-full animate-pulse" />
+        </div>
+        
+        {/* Bouton chat */}
+        <Link 
+          href="/chat" 
+          className="bg-gold-500 text-midnight p-4 rounded-full shadow-lg hover:scale-105 transition-transform"
+        >
+          <MessageSquare className="w-6 h-6" />
+        </Link>
+      </div>
     </div>
   );
 }
