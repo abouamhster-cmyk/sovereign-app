@@ -4,14 +4,13 @@ import { supabase } from "@/lib/supabase";
 import { motion } from "framer-motion";
 import Link from "next/link";
 import { 
-  MessageSquare, Sparkles, Sun, Moon, Smile, Meh, Frown,
-  Loader2, TrendingUp, Crown
+  MessageSquare, Sparkles, Heart, Target, Calendar, 
+  DollarSign, FileText, Trophy, Briefcase, Sprout, 
+  Globe, Shield, Sun, Moon, Smile, Meh, Frown, Crown,
+  Loader2, TrendingUp, Wallet, Users
 } from "lucide-react";
 
 import { CollapsibleSection } from "@/components/CollapsibleSection";
-import { SimpleLifeMap } from "@/components/SimpleLifeMap";
-import { DashboardPriorities } from "@/components/DashboardPriorities";
-import { DashboardTasks } from "@/components/DashboardTasks";
 
 const API_URL = "https://sovereign-bridge.onrender.com";
 
@@ -27,6 +26,27 @@ type Task = {
   title: string;
   due_date: string | null;
   status: string;
+  area?: string;
+};
+
+type Mission = {
+  id: string;
+  name: string;
+  status: string;
+};
+
+type Document = {
+  id: string;
+  name: string;
+  status: string;
+  due_date: string | null;
+};
+
+type Win = {
+  id: string;
+  title: string;
+  celebration_emoji: string | null;
+  date: string;
 };
 
 type Suggestion = {
@@ -44,15 +64,16 @@ export default function DashboardPage() {
   
   // Données
   const [priorities, setPriorities] = useState<Priority[]>([]);
-  const [upcomingTasks, setUpcomingTasks] = useState<Task[]>([]);
+  const [todayTasks, setTodayTasks] = useState<Task[]>([]);
+  const [activeMissions, setActiveMissions] = useState<Mission[]>([]);
+  const [pendingDocs, setPendingDocs] = useState<Document[]>([]);
+  const [recentWins, setRecentWins] = useState<Win[]>([]);
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
   const [mood, setMood] = useState<string | null>(null);
   
-  // Stats pour la Life Map
-  const [balance, setBalance] = useState(0);
-  const [activeMissions, setActiveMissions] = useState(0);
-  const [familyEvents, setFamilyEvents] = useState(0);
-  const [alignmentScore, setAlignmentScore] = useState(0);
+  // Stats
+  const [financials, setFinancials] = useState({ revenue: 0, spending: 0, balance: 0 });
+  const [stats, setStats] = useState({ totalTasks: 0, completedTasks: 0, pendingDocs: 0 });
 
   useEffect(() => {
     const hour = new Date().getHours();
@@ -76,9 +97,12 @@ export default function DashboardPage() {
     await Promise.all([
       fetchUserName(),
       fetchPriorities(),
-      fetchUpcomingTasks(),
+      fetchTodayTasks(),
+      fetchActiveMissions(),
+      fetchPendingDocs(),
+      fetchRecentWins(),
       fetchSuggestions(),
-      fetchLifeMapData()
+      fetchFinancials()
     ]);
     setIsLoading(false);
   }
@@ -101,15 +125,41 @@ export default function DashboardPage() {
     }
   }
 
-  async function fetchUpcomingTasks() {
+  async function fetchTodayTasks() {
     const today = new Date().toISOString().split('T')[0];
     const { data } = await supabase
       .from("tasks")
       .select("*")
-      .neq("status", "done")
-      .order("due_date", { ascending: true, nullsFirst: false })
+      .eq("status", "today")
       .limit(5);
-    setUpcomingTasks(data || []);
+    setTodayTasks(data || []);
+  }
+
+  async function fetchActiveMissions() {
+    const { data } = await supabase
+      .from("missions")
+      .select("*")
+      .eq("status", "active")
+      .limit(6);
+    setActiveMissions(data || []);
+  }
+
+  async function fetchPendingDocs() {
+    const { data } = await supabase
+      .from("documents")
+      .select("*")
+      .neq("status", "approved")
+      .limit(3);
+    setPendingDocs(data || []);
+  }
+
+  async function fetchRecentWins() {
+    const { data } = await supabase
+      .from("wins")
+      .select("*")
+      .order("date", { ascending: false })
+      .limit(3);
+    setRecentWins(data || []);
   }
 
   async function fetchSuggestions() {
@@ -122,38 +172,14 @@ export default function DashboardPage() {
     }
   }
 
-  async function fetchLifeMapData() {
-    try {
-      // Finances
-      const [revenueRes, spendingRes] = await Promise.all([
-        supabase.from("revenue").select("amount"),
-        supabase.from("spending").select("amount")
-      ]);
-      const totalRevenue = (revenueRes.data || []).reduce((sum, r) => sum + (r.amount || 0), 0);
-      const totalSpending = (spendingRes.data || []).reduce((sum, s) => sum + (s.amount || 0), 0);
-      setBalance(totalRevenue - totalSpending);
-      
-      // Missions actives
-      const { data: missions } = await supabase.from("missions").select("*").eq("status", "active");
-      setActiveMissions(missions?.length || 0);
-      
-      // Événements familiaux à venir
-      const today = new Date().toISOString().split('T')[0];
-      const { data: events } = await supabase
-        .from("family_events")
-        .select("*")
-        .gte("date", today)
-        .neq("status", "done");
-      setFamilyEvents(events?.length || 0);
-      
-      // Score d'alignement (victoires récentes)
-      const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
-      const { data: wins } = await supabase.from("wins").select("*").gte("date", sevenDaysAgo);
-      setAlignmentScore(Math.min(100, (wins?.length || 0) * 12));
-      
-    } catch (error) {
-      console.error("Erreur LifeMap:", error);
-    }
+  async function fetchFinancials() {
+    const [revenueRes, spendingRes] = await Promise.all([
+      supabase.from("revenue").select("amount"),
+      supabase.from("spending").select("amount")
+    ]);
+    const revenue = (revenueRes.data || []).reduce((sum, r) => sum + (r.amount || 0), 0);
+    const spending = (spendingRes.data || []).reduce((sum, s) => sum + (s.amount || 0), 0);
+    setFinancials({ revenue, spending, balance: revenue - spending });
   }
 
   async function saveMood(selectedMood: string) {
@@ -170,34 +196,39 @@ export default function DashboardPage() {
   }
 
   const moods = [
-    { value: "excellent", emoji: "🌟", label: "Excellent", icon: Sun },
-    { value: "bien", emoji: "😊", label: "Bien", icon: Smile },
-    { value: "neutre", emoji: "😐", label: "Neutre", icon: Meh },
-    { value: "fatiguée", emoji: "😴", label: "Fatiguée", icon: Moon },
-    { value: "stressée", emoji: "😰", label: "Stressée", icon: Frown }
+    { value: "excellent", emoji: "🌟", label: "Excellent" },
+    { value: "bien", emoji: "😊", label: "Bien" },
+    { value: "neutre", emoji: "😐", label: "Neutre" },
+    { value: "fatiguée", emoji: "😴", label: "Fatiguée" },
+    { value: "stressée", emoji: "😰", label: "Stressée" }
   ];
 
   const currentMood = moods.find(m => m.value === mood);
 
+  const formatCurrency = (val: number) => {
+    return new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'XOF', maximumFractionDigits: 0 }).format(val);
+  };
+
   return (
-    <div className="max-w-4xl mx-auto space-y-4 pb-24">
+    <div className="max-w-6xl mx-auto space-y-5 pb-24 px-4">
       {/* HEADER */}
-      <div className="flex justify-between items-center mb-2">
+      <div className="flex justify-between items-start mb-2">
         <div>
           <h1 className="text-2xl md:text-3xl font-serif text-ivory tracking-tight">
             {greeting}, {userName}. 👑
           </h1>
-          <p className="text-gray-500 text-sm">Becks est là pour t'aider</p>
+          <p className="text-gray-500 text-sm">Aujourd'hui avec Becks</p>
         </div>
         <Link 
           href="/chat" 
-          className="bg-gold-500 text-midnight p-3 rounded-full shadow-lg hover:scale-105 transition-transform"
+          className="bg-gold-500/20 text-gold-500 p-2.5 rounded-full hover:bg-gold-500/30 transition-colors"
+          title="Discuter avec Becks"
         >
           <MessageSquare className="w-5 h-5" />
         </Link>
       </div>
 
-      {/* HUMEUR DU JOUR (petit widget) */}
+      {/* HUMEUR DU JOUR */}
       <div className="bg-white/5 border border-white/10 rounded-xl p-3">
         {mood ? (
           <div className="flex items-center justify-between">
@@ -216,14 +247,14 @@ export default function DashboardPage() {
             </button>
           </div>
         ) : (
-          <div className="flex items-center justify-between">
-            <span className="text-sm text-gray-400">Comment te sens-tu ?</span>
+          <div className="flex items-center justify-between flex-wrap gap-2">
+            <span className="text-sm text-gray-400">Comment te sens-tu aujourd'hui ?</span>
             <div className="flex gap-2">
               {moods.map((m) => (
                 <button
                   key={m.value}
                   onClick={() => saveMood(m.value)}
-                  className="text-xl hover:scale-110 transition-transform"
+                  className="text-xl hover:scale-110 transition-transform px-1"
                   title={m.label}
                 >
                   {m.emoji}
@@ -234,47 +265,154 @@ export default function DashboardPage() {
         )}
       </div>
 
-      {/* SECTION 1 : TOP PRIORITÉS */}
-      <CollapsibleSection 
-        title="🎯 Top priorités du jour" 
-        icon={TrendingUp}
-        defaultOpen={true}
-        badge={priorities.length}
-      >
-        {isLoading ? (
-          <div className="flex justify-center py-4"><Loader2 className="w-5 h-5 animate-spin text-gold-500" /></div>
-        ) : (
-          <DashboardPriorities priorities={priorities} />
-        )}
-      </CollapsibleSection>
+      {/* STATS RAPIDES (toujours visibles) */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <div className="bg-white/5 border border-white/10 rounded-xl p-3 text-center">
+          <Wallet className="w-5 h-5 text-gold-500 mx-auto mb-1" />
+          <div className="text-lg font-serif text-ivory">{formatCurrency(financials.balance)}</div>
+          <div className="text-[10px] text-gray-500">Trésorerie</div>
+        </div>
+        <div className="bg-white/5 border border-white/10 rounded-xl p-3 text-center">
+          <Target className="w-5 h-5 text-blue-400 mx-auto mb-1" />
+          <div className="text-lg font-serif text-blue-400">{activeMissions.length}</div>
+          <div className="text-[10px] text-gray-500">Missions actives</div>
+        </div>
+        <div className="bg-white/5 border border-white/10 rounded-xl p-3 text-center">
+          <Calendar className="w-5 h-5 text-orange-400 mx-auto mb-1" />
+          <div className="text-lg font-serif text-orange-400">{todayTasks.length}</div>
+          <div className="text-[10px] text-gray-500">Tâches aujourd'hui</div>
+        </div>
+        <div className="bg-white/5 border border-white/10 rounded-xl p-3 text-center">
+          <FileText className="w-5 h-5 text-red-400 mx-auto mb-1" />
+          <div className="text-lg font-serif text-red-400">{pendingDocs.length}</div>
+          <div className="text-[10px] text-gray-500">Documents</div>
+        </div>
+      </div>
 
-      {/* SECTION 2 : PROCHAINES TÂCHES */}
-      <CollapsibleSection 
-        title="📋 Mes prochaines tâches" 
-        defaultOpen={true}
-        badge={upcomingTasks.length}
-      >
-        {isLoading ? (
-          <div className="flex justify-center py-4"><Loader2 className="w-5 h-5 animate-spin text-gold-500" /></div>
-        ) : (
-          <DashboardTasks tasks={upcomingTasks} />
-        )}
-      </CollapsibleSection>
+      {/* SECTION 1 : TOP PRIORITÉS IA */}
+      {priorities.length > 0 && (
+        <CollapsibleSection 
+          title="🎯 Top priorités du jour" 
+          icon={TrendingUp}
+          defaultOpen={true}
+          badge={priorities.length}
+        >
+          <div className="space-y-3">
+            {priorities.map((priority, idx) => (
+              <Link
+                key={priority.id}
+                href="/tasks"
+                className={`block p-3 rounded-xl transition-all hover:bg-white/5 ${
+                  idx === 0 ? "border-l-2 border-l-red-500 bg-red-950/10" :
+                  idx === 1 ? "border-l-2 border-l-orange-500 bg-orange-950/10" :
+                  "border-l-2 border-l-gold-500 bg-gold-500/5"
+                }`}
+              >
+                <p className="text-sm font-medium text-ivory">{priority.title}</p>
+                <p className="text-xs text-gray-500 mt-0.5">{priority.priority_reason}</p>
+                <div className="mt-2 w-full bg-white/10 rounded-full h-1">
+                  <div 
+                    className={`h-1 rounded-full ${
+                      idx === 0 ? "bg-red-500" : idx === 1 ? "bg-orange-500" : "bg-gold-500"
+                    }`}
+                    style={{ width: `${(priority.score / 40) * 100}%` }}
+                  />
+                </div>
+              </Link>
+            ))}
+          </div>
+        </CollapsibleSection>
+      )}
 
-      {/* SECTION 3 : CARTE DE VIE (repliable) */}
-      <CollapsibleSection 
-        title="🗺️ Carte de vie" 
-        defaultOpen={false}
-      >
-        <SimpleLifeMap 
-          balance={balance}
-          activeMissions={activeMissions}
-          familyEvents={familyEvents}
-          alignmentScore={alignmentScore}
-        />
-      </CollapsibleSection>
+      {/* SECTION 2 : TÂCHES DU JOUR */}
+      {todayTasks.length > 0 && (
+        <CollapsibleSection 
+          title="📋 Tâches du jour" 
+          defaultOpen={true}
+          badge={todayTasks.length}
+        >
+          <div className="space-y-2">
+            {todayTasks.map((task) => (
+              <Link
+                key={task.id}
+                href="/tasks"
+                className="flex items-center gap-3 p-3 bg-white/5 rounded-xl hover:bg-white/10 transition-all"
+              >
+                <div className="w-1.5 h-1.5 rounded-full bg-gold-500" />
+                <span className="text-sm text-ivory">{task.title}</span>
+              </Link>
+            ))}
+          </div>
+        </CollapsibleSection>
+      )}
 
-      {/* SECTION 4 : SUGGESTIONS BECKS (repliable) */}
+      {/* SECTION 3 : MISSIONS ACTIVES */}
+      {activeMissions.length > 0 && (
+        <CollapsibleSection 
+          title="🎯 Missions actives" 
+          icon={Briefcase}
+          defaultOpen={false}
+          badge={activeMissions.length}
+        >
+          <div className="flex flex-wrap gap-2">
+            {activeMissions.slice(0, 6).map((mission) => (
+              <Link
+                key={mission.id}
+                href="/missions"
+                className="px-3 py-1.5 bg-white/5 rounded-full text-xs text-gray-300 hover:bg-white/10 hover:text-gold-400 transition-colors"
+              >
+                {mission.name}
+              </Link>
+            ))}
+            {activeMissions.length > 6 && (
+              <span className="px-3 py-1.5 text-xs text-gray-500">+{activeMissions.length - 6}</span>
+            )}
+          </div>
+        </CollapsibleSection>
+      )}
+
+      {/* SECTION 4 : VICTOIRES RÉCENTES */}
+      {recentWins.length > 0 && (
+        <CollapsibleSection 
+          title="🏆 Victoires récentes" 
+          icon={Trophy}
+          defaultOpen={false}
+          badge={recentWins.length}
+        >
+          <div className="space-y-2">
+            {recentWins.map((win) => (
+              <div key={win.id} className="flex items-center gap-3 p-2 bg-white/5 rounded-lg">
+                <span className="text-xl">{win.celebration_emoji || "🎉"}</span>
+                <span className="text-sm text-gray-300">{win.title}</span>
+              </div>
+            ))}
+          </div>
+        </CollapsibleSection>
+      )}
+
+      {/* SECTION 5 : DOCUMENTS EN ATTENTE */}
+      {pendingDocs.length > 0 && (
+        <CollapsibleSection 
+          title="📄 Documents à traiter" 
+          icon={FileText}
+          defaultOpen={false}
+          badge={pendingDocs.length}
+        >
+          <div className="flex flex-wrap gap-2">
+            {pendingDocs.map((doc) => (
+              <Link
+                key={doc.id}
+                href="/documents"
+                className="px-3 py-1.5 bg-yellow-500/10 text-yellow-400 rounded-full text-xs hover:bg-yellow-500/20 transition-colors"
+              >
+                {doc.name}
+              </Link>
+            ))}
+          </div>
+        </CollapsibleSection>
+      )}
+
+      {/* SECTION 6 : SUGGESTIONS BECKS */}
       {suggestions.length > 0 && (
         <CollapsibleSection 
           title="💡 Suggestions Becks" 
@@ -283,7 +421,7 @@ export default function DashboardPage() {
           badge={suggestions.length}
         >
           <div className="space-y-2">
-            {suggestions.slice(0, 2).map((suggestion, idx) => (
+            {suggestions.slice(0, 3).map((suggestion, idx) => (
               <Link
                 key={idx}
                 href={suggestion.action_url}
@@ -298,14 +436,14 @@ export default function DashboardPage() {
         </CollapsibleSection>
       )}
 
-      {/* BOUTON D'AIDE FLOTTANT */}
+      {/* AVATAR FLOTTANT */}
       <div className="fixed bottom-6 right-6 z-40">
         <Link 
           href="/chat" 
           className="bg-gold-500 text-midnight p-4 rounded-full shadow-lg hover:scale-105 transition-transform flex items-center gap-2"
         >
           <Crown className="w-5 h-5" />
-          <span className="hidden md:inline text-sm">Becks</span>
+          <span className="hidden md:inline text-sm font-medium">Becks</span>
         </Link>
       </div>
     </div>
