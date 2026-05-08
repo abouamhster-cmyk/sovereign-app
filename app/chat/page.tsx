@@ -13,10 +13,7 @@ import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import { useDropzone } from "react-dropzone";
 import SpeechRecognition, { useSpeechRecognition } from "react-speech-recognition";
-import SovereignAvatar from "@/components/SovereignAvatar";
-import VoiceAssistant from "@/components/VoiceAssistant";
-import VoiceToggle from "@/components/VoiceToggle";
-import { useVoiceConversation } from "@/hooks/useVoiceConversation";
+import { MessageWithActions } from "@/components/MessageWithActions";
 
 const API_URL = "https://sovereign-bridge.onrender.com";
 
@@ -31,6 +28,11 @@ type Message = {
   id?: string;
   role: "user" | "assistant";
   content: string;
+  actions?: {
+    type: string;
+    params: any;
+    label: string;
+  }[];
   files?: { name: string; url: string; type: string }[];
   created_at?: string;
 };
@@ -53,7 +55,7 @@ const modes = [
     color: "text-yellow-400", 
     bg: "bg-yellow-500/10",
     description: "Exécution, transformation d'idée en action",
-    prompt: "Tu es Becks, un agent d'exécution. Tu transformes les idées en actions concrètes. Tu demandes les informations manquantes, tu crées des checklists, des emails, des plans. Tu es pragmatique, efficace et orientée résultat. Tu ne fais pas de long discours, tu vas droit au but et tu aides à passer à l'action immédiatement."
+    prompt: "Tu es Becks, un agent d'exécution. Tu transformes les idées en actions concrètes. Tu demandes les informations manquantes, tu crées des checklists, des emails, des plans. Tu es pragmatique, efficace et orientée résultat. Tu ne fais pas de long discours, tu vas droit au but et tu aides à passer à l'action immédiatement. Quand tu proposes une action, tu dois inclure des boutons d'action dans ta réponse au format JSON."
   },
   { 
     id: "love-fire-sport", 
@@ -102,6 +104,67 @@ const modes = [
   }
 ];
 
+// Fonction pour extraire les actions du message de l'assistant
+function extractActionsFromResponse(content: string): { cleanContent: string; actions: any[] } {
+  const actionRegex = /\[ACTION:({[^}]+})\]/g;
+  const actions: any[] = [];
+  let cleanContent = content;
+  
+  let match;
+  while ((match = actionRegex.exec(content)) !== null) {
+    try {
+      const action = JSON.parse(match[1]);
+      actions.push(action);
+      cleanContent = cleanContent.replace(match[0], '');
+    } catch (e) {
+      console.error("Erreur parsing action:", e);
+    }
+  }
+  
+  return { cleanContent: cleanContent.trim(), actions };
+}
+
+// ========== FONCTIONS PROACTIVES ==========
+function getRandomPriority(): string {
+  const priorities = [
+    "Finaliser le dossier DDA pour Love & Fire Sport",
+    "Vérifier l'avancement de la ferme (Ifè Living Farm)",
+    "Préparer le rapport financier de la semaine",
+    "Contacter l'équipe pour le suivi des grants",
+    "Planifier la prochaine étape de la relocalisation"
+  ];
+  return priorities[Math.floor(Math.random() * priorities.length)];
+}
+
+function getRandomOpportunity(): string {
+  const opportunities = [
+    "Un grant de 10M CFA est disponible sur grants.gov",
+    "Le contrat DDA approche de sa date limite (5 jours)",
+    "Un partenaire potentiel pour la ferme t'a contacté",
+    "La période de soumission pour Love & Fire Sport se termine bientôt",
+    "Une réunion avec l'équipe de Santé Plus serait bénéfique"
+  ];
+  return opportunities[Math.floor(Math.random() * opportunities.length)];
+}
+
+function generateProactiveMorningMessage(): string {
+  const hour = new Date().getHours();
+  let greeting = "";
+  if (hour < 12) greeting = "☀️ Bonjour";
+  else if (hour < 18) greeting = "🌤️ Bon après-midi";
+  else greeting = "🌙 Bonsoir";
+  
+  return `${greeting} Rebecca. Voici ce que j'ai préparé pour toi aujourd'hui :
+
+📋 **Priorité recommandée** : ${getRandomPriority()}
+
+🎯 **À ne pas manquer** : ${getRandomOpportunity()}
+
+💡 **Rappel** : Prends 5 minutes pour respirer entre deux tâches.
+
+Dis-moi ce que tu veux attaquer en premier. 👑`;
+}
+
 export default function ChatPage() {
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [filteredConversations, setFilteredConversations] = useState<Conversation[]>([]);
@@ -117,73 +180,38 @@ export default function ChatPage() {
   const [editingTitle, setEditingTitle] = useState("");
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
   
-  // États pour le sélecteur de modes
   const [selectedMode, setSelectedMode] = useState<string>("parle-moi");
   const [isModeSelectorOpen, setIsModeSelectorOpen] = useState(false);
   
-  // États pour le micro intégré
   const [isRecording, setIsRecording] = useState(false);
   const [isVoiceLocked, setIsVoiceLocked] = useState(false);
   const [pressTimer, setPressTimer] = useState<NodeJS.Timeout | null>(null);
   const [pressStartTime, setPressStartTime] = useState(0);
   
-  // États pour l'avatar et la voix
   const [avatarState, setAvatarState] = useState<"idle" | "listening" | "thinking" | "speaking" | "happy">("idle");
   const [lastAssistantMessage, setLastAssistantMessage] = useState("");
   
-  // États pour la synthèse vocale native
-  const [isSpeaking, setIsSpeaking] = useState(false);
-  const utteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
-  
-  // Mode conversation vocale mains libres (comme Siri)
-  const {
-    isActive: isVoiceActive,
-    isListening: isVoiceListening,
-    isSpeaking: isVoiceSpeaking,
-    activate: activateVoiceMode,
-    deactivate: deactivateVoiceMode,
-    triggerManual: triggerVoiceManual,
-  } = useVoiceConversation({
-    onUserSpeech: async (text) => {
-      console.log("🎤 Parole détectée (mode mains libres):", text);
-      setInput(text);
-      setTimeout(() => sendMessage(), 100);
-    },
-    isProcessing: isLoading || isSending,
-    lastResponse: lastAssistantMessage,
-    wakeWords: ["hey becks", "dis becks", "becks", "sovereign", "hey sovereign"],
-    autoListenAfterResponse: true,
-    silenceTimeout: 2500,
-  });
-
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // Speech recognition (pour le push-to-talk)
   const {
     transcript,
     resetTranscript,
   } = useSpeechRecognition();
 
-  // Fonction de synthèse vocale native (push-to-talk)
-  const speakNative = (text: string) => {
-    if (!window.speechSynthesis || !text) return;
+  // ========== MESSAGE PROACTIF AU CHARGEMENT ==========
+  useEffect(() => {
+    const hasNoMessages = messages.length === 0 || (messages.length === 1 && messages[0]?.role === "assistant" && messages[0]?.content.includes("Bonjour Rebecca"));
     
-    window.speechSynthesis.cancel();
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.lang = 'fr-FR';
-    utterance.rate = 0.9;
-    utterance.pitch = 1.1;
-    
-    utterance.onstart = () => setIsSpeaking(true);
-    utterance.onend = () => setIsSpeaking(false);
-    utterance.onerror = () => setIsSpeaking(false);
-    
-    utteranceRef.current = utterance;
-    window.speechSynthesis.speak(utterance);
-  };
+    if (hasNoMessages && currentConversationId) {
+      const proactiveMessage = generateProactiveMorningMessage();
+      const hasProactive = messages.some(m => m.content.includes("Voici ce que j'ai préparé pour toi aujourd'hui"));
+      if (!hasProactive) {
+        setMessages([{ role: "assistant", content: proactiveMessage }]);
+      }
+    }
+  }, [currentConversationId]);
 
-  // Mettre à jour l'input quand le transcript change (push-to-talk)
   useEffect(() => {
     if (transcript) {
       setInput(prev => prev + " " + transcript);
@@ -191,7 +219,6 @@ export default function ChatPage() {
     }
   }, [transcript, resetTranscript]);
 
-  // Détecter mobile
   useEffect(() => {
     const checkMobile = () => {
       setIsMobile(window.innerWidth < 768);
@@ -201,19 +228,16 @@ export default function ChatPage() {
     return () => window.removeEventListener("resize", checkMobile);
   }, []);
 
-  // Charger les conversations
   useEffect(() => {
     fetchConversations();
   }, []);
 
-  // Charger les messages quand une conversation change
   useEffect(() => {
     if (currentConversationId) {
       fetchMessages(currentConversationId);
     }
   }, [currentConversationId]);
 
-  // Filtrer les conversations par recherche
   useEffect(() => {
     if (searchTerm.trim() === "") {
       setFilteredConversations(conversations);
@@ -225,28 +249,24 @@ export default function ChatPage() {
     }
   }, [searchTerm, conversations]);
 
-  // Scroll auto
   useEffect(() => {
     if (messagesEndRef.current) {
       messagesEndRef.current.scrollIntoView({ behavior: "smooth", block: "end" });
     }
   }, [messages]);
 
-  // Fermer sidebar sur mobile après navigation
   useEffect(() => {
     if (isMobile && currentConversationId) {
       setIsSidebarOpen(false);
     }
   }, [currentConversationId, isMobile]);
 
-  // Nettoyer le timer
   useEffect(() => {
     return () => {
       if (pressTimer) clearTimeout(pressTimer);
     };
   }, [pressTimer]);
 
-  // Dropzone pour les fichiers
   const onDrop = (acceptedFiles: File[]) => {
     setUploadedFiles(prev => [...prev, ...acceptedFiles]);
   };
@@ -322,14 +342,19 @@ export default function ChatPage() {
       const parsedMessages = data.map(msg => {
         try {
           const parsed = JSON.parse(msg.content);
-          return { ...msg, content: parsed.content, files: parsed.files };
+          return { 
+            ...msg, 
+            content: parsed.content, 
+            actions: parsed.actions,
+            files: parsed.files 
+          };
         } catch {
           return msg;
         }
       });
       setMessages(parsedMessages);
     } else {
-      setMessages([{ role: "assistant", content: "Bonjour Rebecca. Que veux-tu qu'on attaque aujourd'hui ?" }]);
+      setMessages([{ role: "assistant", content: generateProactiveMorningMessage() }]);
     }
   }
 
@@ -348,7 +373,7 @@ export default function ChatPage() {
       setConversations(prev => [data, ...prev]);
       setFilteredConversations(prev => [data, ...prev]);
       setCurrentConversationId(data.id);
-      setMessages([{ role: "assistant", content: "Bonjour Rebecca. Que veux-tu qu'on attaque aujourd'hui ?" }]);
+      setMessages([{ role: "assistant", content: generateProactiveMorningMessage() }]);
       if (isMobile) setIsSidebarOpen(false);
     }
   }
@@ -389,8 +414,8 @@ export default function ChatPage() {
     }
   }
 
-  async function saveMessage(conversationId: string, role: string, content: string, files?: any[]) {
-    const messageData = files ? { content, files } : { content };
+  async function saveMessage(conversationId: string, role: string, content: string, actions?: any[], files?: any[]) {
+    const messageData = actions ? { content, actions, files } : (files ? { content, files } : { content });
     await supabase.from("conversation_messages").insert({
       conversation_id: conversationId,
       role: role,
@@ -506,7 +531,6 @@ export default function ChatPage() {
     if (isSending || (!input.trim() && uploadedFiles.length === 0) || isLoading || !currentConversationId) return;
     
     setIsSending(true);
-    setAvatarState("thinking");
     
     const uploadedFilesData = await uploadFilesToStorage();
     
@@ -538,7 +562,7 @@ export default function ChatPage() {
     ];
     
     setMessages(prev => [...prev, userMessage]);
-    await saveMessage(currentConversationId, "user", userMessageContent, uploadedFilesData);
+    await saveMessage(currentConversationId, "user", userMessageContent, undefined, uploadedFilesData);
     setInput("");
     setUploadedFiles([]);
     setIsLoading(true);
@@ -554,25 +578,26 @@ export default function ChatPage() {
         assistantContent = await sendRegularMessage(allMessages);
       }
       
-      setAvatarState("speaking");
-      setLastAssistantMessage(assistantContent);
+      // Extraire les actions du message si présentes
+      const { cleanContent, actions } = extractActionsFromResponse(assistantContent);
       
-      // Synthèse vocale pour la réponse (si pas trop longue et si pas en mode mains libres qui gère déjà la parole)
-     // if (assistantContent.length < 500 && !isVoiceActive) {
-       // speakNative(assistantContent);
-     // }
-            
-      setMessages(prev => [...prev, { role: "assistant", content: assistantContent }]);
-      await saveMessage(currentConversationId, "assistant", assistantContent);
-      setLastAssistantMessage(assistantContent);   
+      setLastAssistantMessage(cleanContent);
+      
+      const assistantMessage: Message = { 
+        role: "assistant", 
+        content: cleanContent,
+        actions: actions.length > 0 ? actions : undefined
+      };
+      
+      setMessages(prev => [...prev, assistantMessage]);
+      await saveMessage(currentConversationId, "assistant", cleanContent, actions);
+      
       fetchConversations();
       inputRef.current?.focus();
       
-      setTimeout(() => setAvatarState("idle"), 3000);
     } catch (error) {
       console.error("Erreur:", error);
       setMessages(prev => [...prev, { role: "assistant", content: "Erreur de connexion. Vérifie que le backend est bien démarré." }]);
-      setAvatarState("idle");
     } finally {
       setIsLoading(false);
       setIsSending(false);
@@ -583,13 +608,11 @@ export default function ChatPage() {
     resetTranscript();
     SpeechRecognition.startListening({ continuous: true, language: 'fr-FR' });
     setIsRecording(true);
-    setAvatarState("listening");
   };
 
   const stopVoiceRecording = () => {
     SpeechRecognition.stopListening();
     setIsRecording(false);
-    setAvatarState("idle");
   };
 
   const handleSendButtonMouseDown = () => {
@@ -646,7 +669,7 @@ export default function ChatPage() {
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !e.shiftKey && !isRecording && !isVoiceLocked && !isSending && !isVoiceListening) {
+    if (e.key === 'Enter' && !e.shiftKey && !isRecording && !isVoiceLocked && !isSending) {
       e.preventDefault();
       sendMessage();
     }
@@ -655,41 +678,25 @@ export default function ChatPage() {
   const currentModeConfig = modes.find(m => m.id === selectedMode);
   const CurrentIcon = currentModeConfig?.icon;
 
-  // Synchroniser l'avatar avec l'état vocal mains libres
-  useEffect(() => {
-    if (isVoiceListening) {
-      setAvatarState("listening");
-    } else if (isVoiceSpeaking) {
-      setAvatarState("speaking");
-    } else if (isLoading || isSending) {
-      setAvatarState("thinking");
-    }
-  }, [isVoiceListening, isVoiceSpeaking, isLoading, isSending]);
-
   return (
     <div className="fixed inset-0 bg-midnight flex flex-col">
-      {/* HEADER */}
-    <header className="sticky top-0 z-10 h-12 border-b border-white/10 flex items-center justify-between px-4 bg-midnight/90 backdrop-blur-lg shrink-0">
+      <header className="sticky top-0 z-10 h-12 border-b border-white/10 flex items-center justify-between px-4 bg-midnight/90 backdrop-blur-lg shrink-0">
         <div className="flex items-center gap-2">
           <button onClick={() => setIsSidebarOpen(true)} className="p-1.5 text-gray-400 hover:text-gold-500">
             <Menu className="w-4 h-4" />
           </button>
         </div>
-      
-        {/* Logo et nom Becks - simplifié */}
         <div className="flex items-center gap-2">
           <div className="w-6 h-6 rounded-full bg-gold-500/20 flex items-center justify-center">
             <span className="text-gold-500 text-xs font-serif">B</span>
           </div>
           <span className="text-xs font-serif text-gold-500 hidden sm:block">Becks</span>
         </div>
-      
         <Link href="/" className="p-1.5 text-gray-400 hover:text-gold-500">
           <ArrowLeft className="w-4 h-4" />
         </Link>
       </header>
 
-      {/* SIDEBAR CONVERSATIONS */}
       <AnimatePresence>
         {isSidebarOpen && (
           <>
@@ -762,49 +769,57 @@ export default function ChatPage() {
         )}
       </AnimatePresence>
 
-      {/* ZONE DES MESSAGES */}
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
         {messages.map((m, i) => (
           <motion.div key={i} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
-            <div className={`max-w-[85%] p-4 rounded-2xl text-sm ${m.role === "user" ? "bg-gold-500 text-midnight rounded-br-none" : "bg-white/10 text-ivory border border-white/5 rounded-bl-none"}`}>
-              <ReactMarkdown
-                components={{
-                  img: ({ ...props }) => (
-                    <img {...props} className="rounded-xl max-w-full max-h-96 object-contain my-2 border border-white/10" loading="lazy" />
-                  ),
-                  a: ({ href, children, ...props }) => {
-                    const isImage = href?.match(/\.(jpg|jpeg|png|gif|webp)$/i);
-                    if (isImage) {
-                      return <img src={href} alt={String(children)} className="rounded-xl max-w-full max-h-96 object-contain my-2 border border-white/10" loading="lazy" />;
-                    }
-                    return <a href={href} target="_blank" rel="noopener noreferrer" className="text-gold-500 hover:underline" {...props}>{children}</a>;
-                  },
-                }}
-              >
-                {m.content}
-              </ReactMarkdown>
-              
-              {m.files && m.files.length > 0 && (
-                <div className="mt-3">
-                  <div className="grid grid-cols-2 gap-2">
-                    {m.files.filter(f => f.type.startsWith('image/')).map((file, idx) => (
-                      <a key={idx} href={file.url} target="_blank" rel="noopener noreferrer" className="block">
-                        <img src={file.url} alt={file.name} className="rounded-xl w-full h-auto max-h-48 object-cover border border-white/10 hover:border-gold-500 transition-all" />
-                      </a>
-                    ))}
-                  </div>
-                  {m.files.filter(f => !f.type.startsWith('image/')).length > 0 && (
-                    <div className="mt-2 pt-2 border-t border-white/10">
-                      {m.files.filter(f => !f.type.startsWith('image/')).map((file, idx) => (
-                        <a key={idx} href={file.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-xs text-gold-500 hover:underline mt-1">
-                          <File className="w-3 h-3" /> {file.name}
+            {m.role === "user" ? (
+              <div className="max-w-[85%] p-4 rounded-2xl text-sm bg-gold-500 text-midnight rounded-br-none">
+                <ReactMarkdown
+                  components={{
+                    img: ({ ...props }) => (
+                      <img {...props} className="rounded-xl max-w-full max-h-96 object-contain my-2 border border-white/10" loading="lazy" />
+                    ),
+                    a: ({ href, children, ...props }) => {
+                      const isImage = href?.match(/\.(jpg|jpeg|png|gif|webp)$/i);
+                      if (isImage) {
+                        return <img src={href} alt={String(children)} className="rounded-xl max-w-full max-h-96 object-contain my-2 border border-white/10" loading="lazy" />;
+                      }
+                      return <a href={href} target="_blank" rel="noopener noreferrer" className="text-gold-500 hover:underline" {...props}>{children}</a>;
+                    },
+                  }}
+                >
+                  {m.content}
+                </ReactMarkdown>
+                {m.files && m.files.length > 0 && (
+                  <div className="mt-3">
+                    <div className="grid grid-cols-2 gap-2">
+                      {m.files.filter(f => f.type.startsWith('image/')).map((file, idx) => (
+                        <a key={idx} href={file.url} target="_blank" rel="noopener noreferrer" className="block">
+                          <img src={file.url} alt={file.name} className="rounded-xl w-full h-auto max-h-48 object-cover border border-white/10 hover:border-gold-500 transition-all" />
                         </a>
                       ))}
                     </div>
-                  )}
-                </div>
-              )}
-            </div>
+                    {m.files.filter(f => !f.type.startsWith('image/')).length > 0 && (
+                      <div className="mt-2 pt-2 border-t border-white/10">
+                        {m.files.filter(f => !f.type.startsWith('image/')).map((file, idx) => (
+                          <a key={idx} href={file.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-xs text-gold-500 hover:underline mt-1">
+                            <File className="w-3 h-3" /> {file.name}
+                          </a>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="max-w-[85%] p-4 rounded-2xl text-sm bg-white/10 text-ivory border border-white/5 rounded-bl-none">
+                <MessageWithActions 
+                  content={m.content} 
+                  actions={m.actions} 
+                  onActionComplete={() => fetchMessages(currentConversationId!)}
+                />
+              </div>
+            )}
           </motion.div>
         ))}
         
@@ -819,9 +834,7 @@ export default function ChatPage() {
         <div ref={messagesEndRef} />
       </div>
 
-      {/* BARRE DE SAISIE AVEC SÉLECTEUR DE MODES */}
       <div className="shrink-0 border-t border-white/10 bg-midnight/90 backdrop-blur-lg p-3">
-        {/* SÉLECTEUR DE MODES */}
         <div className="relative mb-2">
           <button
             onClick={() => setIsModeSelectorOpen(!isModeSelectorOpen)}
@@ -862,7 +875,6 @@ export default function ChatPage() {
           )}
         </div>
 
-        {/* Fichiers en attente */}
         {uploadedFiles.length > 0 && (
           <div className="flex flex-wrap gap-2 mb-2">
             {uploadedFiles.map((file, idx) => (
@@ -877,16 +889,12 @@ export default function ChatPage() {
           </div>
         )}
         
-        {/* Indicateur d'enregistrement vocal */}
-        {(isRecording || isVoiceLocked || isVoiceListening) && (
+        {(isRecording || isVoiceLocked) && (
           <div className="text-center text-xs text-red-400 animate-pulse mb-2">
-            {isVoiceLocked ? "🔒 Enregistrement vocal en cours... recliquez pour arrêter" :
-             isVoiceListening ? "🎤 Je t'écoute... (dis 'Hey Becks' pour parler)" :
-             "🎤 Parlez... relâchez pour arrêter"}
+            {isVoiceLocked ? "🔒 Enregistrement vocal en cours... recliquez pour arrêter" : "🎤 Parlez... relâchez pour arrêter"}
           </div>
         )}
         
-        {/* Barre de saisie principale */}
         <div className="flex items-center gap-2">
           <button
             onClick={() => document.getElementById('file-upload-input')?.click()}
@@ -914,7 +922,7 @@ export default function ChatPage() {
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder={isVoiceListening ? "🎤 Je t'écoute..." : (isRecording || isVoiceLocked ? "🎤 Enregistrement vocal..." : `Mode ${currentModeConfig?.name} : écris ton message...`)}
+            placeholder={isRecording || isVoiceLocked ? "🎤 Enregistrement vocal..." : `Mode ${currentModeConfig?.name} : écris ton message...`}
             className="flex-1 bg-white/10 border border-white/20 rounded-full py-3 px-4 text-sm focus:outline-none focus:border-gold-500 text-ivory placeholder:text-gray-500"
           />
           
@@ -927,13 +935,13 @@ export default function ChatPage() {
             onTouchStart={handleSendButtonMouseDown}
             onTouchEnd={handleSendButtonMouseUp}
             onClick={() => { if (isVoiceLocked) stopVoiceLock(); }}
-            disabled={(!input.trim() && uploadedFiles.length === 0 && !isRecording && !isVoiceLocked && !isVoiceListening) || isLoading || isSending}
+            disabled={(!input.trim() && uploadedFiles.length === 0 && !isRecording && !isVoiceLocked) || isLoading || isSending}
             className={`p-2 rounded-full transition-all flex-shrink-0 ${
-              isRecording || isVoiceLocked || isVoiceListening
+              isRecording || isVoiceLocked
                 ? "bg-red-500 text-white animate-pulse"
                 : "bg-gold-500 text-midnight hover:scale-105"
             } disabled:opacity-50 disabled:hover:scale-100`}
-            title={isRecording || isVoiceLocked || isVoiceListening ? "Enregistrement vocal" : "Envoyer (appui long pour dicter)"}
+            title={isRecording || isVoiceLocked ? "Enregistrement vocal" : "Envoyer (appui long pour dicter)"}
           >
             {isSending ? (
               <Loader2 className="w-5 h-5 animate-spin" />
@@ -943,22 +951,11 @@ export default function ChatPage() {
           </button>
         </div>
         
-        {/* Indicateur de mode exécution */}
         {selectedMode === "fais-le-avec-moi" && (
           <div className="mt-2 text-center">
             <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] bg-gold-500/20 text-gold-400">
               <Sparkles className="w-3 h-3" />
               Mode Exécution activé - Je transforme tes demandes en actions
-            </span>
-          </div>
-        )}
-
-        {/* Indicateur de mode vocal actif */}
-        {isVoiceActive && (
-          <div className="mt-2 text-center">
-            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] bg-emerald-500/20 text-emerald-400">
-              <Volume2 className="w-3 h-3" />
-              Mode vocal activé - Dis "Hey Becks" pour parler
             </span>
           </div>
         )}
