@@ -280,6 +280,25 @@ export default function DocumentsPage() {
         </div>
       </div>
 
+
+
+      {/* Bloc Becks - Documents */}
+      <div className="bg-orange-500/10 border border-orange-500/20 rounded-xl p-4 mb-6">
+        <div className="flex items-center gap-3">
+          <FileText className="w-5 h-5 text-orange-400" />
+          <div>
+            <p className="text-sm text-orange-400 font-medium">Becks - Documents</p>
+            <p className="text-sm text-ivory">
+              📄 {documents.filter(d => d.status === "draft").length} brouillon(s) en attente<br/>
+              {documents.filter(d => d.status === "review").length > 0 
+                ? `🔍 ${documents.filter(d => d.status === "review").length} document(s) à relire`
+                : "📝 Aucun document en relecture"}
+            </p>
+          </div>
+        </div>
+      </div>
+
+      
       {/* STATISTIQUES */}
       <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 mb-8">
         <div className="bg-white/5 border border-white/10 rounded-2xl p-5 text-center">
