@@ -5,7 +5,7 @@ import {
   LayoutDashboard, MessageSquare, Inbox, CheckSquare, Calendar,
   Wallet, TrendingUp, FileText, Target, Briefcase, Sprout, Globe,
   Trophy, Heart, Users, Zap, ShieldAlert, Menu, X, LogOut,
-  ChevronDown, ChevronRight, Download, Settings, Mail
+  ChevronDown, ChevronRight, Download, Settings, Mail, Brain
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -16,6 +16,7 @@ import { useAuth } from "@/contexts/AuthContext";
 const menuItems = [
   { name: "Dashboard", icon: LayoutDashboard, href: "/", group: "main" },
   { name: "Chat", icon: MessageSquare, href: "/chat", group: "main" },
+  { name: "Mémoire", icon: Brain, href: "/memory", group: "alignment" },
   
   
   { name: "Brain Dump", icon: Inbox, href: "/inbox", group: "operations" },
