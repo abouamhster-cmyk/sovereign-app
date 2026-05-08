@@ -2,17 +2,15 @@
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 
-// Supprimer les accents pour jsPDF
-function removeAccents(str: string): string {
-  if (!str) return "";
-  return str.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-}
-
-// Formater une valeur pour l'affichage
-function formatValue(value: any, accessor: string): string {
+// Fonction de formatage (garde les accents)
+function formatCellValue(value: any, accessor: string): string {
   if (value === null || value === undefined) return "-";
   if (accessor === "due_date" || accessor === "date") {
-    if (value) return new Date(value).toLocaleDateString('fr-FR');
+    if (value) {
+      const date = new Date(value);
+      if (isNaN(date.getTime())) return String(value);
+      return date.toLocaleDateString('fr-FR');
+    }
     return "-";
   }
   if (accessor === "amount" && typeof value === "number") {
@@ -24,13 +22,14 @@ function formatValue(value: any, accessor: string): string {
   return String(value);
 }
 
-// Configuration des couleurs
+// Couleurs pour un bon contraste
 const COLORS = {
   primary: [212, 175, 55] as [number, number, number],   // Gold
-  secondary: [30, 30, 35] as [number, number, number],   // Dark gray
-  text: [15, 15, 20] as [number, number, number],        // Dark text for body
-  textLight: [245, 245, 240] as [number, number, number], // Light text for headers
-  textDark: [100, 100, 100] as [number, number, number]
+  headerBg: [212, 175, 55] as [number, number, number],  // Gold
+  headerText: [10, 10, 11] as [number, number, number],  // Dark text on gold
+  bodyText: [245, 245, 240] as [number, number, number], // Ivory text on dark
+  altRowBg: [40, 40, 45] as [number, number, number],    // Slightly lighter dark
+  border: [50, 50, 60] as [number, number, number]
 };
 
 export function exportToPDFStructured(
@@ -53,18 +52,20 @@ export function exportToPDFStructured(
   doc.rect(0, 0, 210, 45, "F");
   
   doc.setFontSize(20);
+  doc.setFont("helvetica", "bold");
   doc.setTextColor(COLORS.primary[0], COLORS.primary[1], COLORS.primary[2]);
-  doc.text(removeAccents(title), 20, 20);
+  doc.text(title, 20, 20);
   
   if (subtitle) {
     doc.setFontSize(10);
-    doc.setTextColor(COLORS.textDark[0], COLORS.textDark[1], COLORS.textDark[2]);
-    doc.text(removeAccents(subtitle), 20, 30);
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(100, 100, 100);
+    doc.text(subtitle, 20, 30);
   }
   
   doc.setFontSize(8);
-  doc.setTextColor(COLORS.textDark[0], COLORS.textDark[1], COLORS.textDark[2]);
-  doc.text(`Exporte le ${new Date().toLocaleDateString('fr-FR')}`, 20, 40);
+  doc.setTextColor(100, 100, 100);
+  doc.text(`Exporté le ${new Date().toLocaleDateString('fr-FR')} à ${new Date().toLocaleTimeString('fr-FR')}`, 20, 40);
   
   doc.setDrawColor(COLORS.primary[0], COLORS.primary[1], COLORS.primary[2]);
   doc.line(20, 45, 190, 45);
@@ -74,25 +75,27 @@ export function exportToPDFStructured(
   // Résumé
   if (summary && summary.length > 0) {
     doc.setFontSize(10);
+    doc.setFont("helvetica", "bold");
     doc.setTextColor(COLORS.primary[0], COLORS.primary[1], COLORS.primary[2]);
-    doc.text("RESUME", 20, startY);
+    doc.text("RÉSUMÉ", 20, startY);
     startY += 6;
     
+    doc.setFontSize(9);
+    doc.setFont("helvetica", "normal");
     summary.forEach((item, idx) => {
-      doc.setFontSize(9);
-      doc.setTextColor(COLORS.text[0], COLORS.text[1], COLORS.text[2]);
-      doc.text(removeAccents(item.label), 25, startY + (idx * 5));
+      doc.setTextColor(COLORS.bodyText[0], COLORS.bodyText[1], COLORS.bodyText[2]);
+      doc.text(`${item.label}:`, 25, startY + (idx * 5));
       doc.setTextColor(COLORS.primary[0], COLORS.primary[1], COLORS.primary[2]);
-      doc.text(removeAccents(item.value), 70, startY + (idx * 5));
+      doc.text(item.value, 70, startY + (idx * 5));
     });
     
     startY += (summary.length * 5) + 10;
   }
   
   // Tableau
-  const headers = columns.map(col => removeAccents(col.header));
+  const headers = columns.map(col => col.header);
   const rows = data.map(row => 
-    columns.map(col => removeAccents(formatValue(row[col.accessor], col.accessor)))
+    columns.map(col => formatCellValue(row[col.accessor], col.accessor))
   );
   
   autoTable(doc, {
@@ -101,22 +104,27 @@ export function exportToPDFStructured(
     startY: startY,
     theme: "striped",
     headStyles: {
-      fillColor: COLORS.primary,
-      textColor: [10, 10, 11],
+      fillColor: COLORS.headerBg,
+      textColor: COLORS.headerText,
       fontStyle: "bold",
       fontSize: 9,
-      halign: "left"
+      halign: "left",
+      valign: "middle"
     },
     bodyStyles: {
-      textColor: COLORS.text,
+      textColor: COLORS.bodyText,
       fontSize: 8,
-      lineColor: COLORS.secondary,
-      halign: "left"
+      lineColor: COLORS.border,
+      halign: "left",
+      valign: "middle"
     },
     alternateRowStyles: {
-      fillColor: [40, 40, 45]
+      fillColor: COLORS.altRowBg
     },
-    margin: { left: 20, right: 20 }
+    margin: { left: 20, right: 20 },
+    columnStyles: {
+      0: { cellWidth: "auto" }
+    }
   });
   
   // Pied de page
@@ -124,9 +132,9 @@ export function exportToPDFStructured(
   for (let i = 1; i <= pageCount; i++) {
     doc.setPage(i);
     doc.setFontSize(7);
-    doc.setTextColor(COLORS.textDark[0], COLORS.textDark[1], COLORS.textDark[2]);
+    doc.setTextColor(100, 100, 100);
     doc.text(
-      `SOVEREIGN - Page ${i}/${pageCount}`,
+      `SOVEREIGN - ${title} - Page ${i}/${pageCount}`,
       20,
       doc.internal.pageSize.getHeight() - 10
     );
@@ -136,29 +144,29 @@ export function exportToPDFStructured(
 }
 
 // =====================================================
-// FONCTIONS D'EXPORT SPÉCIFIQUES
+// FONCTIONS D'EXPORT SPÉCIFIQUES (gardent les accents)
 // =====================================================
 
 export function exportTasksToPDF(tasks: any[]) {
   const summary = [
-    { label: "Total des taches", value: tasks.length.toString() },
-    { label: "Taches terminees", value: tasks.filter(t => t.status === "done").length.toString() },
-    { label: "Taches en cours", value: tasks.filter(t => t.status === "in_progress").length.toString() },
-    { label: "Taches en retard", value: tasks.filter(t => t.due_date && new Date(t.due_date) < new Date() && t.status !== "done").length.toString() }
+    { label: "Total des tâches", value: tasks.length.toString() },
+    { label: "Tâches terminées", value: tasks.filter(t => t.status === "done").length.toString() },
+    { label: "Tâches en cours", value: tasks.filter(t => t.status === "in_progress").length.toString() },
+    { label: "Tâches en retard", value: tasks.filter(t => t.due_date && new Date(t.due_date) < new Date() && t.status !== "done").length.toString() }
   ];
   
   exportToPDFStructured(
-    "Rapport des taches",
+    "Rapport des tâches",
     tasks,
     [
       { header: "Titre", accessor: "title" },
       { header: "Statut", accessor: "status" },
-      { header: "Priorite", accessor: "priority" },
+      { header: "Priorité", accessor: "priority" },
       { header: "Projet", accessor: "project" },
-      { header: "Echeance", accessor: "due_date" }
+      { header: "Échéance", accessor: "due_date" }
     ],
     "taches",
-    "Liste complete des taches",
+    "Liste complète des tâches",
     summary
   );
 }
@@ -168,7 +176,7 @@ export function exportDocumentsToPDF(documents: any[]) {
     { label: "Total des documents", value: documents.length.toString() },
     { label: "Brouillons", value: documents.filter(d => d.status === "draft").length.toString() },
     { label: "En relecture", value: documents.filter(d => d.status === "review").length.toString() },
-    { label: "Approuves", value: documents.filter(d => d.status === "approved").length.toString() }
+    { label: "Approuvés", value: documents.filter(d => d.status === "approved").length.toString() }
   ];
   
   exportToPDFStructured(
@@ -178,7 +186,7 @@ export function exportDocumentsToPDF(documents: any[]) {
       { header: "Nom", accessor: "name" },
       { header: "Type", accessor: "type" },
       { header: "Statut", accessor: "status" },
-      { header: "Echeance", accessor: "due_date" }
+      { header: "Échéance", accessor: "due_date" }
     ],
     "documents",
     "Liste des documents et contrats",
@@ -190,8 +198,8 @@ export function exportMissionsToPDF(missions: any[]) {
   const summary = [
     { label: "Total des missions", value: missions.length.toString() },
     { label: "Missions actives", value: missions.filter(m => m.status === "active").length.toString() },
-    { label: "Missions terminees", value: missions.filter(m => m.status === "complete").length.toString() },
-    { label: "Priorite haute", value: missions.filter(m => m.priority === "high" || m.priority === "critical").length.toString() }
+    { label: "Missions terminées", value: missions.filter(m => m.status === "complete").length.toString() },
+    { label: "Priorité haute", value: missions.filter(m => m.priority === "high" || m.priority === "critical").length.toString() }
   ];
   
   exportToPDFStructured(
@@ -199,13 +207,13 @@ export function exportMissionsToPDF(missions: any[]) {
     missions,
     [
       { header: "Nom", accessor: "name" },
-      { header: "Categorie", accessor: "category" },
+      { header: "Catégorie", accessor: "category" },
       { header: "Statut", accessor: "status" },
-      { header: "Priorite", accessor: "priority" },
-      { header: "Echeance", accessor: "deadline" }
+      { header: "Priorité", accessor: "priority" },
+      { header: "Échéance", accessor: "deadline" }
     ],
     "missions",
-    "Liste des missions strategiques",
+    "Liste des missions stratégiques",
     summary
   );
 }
@@ -220,11 +228,11 @@ export function exportWinsToPDF(wins: any[]) {
     wins,
     [
       { header: "Victoire", accessor: "title" },
-      { header: "Categorie", accessor: "category" },
+      { header: "Catégorie", accessor: "category" },
       { header: "Date", accessor: "date" }
     ],
     "victoires",
-    "Celebrons chaque succes !",
+    "Célébrons chaque succès !",
     summary
   );
 }
@@ -236,7 +244,7 @@ export function exportFinancialToPDF(spending: any[], revenue: any[]) {
   
   const summary = [
     { label: "Total revenus", value: `${totalRevenue.toLocaleString()} CFA` },
-    { label: "Total depenses", value: `${totalSpending.toLocaleString()} CFA` },
+    { label: "Total dépenses", value: `${totalSpending.toLocaleString()} CFA` },
     { label: "Solde", value: `${balance.toLocaleString()} CFA` }
   ];
   
@@ -246,50 +254,54 @@ export function exportFinancialToPDF(spending: any[], revenue: any[]) {
   doc.setFillColor(10, 10, 11);
   doc.rect(0, 0, 210, 45, "F");
   doc.setFontSize(20);
-  doc.setTextColor(COLORS.primary[0], COLORS.primary[1], COLORS.primary[2]);
+  doc.setFont("helvetica", "bold");
+  doc.setTextColor(212, 175, 55);
   doc.text("Rapport financier", 20, 20);
   doc.setFontSize(8);
-  doc.setTextColor(COLORS.textDark[0], COLORS.textDark[1], COLORS.textDark[2]);
-  doc.text(`Exporte le ${new Date().toLocaleDateString('fr-FR')}`, 20, 40);
-  doc.setDrawColor(COLORS.primary[0], COLORS.primary[1], COLORS.primary[2]);
+  doc.setTextColor(100, 100, 100);
+  doc.text(`Exporté le ${new Date().toLocaleDateString('fr-FR')}`, 20, 40);
+  doc.setDrawColor(212, 175, 55);
   doc.line(20, 45, 190, 45);
   
   let startY = 55;
   
   // Résumé
   doc.setFontSize(10);
-  doc.setTextColor(COLORS.primary[0], COLORS.primary[1], COLORS.primary[2]);
-  doc.text("RESUME FINANCIER", 20, startY);
+  doc.setFont("helvetica", "bold");
+  doc.setTextColor(212, 175, 55);
+  doc.text("RÉSUMÉ FINANCIER", 20, startY);
   startY += 6;
   
+  doc.setFontSize(9);
+  doc.setFont("helvetica", "normal");
   summary.forEach((item, idx) => {
-    doc.setFontSize(9);
-    doc.setTextColor(COLORS.text[0], COLORS.text[1], COLORS.text[2]);
-    doc.text(removeAccents(item.label), 25, startY + (idx * 5));
-    doc.setTextColor(COLORS.primary[0], COLORS.primary[1], COLORS.primary[2]);
-    doc.text(removeAccents(item.value), 70, startY + (idx * 5));
+    doc.setTextColor(245, 245, 240);
+    doc.text(`${item.label}:`, 25, startY + (idx * 5));
+    doc.setTextColor(212, 175, 55);
+    doc.text(item.value, 70, startY + (idx * 5));
   });
   startY += 25;
   
   // Dépenses
   if (spending.length > 0) {
     doc.setFontSize(10);
-    doc.setTextColor(COLORS.primary[0], COLORS.primary[1], COLORS.primary[2]);
-    doc.text("DEPENSES", 20, startY);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(212, 175, 55);
+    doc.text("DÉPENSES", 20, startY);
     startY += 5;
     
     autoTable(doc, {
-      head: [["Titre", "Montant", "Categorie", "Projet"]],
+      head: [["Titre", "Montant", "Catégorie", "Projet"]],
       body: spending.map(s => [
-        removeAccents(s.title),
+        s.title,
         `${s.amount?.toLocaleString()} CFA`,
-        removeAccents(s.category || "-"),
-        removeAccents(s.project || "-")
+        s.category || "-",
+        s.project || "-"
       ]),
       startY: startY,
       theme: "striped",
-      headStyles: { fillColor: COLORS.primary, textColor: [10, 10, 11] },
-      bodyStyles: { textColor: COLORS.text }
+      headStyles: { fillColor: [212, 175, 55], textColor: [10, 10, 11], fontStyle: "bold" },
+      bodyStyles: { textColor: [245, 245, 240] }
     });
     startY = (doc as any).lastAutoTable.finalY + 15;
   }
@@ -297,21 +309,22 @@ export function exportFinancialToPDF(spending: any[], revenue: any[]) {
   // Revenus
   if (revenue.length > 0) {
     doc.setFontSize(10);
-    doc.setTextColor(COLORS.primary[0], COLORS.primary[1], COLORS.primary[2]);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(212, 175, 55);
     doc.text("REVENUS", 20, startY);
     startY += 5;
     
     autoTable(doc, {
       head: [["Source", "Montant", "Projet"]],
       body: revenue.map(r => [
-        removeAccents(r.source),
+        r.source,
         `${r.amount?.toLocaleString()} CFA`,
-        removeAccents(r.project || "-")
+        r.project || "-"
       ]),
       startY: startY,
       theme: "striped",
-      headStyles: { fillColor: COLORS.primary, textColor: [10, 10, 11] },
-      bodyStyles: { textColor: COLORS.text }
+      headStyles: { fillColor: [212, 175, 55], textColor: [10, 10, 11], fontStyle: "bold" },
+      bodyStyles: { textColor: [245, 245, 240] }
     });
   }
   
@@ -326,49 +339,47 @@ export function exportFarmToPDF(infrastructure: any[], production: any[], spendi
   doc.setFillColor(10, 10, 11);
   doc.rect(0, 0, 210, 45, "F");
   doc.setFontSize(20);
-  doc.setTextColor(COLORS.primary[0], COLORS.primary[1], COLORS.primary[2]);
-  doc.text("Rapport Ife Living Farm", 20, 20);
+  doc.setFont("helvetica", "bold");
+  doc.setTextColor(212, 175, 55);
+  doc.text("Rapport Ifè Living Farm", 20, 20);
   doc.setFontSize(8);
-  doc.setTextColor(COLORS.textDark[0], COLORS.textDark[1], COLORS.textDark[2]);
-  doc.text(`Exporte le ${new Date().toLocaleDateString('fr-FR')}`, 20, 40);
-  doc.setDrawColor(COLORS.primary[0], COLORS.primary[1], COLORS.primary[2]);
+  doc.setTextColor(100, 100, 100);
+  doc.text(`Exporté le ${new Date().toLocaleDateString('fr-FR')}`, 20, 40);
+  doc.setDrawColor(212, 175, 55);
   doc.line(20, 45, 190, 45);
   
   let startY = 55;
   
   // Résumé
   doc.setFontSize(10);
-  doc.setTextColor(COLORS.primary[0], COLORS.primary[1], COLORS.primary[2]);
-  doc.text("SYNTHESE", 20, startY);
+  doc.setFont("helvetica", "bold");
+  doc.setTextColor(212, 175, 55);
+  doc.text("SYNTHÈSE", 20, startY);
   startY += 6;
   
   doc.setFontSize(9);
-  doc.setTextColor(COLORS.text[0], COLORS.text[1], COLORS.text[2]);
+  doc.setFont("helvetica", "normal");
+  doc.setTextColor(245, 245, 240);
   doc.text(`Investissement total: ${totalSpent.toLocaleString()} CFA`, 25, startY);
   doc.text(`Productions actives: ${production.filter(p => p.status === "active").length}`, 25, startY + 6);
   doc.text(`Infrastructures: ${infrastructure.filter(i => i.status === "complete").length}/${infrastructure.length}`, 25, startY + 12);
-  doc.text(`Equipe: ${team.length} membres`, 25, startY + 18);
+  doc.text(`Équipe: ${team.length} membres`, 25, startY + 18);
   startY += 30;
   
   // Infrastructures
   if (infrastructure.length > 0) {
     doc.setFontSize(10);
-    doc.setTextColor(COLORS.primary[0], COLORS.primary[1], COLORS.primary[2]);
+    doc.setTextColor(212, 175, 55);
     doc.text("INFRASTRUCTURES", 20, startY);
     startY += 5;
     
     autoTable(doc, {
       head: [["Nom", "Type", "Statut", "Localisation"]],
-      body: infrastructure.map(i => [
-        removeAccents(i.name),
-        removeAccents(i.type || "-"),
-        removeAccents(i.status || "-"),
-        removeAccents(i.location_on_site || "-")
-      ]),
+      body: infrastructure.map(i => [i.name, i.type || "-", i.status || "-", i.location_on_site || "-"]),
       startY: startY,
       theme: "striped",
-      headStyles: { fillColor: COLORS.primary, textColor: [10, 10, 11] },
-      bodyStyles: { textColor: COLORS.text }
+      headStyles: { fillColor: [212, 175, 55], textColor: [10, 10, 11], fontStyle: "bold" },
+      bodyStyles: { textColor: [245, 245, 240] }
     });
     startY = (doc as any).lastAutoTable.finalY + 15;
   }
@@ -376,22 +387,17 @@ export function exportFarmToPDF(infrastructure: any[], production: any[], spendi
   // Production
   if (production.length > 0) {
     doc.setFontSize(10);
-    doc.setTextColor(COLORS.primary[0], COLORS.primary[1], COLORS.primary[2]);
-    doc.text("UNITES DE PRODUCTION", 20, startY);
+    doc.setTextColor(212, 175, 55);
+    doc.text("UNITÉS DE PRODUCTION", 20, startY);
     startY += 5;
     
     autoTable(doc, {
-      head: [["Nom", "Categorie", "Statut", "Capacite"]],
-      body: production.map(p => [
-        removeAccents(p.name),
-        removeAccents(p.category || "-"),
-        removeAccents(p.status || "-"),
-        removeAccents(p.current_capacity || "-")
-      ]),
+      head: [["Nom", "Catégorie", "Statut", "Capacité"]],
+      body: production.map(p => [p.name, p.category || "-", p.status || "-", p.current_capacity || "-"]),
       startY: startY,
       theme: "striped",
-      headStyles: { fillColor: COLORS.primary, textColor: [10, 10, 11] },
-      bodyStyles: { textColor: COLORS.text }
+      headStyles: { fillColor: [212, 175, 55], textColor: [10, 10, 11], fontStyle: "bold" },
+      bodyStyles: { textColor: [245, 245, 240] }
     });
     startY = (doc as any).lastAutoTable.finalY + 15;
   }
@@ -399,22 +405,17 @@ export function exportFarmToPDF(infrastructure: any[], production: any[], spendi
   // Dépenses
   if (spending.length > 0) {
     doc.setFontSize(10);
-    doc.setTextColor(COLORS.primary[0], COLORS.primary[1], COLORS.primary[2]);
-    doc.text("DEPENSES", 20, startY);
+    doc.setTextColor(212, 175, 55);
+    doc.text("DÉPENSES", 20, startY);
     startY += 5;
     
     autoTable(doc, {
-      head: [["Titre", "Montant", "Categorie", "Zone"]],
-      body: spending.map(s => [
-        removeAccents(s.title),
-        `${s.amount?.toLocaleString()} CFA`,
-        removeAccents(s.category || "-"),
-        removeAccents(s.project_area || "-")
-      ]),
+      head: [["Titre", "Montant", "Catégorie", "Zone"]],
+      body: spending.map(s => [s.title, `${s.amount?.toLocaleString()} CFA`, s.category || "-", s.project_area || "-"]),
       startY: startY,
       theme: "striped",
-      headStyles: { fillColor: COLORS.primary, textColor: [10, 10, 11] },
-      bodyStyles: { textColor: COLORS.text }
+      headStyles: { fillColor: [212, 175, 55], textColor: [10, 10, 11], fontStyle: "bold" },
+      bodyStyles: { textColor: [245, 245, 240] }
     });
     startY = (doc as any).lastAutoTable.finalY + 15;
   }
@@ -422,22 +423,17 @@ export function exportFarmToPDF(infrastructure: any[], production: any[], spendi
   // Équipe
   if (team.length > 0) {
     doc.setFontSize(10);
-    doc.setTextColor(COLORS.primary[0], COLORS.primary[1], COLORS.primary[2]);
-    doc.text("EQUIPE", 20, startY);
+    doc.setTextColor(212, 175, 55);
+    doc.text("ÉQUIPE", 20, startY);
     startY += 5;
     
     autoTable(doc, {
-      head: [["Nom", "Role", "Zone", "Statut"]],
-      body: team.map(t => [
-        removeAccents(t.name),
-        removeAccents(t.role || "-"),
-        removeAccents(t.area || "-"),
-        t.status === "active" ? "Actif" : t.status === "occasional" ? "Occasionnel" : "En attente"
-      ]),
+      head: [["Nom", "Rôle", "Zone", "Statut"]],
+      body: team.map(t => [t.name, t.role || "-", t.area || "-", t.status === "active" ? "Actif" : t.status === "occasional" ? "Occasionnel" : "En attente"]),
       startY: startY,
       theme: "striped",
-      headStyles: { fillColor: COLORS.primary, textColor: [10, 10, 11] },
-      bodyStyles: { textColor: COLORS.text }
+      headStyles: { fillColor: [212, 175, 55], textColor: [10, 10, 11], fontStyle: "bold" },
+      bodyStyles: { textColor: [245, 245, 240] }
     });
   }
   
@@ -445,7 +441,7 @@ export function exportFarmToPDF(infrastructure: any[], production: any[], spendi
 }
 
 // =====================================================
-// EXPORT GÉNÉRIQUE (pour compatibilité avec brief, content)
+// EXPORT GÉNÉRIQUE (pour compatibilité)
 // =====================================================
 
 export async function exportToPDF(elementId: string, filename: string) {
