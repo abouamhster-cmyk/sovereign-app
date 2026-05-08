@@ -3,29 +3,32 @@ import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 
 // =====================================================
-// CONFIGURATION DES COULEURS (unifiée)
+// CONFIGURATION DES COULEURS (contraste garanti)
 // =====================================================
 
 const COLORS = {
-  // Fond et arrière-plans
-  background: [10, 10, 11] as [number, number, number],     // Midnight
-  cardBg: [30, 30, 35] as [number, number, number],        // Dark gray
-  altRowBg: [40, 40, 45] as [number, number, number],       // Slightly lighter
+  // Fonds
+  background: [10, 10, 11] as [number, number, number],     // Midnight (très foncé)
+  cardBg: [25, 25, 30] as [number, number, number],         // Gris très foncé
+  altRowBg: [35, 35, 42] as [number, number, number],       // Gris légèrement plus clair
   
-  // Texte
-  textPrimary: [245, 245, 240] as [number, number, number], // Ivory
-  textSecondary: [150, 150, 160] as [number, number, number], // Gray
-  textMuted: [100, 100, 100] as [number, number, number],   // Dark gray
+  // Textes clairs (sur fond sombre)
+  textWhite: [255, 255, 255] as [number, number, number],   // Blanc pur
+  textIvory: [245, 245, 240] as [number, number, number],   // Ivoire clair
+  textLight: [210, 210, 210] as [number, number, number],   // Gris clair lisible
   
   // Accents (Sovereign Gold)
-  gold: [212, 175, 55] as [number, number, number],
-  goldDark: [180, 150, 40] as [number, number, number],
+  gold: [212, 175, 55] as [number, number, number],         // Doré
+  goldLight: [230, 200, 80] as [number, number, number],    // Doré clair pour fonds
+  
+  // Texte sur fond gold (doit être foncé pour contraster)
+  textOnGold: [10, 10, 11] as [number, number, number],     // Noir/midnight
   
   // Alertes
-  success: [16, 185, 129] as [number, number, number],      // Emerald
-  warning: [245, 158, 11] as [number, number, number],      // Amber
-  error: [239, 68, 68] as [number, number, number],         // Red
-  info: [59, 130, 246] as [number, number, number],         // Blue
+  success: [16, 185, 129] as [number, number, number],
+  warning: [245, 158, 11] as [number, number, number],
+  error: [239, 68, 68] as [number, number, number],
+  info: [59, 130, 246] as [number, number, number],
 };
 
 // =====================================================
@@ -52,30 +55,30 @@ function formatCellValue(value: any, accessor: string): string {
 }
 
 function addHeader(doc: jsPDF, title: string, subtitle?: string) {
-  // Fond d'en-tête
+  // Fond d'en-tête (noir)
   doc.setFillColor(COLORS.background[0], COLORS.background[1], COLORS.background[2]);
   doc.rect(0, 0, 210, 45, "F");
   
-  // Titre principal
+  // Titre principal (doré, visible)
   doc.setFontSize(20);
   doc.setFont("helvetica", "bold");
   doc.setTextColor(COLORS.gold[0], COLORS.gold[1], COLORS.gold[2]);
   doc.text(title, 20, 20);
   
-  // Sous-titre
+  // Sous-titre (gris clair, lisible)
   if (subtitle) {
     doc.setFontSize(10);
     doc.setFont("helvetica", "normal");
-    doc.setTextColor(COLORS.textSecondary[0], COLORS.textSecondary[1], COLORS.textSecondary[2]);
+    doc.setTextColor(COLORS.textLight[0], COLORS.textLight[1], COLORS.textLight[2]);
     doc.text(subtitle, 20, 30);
   }
   
-  // Date d'export
+  // Date d'export (gris moyen)
   doc.setFontSize(8);
-  doc.setTextColor(COLORS.textMuted[0], COLORS.textMuted[1], COLORS.textMuted[2]);
+  doc.setTextColor(150, 150, 160);
   doc.text(`Exporté le ${new Date().toLocaleDateString('fr-FR')} à ${new Date().toLocaleTimeString('fr-FR')}`, 20, 40);
   
-  // Ligne de séparation gold
+  // Ligne de séparation dorée
   doc.setDrawColor(COLORS.gold[0], COLORS.gold[1], COLORS.gold[2]);
   doc.line(20, 45, 190, 45);
 }
@@ -85,7 +88,7 @@ function addFooter(doc: jsPDF, title: string) {
   for (let i = 1; i <= pageCount; i++) {
     doc.setPage(i);
     doc.setFontSize(7);
-    doc.setTextColor(COLORS.textMuted[0], COLORS.textMuted[1], COLORS.textMuted[2]);
+    doc.setTextColor(120, 120, 130); // Gris lisible
     doc.text(
       `SOVEREIGN - ${title} - Page ${i}/${pageCount}`,
       20,
@@ -129,9 +132,9 @@ export function exportToPDFStructured(
     doc.setFontSize(9);
     doc.setFont("helvetica", "normal");
     summary.forEach((item, idx) => {
-      doc.setTextColor(COLORS.textPrimary[0], COLORS.textPrimary[1], COLORS.textPrimary[2]);
+      doc.setTextColor(COLORS.textIvory[0], COLORS.textIvory[1], COLORS.textIvory[2]); // Blanc cassé
       doc.text(`${item.label}:`, 25, startY + (idx * 5));
-      doc.setTextColor(COLORS.gold[0], COLORS.gold[1], COLORS.gold[2]);
+      doc.setTextColor(COLORS.gold[0], COLORS.gold[1], COLORS.gold[2]); // Doré pour la valeur
       doc.text(item.value, 70, startY + (idx * 5));
     });
     
@@ -150,22 +153,22 @@ export function exportToPDFStructured(
     startY: startY,
     theme: "striped",
     headStyles: {
-      fillColor: COLORS.gold,
-      textColor: COLORS.background,
+      fillColor: COLORS.gold,           // Fond doré
+      textColor: COLORS.textOnGold,     // Texte noir/midnight sur doré
       fontStyle: "bold",
       fontSize: 9,
       halign: "left",
       valign: "middle"
     },
     bodyStyles: {
-      textColor: COLORS.textPrimary,
+      textColor: COLORS.textIvory,      // Texte blanc cassé
       fontSize: 8,
-      lineColor: COLORS.cardBg,
+      lineColor: [50, 50, 60],
       halign: "left",
       valign: "middle"
     },
     alternateRowStyles: {
-      fillColor: COLORS.altRowBg
+      fillColor: COLORS.altRowBg        // Gris légèrement plus clair pour alternance
     },
     margin: { left: 20, right: 20 }
   });
@@ -303,7 +306,7 @@ export function exportFinancialToPDF(spending: any[], revenue: any[]) {
   doc.setFontSize(9);
   doc.setFont("helvetica", "normal");
   summary.forEach((item, idx) => {
-    doc.setTextColor(COLORS.textPrimary[0], COLORS.textPrimary[1], COLORS.textPrimary[2]);
+    doc.setTextColor(COLORS.textIvory[0], COLORS.textIvory[1], COLORS.textIvory[2]);
     doc.text(`${item.label}:`, 25, startY + (idx * 5));
     doc.setTextColor(COLORS.gold[0], COLORS.gold[1], COLORS.gold[2]);
     doc.text(item.value, 70, startY + (idx * 5));
@@ -330,11 +333,11 @@ export function exportFinancialToPDF(spending: any[], revenue: any[]) {
       theme: "striped",
       headStyles: {
         fillColor: COLORS.gold,
-        textColor: COLORS.background,
+        textColor: COLORS.textOnGold,
         fontStyle: "bold"
       },
       bodyStyles: {
-        textColor: COLORS.textPrimary
+        textColor: COLORS.textIvory
       },
       alternateRowStyles: {
         fillColor: COLORS.altRowBg
@@ -362,11 +365,11 @@ export function exportFinancialToPDF(spending: any[], revenue: any[]) {
       theme: "striped",
       headStyles: {
         fillColor: COLORS.gold,
-        textColor: COLORS.background,
+        textColor: COLORS.textOnGold,
         fontStyle: "bold"
       },
       bodyStyles: {
-        textColor: COLORS.textPrimary
+        textColor: COLORS.textIvory
       },
       alternateRowStyles: {
         fillColor: COLORS.altRowBg
@@ -398,7 +401,7 @@ export function exportFarmToPDF(infrastructure: any[], production: any[], spendi
   
   doc.setFontSize(9);
   doc.setFont("helvetica", "normal");
-  doc.setTextColor(COLORS.textPrimary[0], COLORS.textPrimary[1], COLORS.textPrimary[2]);
+  doc.setTextColor(COLORS.textIvory[0], COLORS.textIvory[1], COLORS.textIvory[2]);
   doc.text(`Investissement total: ${totalSpent.toLocaleString()} CFA`, 25, startY);
   doc.text(`Productions actives: ${production.filter(p => p.status === "active").length}`, 25, startY + 6);
   doc.text(`Infrastructures: ${infrastructure.filter(i => i.status === "complete").length}/${infrastructure.length}`, 25, startY + 12);
@@ -420,11 +423,11 @@ export function exportFarmToPDF(infrastructure: any[], production: any[], spendi
       theme: "striped",
       headStyles: {
         fillColor: COLORS.gold,
-        textColor: COLORS.background,
+        textColor: COLORS.textOnGold,
         fontStyle: "bold"
       },
       bodyStyles: {
-        textColor: COLORS.textPrimary
+        textColor: COLORS.textIvory
       },
       alternateRowStyles: {
         fillColor: COLORS.altRowBg
@@ -448,11 +451,11 @@ export function exportFarmToPDF(infrastructure: any[], production: any[], spendi
       theme: "striped",
       headStyles: {
         fillColor: COLORS.gold,
-        textColor: COLORS.background,
+        textColor: COLORS.textOnGold,
         fontStyle: "bold"
       },
       bodyStyles: {
-        textColor: COLORS.textPrimary
+        textColor: COLORS.textIvory
       },
       alternateRowStyles: {
         fillColor: COLORS.altRowBg
@@ -476,11 +479,11 @@ export function exportFarmToPDF(infrastructure: any[], production: any[], spendi
       theme: "striped",
       headStyles: {
         fillColor: COLORS.gold,
-        textColor: COLORS.background,
+        textColor: COLORS.textOnGold,
         fontStyle: "bold"
       },
       bodyStyles: {
-        textColor: COLORS.textPrimary
+        textColor: COLORS.textIvory
       },
       alternateRowStyles: {
         fillColor: COLORS.altRowBg
@@ -504,11 +507,11 @@ export function exportFarmToPDF(infrastructure: any[], production: any[], spendi
       theme: "striped",
       headStyles: {
         fillColor: COLORS.gold,
-        textColor: COLORS.background,
+        textColor: COLORS.textOnGold,
         fontStyle: "bold"
       },
       bodyStyles: {
-        textColor: COLORS.textPrimary
+        textColor: COLORS.textIvory
       },
       alternateRowStyles: {
         fillColor: COLORS.altRowBg
