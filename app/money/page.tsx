@@ -6,7 +6,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { 
   Wallet, TrendingUp, TrendingDown, Plus, Trash2, Edit2, 
   X, Check, Calendar, FolderOpen, Tag, Loader2, RefreshCw,
-  Download
+  Download, DollarSign
 } from "lucide-react";
 import { exportFinancialToPDF } from "@/lib/exportPDF";
 import { Chart as ChartJS, ArcElement, Tooltip, Legend, CategoryScale, LinearScale, BarElement, Title } from 'chart.js';
