@@ -1,88 +1,153 @@
-// lib/exportPDF.ts
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 
-// Version simplifiée : export en CSV (le plus simple)
-export function exportToCSV(data: any[], filename: string, columns: { header: string; accessor: string }[]) {
-  // Créer l'en-tête
-  const headers = columns.map(col => col.header).join(",");
-  
-  // Créer les lignes
-  const rows = data.map(row => 
-    columns.map(col => {
-      let value = row[col.accessor];
-      if (typeof value === "string" && (value.includes(",") || value.includes('"'))) {
-        value = `"${value.replace(/"/g, '""')}"`;
-      }
-      return value;
-    }).join(",")
-  );
-  
-  const csvContent = [headers, ...rows].join("\n");
-  const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-  const link = document.createElement("a");
-  const url = URL.createObjectURL(blob);
-  link.href = url;
-  link.setAttribute("download", `${filename}.csv`);
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
-  URL.revokeObjectURL(url);
-}
+// Configuration des couleurs Sovereign
+const COLORS = {
+  primary: [212, 175, 55],   // Gold
+  secondary: [30, 30, 35],   // Dark gray
+  text: [245, 245, 240],     // Ivory
+  textDark: [100, 100, 100], // Gray
+  border: [50, 50, 60]       // Border
+};
 
-// Export PDF avec données structurées
+// =====================================================
+// FONCTION PRINCIPALE D'EXPORT STRUCTURÉ
+// =====================================================
+
 export function exportToPDFStructured(
   title: string,
   data: any[],
   columns: { header: string; accessor: string }[],
   filename: string,
-  subtitle?: string
+  subtitle?: string,
+  summary?: { label: string; value: string }[]
 ) {
-  const doc = new jsPDF();
+  const doc = new jsPDF({ unit: "mm", format: "a4" });
   
-  // Titre
-  doc.setFontSize(18);
-  doc.setTextColor(212, 175, 55); // gold
-  doc.text(title, 14, 20);
+  // ========== EN-TÊTE ==========
+  doc.setFillColor(10, 10, 11); // Midnight
+  doc.rect(0, 0, 210, 50, "F");
+  
+  // Titre principal
+  doc.setFontSize(22);
+  doc.setTextColor(COLORS.primary[0], COLORS.primary[1], COLORS.primary[2]);
+  doc.text(title, 20, 20);
   
   // Sous-titre
   if (subtitle) {
-    doc.setFontSize(10);
-    doc.setTextColor(100, 100, 100);
-    doc.text(subtitle, 14, 30);
+    doc.setFontSize(11);
+    doc.setTextColor(COLORS.textDark[0], COLORS.textDark[1], COLORS.textDark[2]);
+    doc.text(subtitle, 20, 30);
   }
   
   // Date d'export
   doc.setFontSize(8);
-  doc.setTextColor(150, 150, 150);
-  doc.text(`Exporté le ${new Date().toLocaleDateString('fr-FR')} à ${new Date().toLocaleTimeString('fr-FR')}`, 14, 40);
+  doc.setTextColor(COLORS.textDark[0], COLORS.textDark[1], COLORS.textDark[2]);
+  doc.text(`Exporté le ${new Date().toLocaleDateString('fr-FR')} à ${new Date().toLocaleTimeString('fr-FR')}`, 20, 40);
   
-  // Tableau
-  autoTable(doc, {
-    head: [columns.map(col => col.header)],
-    body: data.map(row => columns.map(col => row[col.accessor] || "")),
-    startY: 50,
-    theme: "striped",
-    headStyles: {
-      fillColor: [212, 175, 55],
-      textColor: [10, 10, 11],
-      fontStyle: "bold",
-    },
-    bodyStyles: {
-      textColor: [245, 245, 240],
-      lineColor: [50, 50, 60],
-    },
-    alternateRowStyles: {
-      fillColor: [30, 30, 35],
-    },
-    margin: { left: 14, right: 14 },
-  });
+  // Ligne de séparation
+  doc.setDrawColor(COLORS.primary[0], COLORS.primary[1], COLORS.primary[2]);
+  doc.line(20, 45, 190, 45);
   
-  doc.save(`${filename}.pdf`);
+  let startY = 55;
+  
+  // ========== RÉSUMÉ (si fourni) ==========
+  if (summary && summary.length > 0) {
+    doc.setFontSize(10);
+    doc.setTextColor(COLORS.primary[0], COLORS.primary[1], COLORS.primary[2]);
+    doc.text("📊 RÉSUMÉ", 20, startY);
+    startY += 6;
+    
+    summary.forEach((item, idx) => {
+      doc.setFontSize(9);
+      doc.setTextColor(COLORS.text[0], COLORS.text[1], COLORS.text[2]);
+      doc.text(`${item.label}:`, 25, startY + (idx * 5));
+      doc.setTextColor(COLORS.primary[0], COLORS.primary[1], COLORS.primary[2]);
+      doc.text(item.value, 70, startY + (idx * 5));
+    });
+    
+    startY += (summary.length * 5) + 10;
+  }
+  
+  // ========== TABLEAU ==========
+  if (data && data.length > 0) {
+    autoTable(doc, {
+      head: [columns.map(col => col.header)],
+      body: data.map(row => columns.map(col => {
+        let value = row[col.accessor];
+        if (col.accessor === "due_date" && value) {
+          value = new Date(value).toLocaleDateString('fr-FR');
+        } else if (col.accessor === "amount" && typeof value === "number") {
+          value = `${value.toLocaleString()} CFA`;
+        } else if (col.accessor === "date" && value) {
+          value = new Date(value).toLocaleDateString('fr-FR');
+        }
+        return value || "-";
+      })),
+      startY: startY,
+      theme: "striped",
+      headStyles: {
+        fillColor: COLORS.primary,
+        textColor: [10, 10, 11],
+        fontStyle: "bold",
+        fontSize: 9
+      },
+      bodyStyles: {
+        textColor: COLORS.text,
+        fontSize: 8,
+        lineColor: COLORS.border
+      },
+      alternateRowStyles: {
+        fillColor: [40, 40, 45]
+      },
+      margin: { left: 20, right: 20 },
+      columnStyles: {
+        0: { cellWidth: "auto" }
+      }
+    });
+    
+    const finalY = (doc as any).lastAutoTable.finalY + 10;
+    startY = finalY;
+  } else {
+    // Message si pas de données
+    doc.setFontSize(10);
+    doc.setTextColor(COLORS.textDark[0], COLORS.textDark[1], COLORS.textDark[2]);
+    doc.text("Aucune donnée à afficher", 20, startY);
+    startY += 10;
+  }
+  
+  // ========== PIED DE PAGE ==========
+  const pageCount = doc.getNumberOfPages();
+  for (let i = 1; i <= pageCount; i++) {
+    doc.setPage(i);
+    doc.setFontSize(7);
+    doc.setTextColor(COLORS.textDark[0], COLORS.textDark[1], COLORS.textDark[2]);
+    doc.text(
+      `SOVEREIGN - ${title} - Page ${i}/${pageCount}`,
+      20,
+      doc.internal.pageSize.getHeight() - 10
+    );
+    
+    // Petit séparateur
+    doc.setDrawColor(COLORS.primary[0], COLORS.primary[1], COLORS.primary[2]);
+    doc.line(20, doc.internal.pageSize.getHeight() - 15, 190, doc.internal.pageSize.getHeight() - 15);
+  }
+  
+  doc.save(`${filename}_${new Date().toISOString().split('T')[0]}.pdf`);
 }
 
-// Export des tâches
+// =====================================================
+// EXPORTS SPÉCIFIQUES
+// =====================================================
+
 export async function exportTasksToPDF(tasks: any[]) {
+  const summary = [
+    { label: "Total des tâches", value: tasks.length.toString() },
+    { label: "Tâches terminées", value: tasks.filter(t => t.status === "done").length.toString() },
+    { label: "Tâches en cours", value: tasks.filter(t => t.status === "in_progress").length.toString() },
+    { label: "Tâches en retard", value: tasks.filter(t => t.due_date && new Date(t.due_date) < new Date() && t.status !== "done").length.toString() }
+  ];
+  
   exportToPDFStructured(
     "📋 Rapport des tâches",
     tasks,
@@ -92,13 +157,22 @@ export async function exportTasksToPDF(tasks: any[]) {
       { header: "Priorité", accessor: "priority" },
       { header: "Projet", accessor: "project" },
       { header: "Échéance", accessor: "due_date" },
+      { header: "Notes", accessor: "notes" }
     ],
-    `taches-${new Date().toISOString().split('T')[0]}`,
-    `Total : ${tasks.length} tâches`
+    "taches",
+    "Liste complète des tâches",
+    summary
   );
 }
 
 export async function exportDocumentsToPDF(documents: any[]) {
+  const summary = [
+    { label: "Total des documents", value: documents.length.toString() },
+    { label: "Brouillons", value: documents.filter(d => d.status === "draft").length.toString() },
+    { label: "En relecture", value: documents.filter(d => d.status === "review").length.toString() },
+    { label: "Approuvés", value: documents.filter(d => d.status === "approved").length.toString() }
+  ];
+  
   exportToPDFStructured(
     "📄 Rapport des documents",
     documents,
@@ -107,15 +181,23 @@ export async function exportDocumentsToPDF(documents: any[]) {
       { header: "Type", accessor: "type" },
       { header: "Statut", accessor: "status" },
       { header: "Échéance", accessor: "due_date" },
-      { header: "Notes", accessor: "notes" },
+      { header: "Pièces manquantes", accessor: "missing_pieces" },
+      { header: "Notes", accessor: "notes" }
     ],
-    `documents-${new Date().toISOString().split('T')[0]}`,
-    `Total : ${documents.length} documents`
+    "documents",
+    "Liste des documents et contrats",
+    summary
   );
 }
 
-// Export des missions
 export async function exportMissionsToPDF(missions: any[]) {
+  const summary = [
+    { label: "Total des missions", value: missions.length.toString() },
+    { label: "Missions actives", value: missions.filter(m => m.status === "active").length.toString() },
+    { label: "Missions terminées", value: missions.filter(m => m.status === "complete").length.toString() },
+    { label: "Priorité haute", value: missions.filter(m => m.priority === "high" || m.priority === "critical").length.toString() }
+  ];
+  
   exportToPDFStructured(
     "🎯 Rapport des missions",
     missions,
@@ -125,61 +207,24 @@ export async function exportMissionsToPDF(missions: any[]) {
       { header: "Statut", accessor: "status" },
       { header: "Priorité", accessor: "priority" },
       { header: "Échéance", accessor: "deadline" },
+      { header: "Propriétaire", accessor: "owner" }
     ],
-    `missions-${new Date().toISOString().split('T')[0]}`,
-    `Total : ${missions.length} missions actives`
+    "missions",
+    "Liste des missions stratégiques",
+    summary
   );
 }
 
-// Export des finances
-export async function exportFinancialToPDF(spending: any[], revenue: any[]) {
-  const doc = new jsPDF();
-  
-  // Titre
-  doc.setFontSize(18);
-  doc.setTextColor(212, 175, 55);
-  doc.text("💰 Rapport financier", 14, 20);
-  
-  doc.setFontSize(10);
-  doc.setTextColor(100, 100, 100);
-  doc.text(`Exporté le ${new Date().toLocaleDateString('fr-FR')}`, 14, 30);
-  
-  // Résumé
-  const totalSpending = spending.reduce((sum, s) => sum + (s.amount || 0), 0);
-  const totalRevenue = revenue.reduce((sum, r) => sum + (r.amount || 0), 0);
-  const balance = totalRevenue - totalSpending;
-  
-  doc.setFontSize(12);
-  doc.setTextColor(212, 175, 55);
-  doc.text("📊 Synthèse financière", 14, 45);
-  
-  doc.setFontSize(10);
-  doc.setTextColor(245, 245, 240);
-  doc.text(`Total revenus : ${totalRevenue.toLocaleString()} CFA`, 14, 55);
-  doc.text(`Total dépenses : ${totalSpending.toLocaleString()} CFA`, 14, 62);
-  doc.text(`Solde : ${balance.toLocaleString()} CFA`, 14, 69);
-  
-  // Tableau des dépenses
-  autoTable(doc, {
-    head: [["Dépense", "Montant", "Catégorie", "Projet", "Date"]],
-    body: spending.map(s => [
-      s.title,
-      `${s.amount?.toLocaleString()} CFA`,
-      s.category || "-",
-      s.project || "-",
-      s.date ? new Date(s.date).toLocaleDateString('fr-FR') : "-",
-    ]),
-    startY: 80,
-    theme: "striped",
-    headStyles: { fillColor: [212, 175, 55], textColor: [10, 10, 11] },
-    bodyStyles: { textColor: [245, 245, 240] },
-  });
-  
-  doc.save(`finances-${new Date().toISOString().split('T')[0]}.pdf`);
-}
-
-// Export des victoires
 export async function exportWinsToPDF(wins: any[]) {
+  const summary = [
+    { label: "Total des victoires", value: wins.length.toString() },
+    { label: "Cette semaine", value: wins.filter(w => {
+      const weekAgo = new Date();
+      weekAgo.setDate(weekAgo.getDate() - 7);
+      return new Date(w.date) >= weekAgo;
+    }).length.toString() }
+  ];
+  
   exportToPDFStructured(
     "🏆 Rapport des victoires",
     wins,
@@ -187,27 +232,231 @@ export async function exportWinsToPDF(wins: any[]) {
       { header: "Victoire", accessor: "title" },
       { header: "Catégorie", accessor: "category" },
       { header: "Date", accessor: "date" },
-      { header: "Notes", accessor: "notes" },
+      { header: "Émoticône", accessor: "celebration_emoji" },
+      { header: "Notes", accessor: "notes" }
     ],
-    `victoires-${new Date().toISOString().split('T')[0]}`,
-    `Total : ${wins.length} victoires célébrées`
+    "victoires",
+    "Célébrons chaque succès !",
+    summary
   );
 }
 
-// Garder l'ancienne fonction pour la compatibilité (export image)
-export async function exportToPDF(elementId: string, filename: string) {
-  // Fallback : export image pour les pages qui n'ont pas encore migré
+export async function exportFinancialToPDF(spending: any[], revenue: any[]) {
+  const totalSpending = spending.reduce((sum, s) => sum + (s.amount || 0), 0);
+  const totalRevenue = revenue.reduce((sum, r) => sum + (r.amount || 0), 0);
+  const balance = totalRevenue - totalSpending;
+  
+  const summary = [
+    { label: "Total revenus", value: `${totalRevenue.toLocaleString()} CFA` },
+    { label: "Total dépenses", value: `${totalSpending.toLocaleString()} CFA` },
+    { label: "Solde", value: `${balance.toLocaleString()} CFA` }
+  ];
+  
+  const doc = new jsPDF({ unit: "mm", format: "a4" });
+  
+  // En-tête
+  doc.setFillColor(10, 10, 11);
+  doc.rect(0, 0, 210, 50, "F");
+  
+  doc.setFontSize(22);
+  doc.setTextColor(COLORS.primary[0], COLORS.primary[1], COLORS.primary[2]);
+  doc.text("💰 Rapport financier", 20, 20);
+  
+  doc.setFontSize(8);
+  doc.setTextColor(COLORS.textDark[0], COLORS.textDark[1], COLORS.textDark[2]);
+  doc.text(`Exporté le ${new Date().toLocaleDateString('fr-FR')}`, 20, 40);
+  
+  doc.setDrawColor(COLORS.primary[0], COLORS.primary[1], COLORS.primary[2]);
+  doc.line(20, 45, 190, 45);
+  
+  let startY = 55;
+  
+  // Résumé
+  doc.setFontSize(11);
+  doc.setTextColor(COLORS.primary[0], COLORS.primary[1], COLORS.primary[2]);
+  doc.text("📊 SYNTHÈSE FINANCIÈRE", 20, startY);
+  startY += 8;
+  
+  doc.setFontSize(9);
+  doc.setTextColor(COLORS.text[0], COLORS.text[1], COLORS.text[2]);
+  doc.text(`Revenus totaux: ${totalRevenue.toLocaleString()} CFA`, 25, startY);
+  doc.text(`Dépenses totales: ${totalSpending.toLocaleString()} CFA`, 25, startY + 6);
+  doc.text(`Solde: ${balance.toLocaleString()} CFA`, 25, startY + 12);
+  startY += 25;
+  
+  // Tableau des dépenses
+  if (spending.length > 0) {
+    doc.setFontSize(10);
+    doc.setTextColor(COLORS.primary[0], COLORS.primary[1], COLORS.primary[2]);
+    doc.text("📤 DÉPENSES", 20, startY);
+    startY += 5;
+    
+    autoTable(doc, {
+      head: [["Titre", "Montant", "Catégorie", "Projet", "Date"]],
+      body: spending.map(s => [
+        s.title,
+        `${s.amount?.toLocaleString()} CFA`,
+        s.category || "-",
+        s.project || "-",
+        s.date ? new Date(s.date).toLocaleDateString('fr-FR') : "-"
+      ]),
+      startY: startY,
+      theme: "striped",
+      headStyles: { fillColor: COLORS.primary, textColor: [10, 10, 11] },
+      bodyStyles: { textColor: COLORS.text }
+    });
+    
+    startY = (doc as any).lastAutoTable.finalY + 15;
+  }
+  
+  // Tableau des revenus
+  if (revenue.length > 0) {
+    doc.setFontSize(10);
+    doc.setTextColor(COLORS.primary[0], COLORS.primary[1], COLORS.primary[2]);
+    doc.text("📥 REVENUS", 20, startY);
+    startY += 5;
+    
+    autoTable(doc, {
+      head: [["Source", "Montant", "Projet", "Date"]],
+      body: revenue.map(r => [
+        r.source,
+        `${r.amount?.toLocaleString()} CFA`,
+        r.project || "-",
+        r.date ? new Date(r.date).toLocaleDateString('fr-FR') : "-"
+      ]),
+      startY: startY,
+      theme: "striped",
+      headStyles: { fillColor: COLORS.primary, textColor: [10, 10, 11] },
+      bodyStyles: { textColor: COLORS.text }
+    });
+  }
+  
+  doc.save(`finances_${new Date().toISOString().split('T')[0]}.pdf`);
+}
+
+export async function exportFarmToPDF(infrastructure: any[], production: any[], spending: any[], team: any[]) {
+  const doc = new jsPDF({ unit: "mm", format: "a4" });
+  const totalSpent = spending.reduce((sum, s) => sum + (s.amount || 0), 0);
+  
+  // En-tête
+  doc.setFillColor(10, 10, 11);
+  doc.rect(0, 0, 210, 50, "F");
+  
+  doc.setFontSize(22);
+  doc.setTextColor(COLORS.primary[0], COLORS.primary[1], COLORS.primary[2]);
+  doc.text("🌾 Rapport Ifè Living Farm", 20, 20);
+  
+  doc.setFontSize(8);
+  doc.setTextColor(COLORS.textDark[0], COLORS.textDark[1], COLORS.textDark[2]);
+  doc.text(`Exporté le ${new Date().toLocaleDateString('fr-FR')}`, 20, 40);
+  
+  doc.setDrawColor(COLORS.primary[0], COLORS.primary[1], COLORS.primary[2]);
+  doc.line(20, 45, 190, 45);
+  
+  let startY = 55;
+  
+  // Résumé
+  doc.setFontSize(11);
+  doc.setTextColor(COLORS.primary[0], COLORS.primary[1], COLORS.primary[2]);
+  doc.text("📊 SYNTHÈSE", 20, startY);
+  startY += 6;
+  
+  doc.setFontSize(9);
+  doc.setTextColor(COLORS.text[0], COLORS.text[1], COLORS.text[2]);
+  doc.text(`Investissement total: ${totalSpent.toLocaleString()} CFA`, 25, startY);
+  doc.text(`Productions actives: ${production.filter(p => p.status === "active").length}`, 25, startY + 6);
+  doc.text(`Infrastructures: ${infrastructure.filter(i => i.status === "complete").length}/${infrastructure.length}`, 25, startY + 12);
+  doc.text(`Équipe: ${team.length} membres`, 25, startY + 18);
+  startY += 30;
+  
+  // Infrastructures
+  if (infrastructure.length > 0) {
+    doc.setFontSize(10);
+    doc.setTextColor(COLORS.primary[0], COLORS.primary[1], COLORS.primary[2]);
+    doc.text("🏗️ INFRASTRUCTURES", 20, startY);
+    startY += 5;
+    
+    autoTable(doc, {
+      head: [["Nom", "Type", "Statut", "Localisation"]],
+      body: infrastructure.map(i => [i.name, i.type || "-", i.status || "-", i.location_on_site || "-"]),
+      startY: startY,
+      theme: "striped",
+      headStyles: { fillColor: COLORS.primary, textColor: [10, 10, 11] },
+      bodyStyles: { textColor: COLORS.text }
+    });
+    startY = (doc as any).lastAutoTable.finalY + 15;
+  }
+  
+  // Production
+  if (production.length > 0) {
+    doc.setFontSize(10);
+    doc.setTextColor(COLORS.primary[0], COLORS.primary[1], COLORS.primary[2]);
+    doc.text("🌱 UNITÉS DE PRODUCTION", 20, startY);
+    startY += 5;
+    
+    autoTable(doc, {
+      head: [["Nom", "Catégorie", "Statut", "Capacité"]],
+      body: production.map(p => [p.name, p.category || "-", p.status || "-", p.current_capacity || "-"]),
+      startY: startY,
+      theme: "striped",
+      headStyles: { fillColor: COLORS.primary, textColor: [10, 10, 11] },
+      bodyStyles: { textColor: COLORS.text }
+    });
+    startY = (doc as any).lastAutoTable.finalY + 15;
+  }
+  
+  // Dépenses
+  if (spending.length > 0) {
+    doc.setFontSize(10);
+    doc.setTextColor(COLORS.primary[0], COLORS.primary[1], COLORS.primary[2]);
+    doc.text("💰 DÉPENSES", 20, startY);
+    startY += 5;
+    
+    autoTable(doc, {
+      head: [["Titre", "Montant", "Catégorie", "Zone"]],
+      body: spending.map(s => [s.title, `${s.amount?.toLocaleString()} CFA`, s.category || "-", s.project_area || "-"]),
+      startY: startY,
+      theme: "striped",
+      headStyles: { fillColor: COLORS.primary, textColor: [10, 10, 11] },
+      bodyStyles: { textColor: COLORS.text }
+    });
+    startY = (doc as any).lastAutoTable.finalY + 15;
+  }
+  
+  // Équipe
+  if (team.length > 0) {
+    doc.setFontSize(10);
+    doc.setTextColor(COLORS.primary[0], COLORS.primary[1], COLORS.primary[2]);
+    doc.text("👥 ÉQUIPE", 20, startY);
+    startY += 5;
+    
+    autoTable(doc, {
+      head: [["Nom", "Rôle", "Zone", "Statut"]],
+      body: team.map(t => [t.name, t.role || "-", t.area || "-", t.status === "active" ? "Actif" : t.status === "occasional" ? "Occasionnel" : "En attente"]),
+      startY: startY,
+      theme: "striped",
+      headStyles: { fillColor: COLORS.primary, textColor: [10, 10, 11] },
+      bodyStyles: { textColor: COLORS.text }
+    });
+  }
+  
+  doc.save(`farm_${new Date().toISOString().split('T')[0]}.pdf`);
+}
+
+// Fonction générique pour exporter n'importe quelle page
+export async function exportGenericPage(title: string, elementId: string, filename: string) {
   const element = document.getElementById(elementId);
   if (!element) {
     console.error("Élément non trouvé:", elementId);
     return;
   }
-
+  
   try {
     const html2canvas = (await import("html2canvas")).default;
     const imgData = await html2canvas(element, {
-      scale: 2,           // remplace pixelRatio
-      backgroundColor: "#0A0A0B"
+      scale: 2,
+      backgroundColor: "#0A0A0B",
+      logging: false
     });
     
     const pdf = new jsPDF({
@@ -216,153 +465,17 @@ export async function exportToPDF(elementId: string, filename: string) {
       format: "a4"
     });
     
-    const imgWidth = 210;
+    const imgWidth = 190;
     const imgHeight = (element.clientHeight * imgWidth) / element.clientWidth;
     
-    pdf.addImage(imgData, "PNG", 0, 0, imgWidth, imgHeight);
-    pdf.save(`${filename}.pdf`);
+    pdf.addImage(imgData, "PNG", 10, 10, imgWidth, imgHeight);
+    pdf.save(`${filename}_${new Date().toISOString().split('T')[0]}.pdf`);
   } catch (error) {
     console.error("Erreur export PDF:", error);
   }
 }
 
-// Export de la ferme (version structurée)
-export async function exportFarmToPDF(
-  infrastructure: any[],
-  production: any[],
-  spending: any[],
-  team: any[]
-) {
-  const { default: jsPDF } = await import("jspdf");
-  const { default: autoTable } = await import("jspdf-autotable");
-  
-  const doc = new jsPDF();
-  
-  // Titre
-  doc.setFontSize(18);
-  doc.setTextColor(212, 175, 55);
-  doc.text("🌾 Rapport Ifè Living Farm", 14, 20);
-  
-  // Date d'export
-  doc.setFontSize(10);
-  doc.setTextColor(100, 100, 100);
-  doc.text(`Exporté le ${new Date().toLocaleDateString('fr-FR')} à ${new Date().toLocaleTimeString('fr-FR')}`, 14, 30);
-  
-  let yPos = 45;
-  
-  // RÉSUMÉ DES STATS
-  const totalSpent = spending.reduce((sum, s) => sum + (s.amount || 0), 0);
-  const activeProduction = production.filter(p => p.status === "active" || p.status === "setup").length;
-  const completedInfra = infrastructure.filter(i => i.status === "complete").length;
-  
-  doc.setFontSize(12);
-  doc.setTextColor(212, 175, 55);
-  doc.text("📊 Synthèse", 14, yPos);
-  yPos += 7;
-  
-  doc.setFontSize(10);
-  doc.setTextColor(245, 245, 240);
-  doc.text(`Investissement total : ${totalSpent.toLocaleString()} CFA`, 20, yPos);
-  yPos += 6;
-  doc.text(`Productions actives : ${activeProduction}`, 20, yPos);
-  yPos += 6;
-  doc.text(`Infrastructures complétées : ${completedInfra}/${infrastructure.length}`, 20, yPos);
-  yPos += 6;
-  doc.text(`Équipe : ${team.length} membre(s)`, 20, yPos);
-  yPos += 15;
-  
-  // INFRASTRUCTURES
-  if (infrastructure.length > 0) {
-    doc.setFontSize(12);
-    doc.setTextColor(212, 175, 55);
-    doc.text("🏗️ Infrastructures", 14, yPos);
-    yPos += 5;
-    
-    autoTable(doc, {
-      head: [["Nom", "Type", "Statut", "Localisation"]],
-      body: infrastructure.map(i => [
-        i.name,
-        i.type || "-",
-        i.status || "-",
-        i.location_on_site || "-"
-      ]),
-      startY: yPos,
-      theme: "striped",
-      headStyles: { fillColor: [212, 175, 55], textColor: [10, 10, 11] },
-      bodyStyles: { textColor: [245, 245, 240] },
-    });
-    yPos = (doc as any).lastAutoTable.finalY + 10;
-  }
-  
-  // UNITÉS DE PRODUCTION
-  if (production.length > 0) {
-    doc.setFontSize(12);
-    doc.setTextColor(212, 175, 55);
-    doc.text("🌱 Unités de production", 14, yPos);
-    yPos += 5;
-    
-    autoTable(doc, {
-      head: [["Nom", "Catégorie", "Statut", "Capacité"]],
-      body: production.map(p => [
-        p.name,
-        p.category || "-",
-        p.status || "-",
-        p.current_capacity || "-"
-      ]),
-      startY: yPos,
-      theme: "striped",
-      headStyles: { fillColor: [212, 175, 55], textColor: [10, 10, 11] },
-      bodyStyles: { textColor: [245, 245, 240] },
-    });
-    yPos = (doc as any).lastAutoTable.finalY + 10;
-  }
-  
-  // DÉPENSES
-  if (spending.length > 0) {
-    doc.setFontSize(12);
-    doc.setTextColor(212, 175, 55);
-    doc.text("💰 Dépenses", 14, yPos);
-    yPos += 5;
-    
-    autoTable(doc, {
-      head: [["Titre", "Montant", "Catégorie", "Zone", "Vérifié"]],
-      body: spending.map(s => [
-        s.title,
-        `${s.amount?.toLocaleString()} CFA`,
-        s.category || "-",
-        s.project_area || "-",
-        s.verified ? "✓ Oui" : "⏳ Non"
-      ]),
-      startY: yPos,
-      theme: "striped",
-      headStyles: { fillColor: [212, 175, 55], textColor: [10, 10, 11] },
-      bodyStyles: { textColor: [245, 245, 240] },
-    });
-    yPos = (doc as any).lastAutoTable.finalY + 10;
-  }
-  
-  // ÉQUIPE
-  if (team.length > 0) {
-    doc.setFontSize(12);
-    doc.setTextColor(212, 175, 55);
-    doc.text("👥 Équipe", 14, yPos);
-    yPos += 5;
-    
-    autoTable(doc, {
-      head: [["Nom", "Rôle", "Zone", "Statut", "Téléphone"]],
-      body: team.map(t => [
-        t.name,
-        t.role || "-",
-        t.area || "-",
-        t.status === "active" ? "Actif" : t.status === "occasional" ? "Occasionnel" : "En attente",
-        t.phone || "-"
-      ]),
-      startY: yPos,
-      theme: "striped",
-      headStyles: { fillColor: [212, 175, 55], textColor: [10, 10, 11] },
-      bodyStyles: { textColor: [245, 245, 240] },
-    });
-  }
-  
-  doc.save(`farm-${new Date().toISOString().split('T')[0]}.pdf`);
+// Garder l'ancienne fonction pour la compatibilité
+export async function exportToPDF(elementId: string, filename: string) {
+  return exportGenericPage("", elementId, filename);
 }
