@@ -26,9 +26,10 @@ function formatValue(value: any, accessor: string): string {
 
 // Configuration des couleurs
 const COLORS = {
-  primary: [212, 175, 55] as [number, number, number],
-  secondary: [30, 30, 35] as [number, number, number],
-  text: [245, 245, 240] as [number, number, number],
+  primary: [212, 175, 55] as [number, number, number],   // Gold
+  secondary: [30, 30, 35] as [number, number, number],   // Dark gray
+  text: [15, 15, 20] as [number, number, number],        // Dark text for body
+  textLight: [245, 245, 240] as [number, number, number], // Light text for headers
   textDark: [100, 100, 100] as [number, number, number]
 };
 
