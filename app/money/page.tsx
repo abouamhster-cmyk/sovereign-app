@@ -316,7 +316,24 @@ export default function MoneyPage() {
           </button>
         </div>
       </div>
+      
+      {/* Bloc Becks - Analyse financière */}
+      <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-xl p-4 mb-6">
+        <div className="flex items-center gap-3">
+          <DollarSign className="w-5 h-5 text-emerald-400" />
+          <div>
+            <p className="text-sm text-emerald-400 font-medium">Becks - Analyse financière</p>
+            <p className="text-sm text-ivory">
+              💰 Solde : {balance.toLocaleString()} CFA<br/>
+              {balance < 0 
+                ? "⚠️ Solde négatif. Une opportunité à saisir cette semaine ?"
+                : "✅ Solde positif. Continue sur cette lancée !"}
+            </p>
+          </div>
+        </div>
+      </div>
 
+      
       {/* ZONE À EXPORTER */}
       <div>
         {/* FILTRES */}
