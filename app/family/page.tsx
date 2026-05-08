@@ -206,7 +206,8 @@ useEffect(() => {
       </div>
 
 
-       <div className="bg-gold-500/10 border border-gold-500/20 rounded-xl p-4 mb-6">
+      {/* Bloc Becks */}
+      <div className="bg-gold-500/10 border border-gold-500/20 rounded-xl p-4 mb-6">
         <div className="flex items-center gap-3">
           <Heart className="w-5 h-5 text-gold-500" />
           <div>
