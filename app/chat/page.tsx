@@ -558,9 +558,9 @@ export default function ChatPage() {
       setLastAssistantMessage(assistantContent);
       
       // Synthèse vocale pour la réponse (si pas trop longue et si pas en mode mains libres qui gère déjà la parole)
-      if (assistantContent.length < 500 && !isVoiceActive) {
-        speakNative(assistantContent);
-      }
+     // if (assistantContent.length < 500 && !isVoiceActive) {
+       // speakNative(assistantContent);
+     // }
             
       setMessages(prev => [...prev, { role: "assistant", content: assistantContent }]);
       await saveMessage(currentConversationId, "assistant", assistantContent);
@@ -669,45 +669,23 @@ export default function ChatPage() {
   return (
     <div className="fixed inset-0 bg-midnight flex flex-col">
       {/* HEADER */}
-      <header className="sticky top-0 z-10 h-14 border-b border-white/10 flex items-center justify-between px-4 bg-midnight/90 backdrop-blur-lg shrink-0">
+    <header className="sticky top-0 z-10 h-12 border-b border-white/10 flex items-center justify-between px-4 bg-midnight/90 backdrop-blur-lg shrink-0">
         <div className="flex items-center gap-2">
-          <button onClick={() => setIsSidebarOpen(true)} className="p-2 text-gray-400 hover:text-gold-500">
-            <Menu className="w-5 h-5" />
-          </button>
-          <button onClick={createNewConversation} className="p-2 text-gray-400 hover:text-gold-500 lg:hidden">
-            <Plus className="w-5 h-5" />
+          <button onClick={() => setIsSidebarOpen(true)} className="p-1.5 text-gray-400 hover:text-gold-500">
+            <Menu className="w-4 h-4" />
           </button>
         </div>
-        
-        {/* Avatar + Voice Assistant */}
-        <div className="flex items-center gap-3">
-        <SovereignAvatar 
-          state={avatarState} 
-          size="sm"
-          lastMessage={lastAssistantMessage}
-          isVoiceActive={isVoiceActive}
-          isVoiceListening={isVoiceListening}
-          isVoiceSpeaking={isVoiceSpeaking}
-        />
-          
-          {/* Nouveau VoiceToggle intégré */}
-          <VoiceToggle
-            isActive={isVoiceActive}
-            isListening={isVoiceListening}
-            isSpeaking={isVoiceSpeaking}
-            onActivate={activateVoiceMode}
-            onDeactivate={deactivateVoiceMode}
-            onManualTrigger={triggerVoiceManual}
-          />
-          
-          <div className="text-left hidden sm:block">
-            <h1 className="text-sm font-serif text-gold-500">Becks</h1>
-            <p className="text-[9px] text-gray-500">Sovereign Life Agent</p>
+      
+        {/* Logo et nom Becks - simplifié */}
+        <div className="flex items-center gap-2">
+          <div className="w-6 h-6 rounded-full bg-gold-500/20 flex items-center justify-center">
+            <span className="text-gold-500 text-xs font-serif">B</span>
           </div>
+          <span className="text-xs font-serif text-gold-500 hidden sm:block">Becks</span>
         </div>
-        
-        <Link href="/" className="p-2 text-gray-400 hover:text-gold-500">
-          <ArrowLeft className="w-5 h-5" />
+      
+        <Link href="/" className="p-1.5 text-gray-400 hover:text-gold-500">
+          <ArrowLeft className="w-4 h-4" />
         </Link>
       </header>
 
