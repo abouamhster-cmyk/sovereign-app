@@ -205,6 +205,21 @@ useEffect(() => {
         </button>
       </div>
 
+
+       <div className="bg-gold-500/10 border border-gold-500/20 rounded-xl p-4 mb-6">
+        <div className="flex items-center gap-3">
+          <Heart className="w-5 h-5 text-gold-500" />
+          <div>
+            <p className="text-sm text-gold-400 font-medium">Becks te conseille</p>
+            <p className="text-sm text-ivory">
+              {events.filter(e => e.status === "pending").length > 0 
+                ? `📌 Tu as ${events.filter(e => e.status === "pending").length} événement(s) à préparer. Veux-tu que je t'aide à organiser ça ?`
+                : "✨ Rien d'urgent côté famille. Profite de ce calme !"}
+            </p>
+          </div>
+        </div>
+      </div>
+
       {/* STATS */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
         <div className="bg-white/5 border border-white/10 rounded-xl p-4 text-center">
