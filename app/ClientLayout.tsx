@@ -16,7 +16,6 @@ import { useAuth } from "@/contexts/AuthContext";
 const menuItems = [
   { name: "Dashboard", icon: LayoutDashboard, href: "/", group: "main" },
   { name: "Chat", icon: MessageSquare, href: "/chat", group: "main" },
-  { name: "Mémoire", icon: Brain, href: "/memory", group: "alignment" },
   
   
   { name: "Brain Dump", icon: Inbox, href: "/inbox", group: "operations" },
@@ -41,6 +40,8 @@ const menuItems = [
   
   { name: "Alignment", icon: Zap, href: "/alignment", group: "alignment" },
   { name: "Rescue Mode", icon: ShieldAlert, href: "/rescue", group: "alignment" },
+  { name: "Mémoire", icon: Brain, href: "/memory", group: "alignment" },
+
   
   { name: "Settings", icon: Settings, href: "/settings", group: "settings" }
 ];
