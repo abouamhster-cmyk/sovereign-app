@@ -4,6 +4,7 @@ import autoTable from "jspdf-autotable";
 
 // Supprimer les accents pour jsPDF
 function removeAccents(str: string): string {
+  if (!str) return "";
   return str.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
 }
 
@@ -114,10 +115,7 @@ export function exportToPDFStructured(
     alternateRowStyles: {
       fillColor: [40, 40, 45]
     },
-    margin: { left: 20, right: 20 },
-    columnStyles: {
-      0: { cellWidth: "auto" }
-    }
+    margin: { left: 20, right: 20 }
   });
   
   // Pied de page
@@ -241,7 +239,6 @@ export function exportFinancialToPDF(spending: any[], revenue: any[]) {
     { label: "Solde", value: `${balance.toLocaleString()} CFA` }
   ];
   
-  // Pour les finances, on crée un PDF avec deux tableaux
   const doc = new jsPDF({ unit: "mm", format: "a4" });
   
   // En-tête
@@ -444,4 +441,52 @@ export function exportFarmToPDF(infrastructure: any[], production: any[], spendi
   }
   
   doc.save(`farm_${new Date().toISOString().split('T')[0]}.pdf`);
+}
+
+// =====================================================
+// EXPORT GÉNÉRIQUE (pour compatibilité avec brief, content)
+// =====================================================
+
+export async function exportToPDF(elementId: string, filename: string) {
+  const element = document.getElementById(elementId);
+  if (!element) {
+    console.error("❌ Élément non trouvé:", elementId);
+    return;
+  }
+
+  try {
+    const html2canvas = (await import("html2canvas")).default;
+    const canvas = await html2canvas(element, {
+      scale: 2,
+      backgroundColor: "#0A0A0B",
+      logging: false,
+      useCORS: true
+    });
+    
+    const imgData = canvas.toDataURL("image/png");
+    const pdf = new jsPDF({
+      orientation: "portrait",
+      unit: "mm",
+      format: "a4"
+    });
+    
+    const imgWidth = 190;
+    const imgHeight = (canvas.height * imgWidth) / canvas.width;
+    let heightLeft = imgHeight;
+    let position = 10;
+    
+    pdf.addImage(imgData, "PNG", 10, position, imgWidth, imgHeight);
+    heightLeft -= (pdf.internal.pageSize.getHeight() - 20);
+    
+    while (heightLeft > 0) {
+      position = heightLeft - imgHeight + 10;
+      pdf.addPage();
+      pdf.addImage(imgData, "PNG", 10, position, imgWidth, imgHeight);
+      heightLeft -= (pdf.internal.pageSize.getHeight() - 20);
+    }
+    
+    pdf.save(`${filename}_${new Date().toISOString().split('T')[0]}.pdf`);
+  } catch (error) {
+    console.error("❌ Erreur export PDF:", error);
+  }
 }
