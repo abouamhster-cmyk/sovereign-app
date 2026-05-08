@@ -23,7 +23,18 @@ export function exportToPDFStructured(
   subtitle?: string,
   summary?: { label: string; value: string }[]
 ) {
-  const doc = new jsPDF({ unit: "mm", format: "a4" });
+  // Nettoyer les titres des caractères spéciaux
+  const cleanTitle = title.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  
+  const doc = new jsPDF({ 
+    unit: "mm", 
+    format: "a4",
+    putOnlyUsedFonts: true,
+    compress: true
+  });
+  
+  // Utiliser une police standard qui supporte les accents
+  doc.setFont("helvetica");
   
   // ========== EN-TÊTE ==========
   doc.setFillColor(10, 10, 11);
@@ -44,27 +55,30 @@ export function exportToPDFStructured(
   // Date d'export
   doc.setFontSize(8);
   doc.setTextColor(COLORS.textDark[0], COLORS.textDark[1], COLORS.textDark[2]);
-  doc.text(`Exporté le ${new Date().toLocaleDateString('fr-FR')} à ${new Date().toLocaleTimeString('fr-FR')}`, 20, 40);
+  doc.text(`Exporte le ${new Date().toLocaleDateString('fr-FR')} a ${new Date().toLocaleTimeString('fr-FR')}`, 20, 40);
   
-  // Ligne de séparation
+  // Ligne de separation
   doc.setDrawColor(COLORS.primary[0], COLORS.primary[1], COLORS.primary[2]);
   doc.line(20, 45, 190, 45);
   
   let startY = 55;
   
-  // ========== RÉSUMÉ (si fourni) ==========
+  // ========== RESUME (si fourni) ==========
   if (summary && summary.length > 0) {
     doc.setFontSize(10);
     doc.setTextColor(COLORS.primary[0], COLORS.primary[1], COLORS.primary[2]);
-    doc.text("📊 RÉSUMÉ", 20, startY);
+    doc.text("RESUME", 20, startY);
     startY += 6;
     
     summary.forEach((item, idx) => {
       doc.setFontSize(9);
       doc.setTextColor(COLORS.text[0], COLORS.text[1], COLORS.text[2]);
-      doc.text(`${item.label}:`, 25, startY + (idx * 5));
+      // Nettoyer les valeurs des accents
+      const cleanLabel = item.label.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+      const cleanValue = item.value.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+      doc.text(`${cleanLabel}:`, 25, startY + (idx * 5));
       doc.setTextColor(COLORS.primary[0], COLORS.primary[1], COLORS.primary[2]);
-      doc.text(item.value, 70, startY + (idx * 5));
+      doc.text(cleanValue, 70, startY + (idx * 5));
     });
     
     startY += (summary.length * 5) + 10;
@@ -73,7 +87,7 @@ export function exportToPDFStructured(
   // ========== TABLEAU ==========
   if (data && data.length > 0) {
     autoTable(doc, {
-      head: [columns.map(col => col.header)],
+      head: [columns.map(col => col.header.normalize("NFD").replace(/[\u0300-\u036f]/g, ""))],
       body: data.map(row => columns.map(col => {
         let value = row[col.accessor];
         if (col.accessor === "due_date" && value) {
@@ -83,7 +97,9 @@ export function exportToPDFStructured(
         } else if (col.accessor === "date" && value) {
           value = new Date(value).toLocaleDateString('fr-FR');
         }
-        return value || "-";
+        // Nettoyer la valeur des accents
+        const strValue = String(value || "-");
+        return strValue.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
       })),
       startY: startY,
       theme: "striped",
@@ -91,26 +107,34 @@ export function exportToPDFStructured(
         fillColor: COLORS.primary,
         textColor: [10, 10, 11],
         fontStyle: "bold",
-        fontSize: 9
+        fontSize: 9,
+        font: "helvetica"
       },
       bodyStyles: {
         textColor: COLORS.text,
         fontSize: 8,
-        lineColor: COLORS.border
+        lineColor: COLORS.border,
+        font: "helvetica"
       },
       alternateRowStyles: {
         fillColor: [40, 40, 45]
       },
-      margin: { left: 20, right: 20 }
+      margin: { left: 20, right: 20 },
+      didDrawCell: (data) => {
+        // S'assurer que le texte est lisible
+        if (data.cell.raw) {
+          doc.setFont("helvetica", "normal");
+        }
+      }
     });
     
     const finalY = (doc as any).lastAutoTable.finalY + 10;
     startY = finalY;
   } else {
-    // Message si pas de données
+    // Message si pas de donnees
     doc.setFontSize(10);
     doc.setTextColor(COLORS.textDark[0], COLORS.textDark[1], COLORS.textDark[2]);
-    doc.text("Aucune donnée à afficher", 20, startY);
+    doc.text("Aucune donnee a afficher", 20, startY);
     startY += 10;
   }
   
@@ -121,19 +145,18 @@ export function exportToPDFStructured(
     doc.setFontSize(7);
     doc.setTextColor(COLORS.textDark[0], COLORS.textDark[1], COLORS.textDark[2]);
     doc.text(
-      `SOVEREIGN - ${title} - Page ${i}/${pageCount}`,
+      `SOVEREIGN - ${cleanTitle} - Page ${i}/${pageCount}`,
       20,
       doc.internal.pageSize.getHeight() - 10
     );
     
-    // Petit séparateur
+    // Petit separateur
     doc.setDrawColor(COLORS.primary[0], COLORS.primary[1], COLORS.primary[2]);
     doc.line(20, doc.internal.pageSize.getHeight() - 15, 190, doc.internal.pageSize.getHeight() - 15);
   }
   
   doc.save(`${filename}_${new Date().toISOString().split('T')[0]}.pdf`);
 }
-
 // =====================================================
 // EXPORTS SPÉCIFIQUES
 // =====================================================
