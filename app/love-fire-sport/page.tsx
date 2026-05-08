@@ -185,6 +185,20 @@ export default function LoveFireSportPage() {
         </p>
       </div>
 
+      {/* Bloc Becks - Love & Fire Sport */}
+      <div className="bg-purple-500/10 border border-purple-500/20 rounded-xl p-4 mb-6">
+        <div className="flex items-center gap-3">
+          <Trophy className="w-5 h-5 text-purple-400" />
+          <div>
+            <p className="text-sm text-purple-400 font-medium">Becks - Love & Fire Sport</p>
+            <p className="text-sm text-ivory">
+              🎯 {grants.filter(g => g.status === "researching").length} grants en recherche<br/>
+              📄 {grants.filter(g => g.status === "preparing").length} grants en préparation<br/>
+              ⚠️ {grants.filter(g => g.deadline && new Date(g.deadline) < new Date(Date.now() + 7*24*60*60*1000)).length} deadline(s) dans les 7 jours
+            </p>
+          </div>
+        </div>
+      </div>
       {/* STATS CARDS */}
       {stats && (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
