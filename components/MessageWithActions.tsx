@@ -1,7 +1,8 @@
 "use client";
 import { useState } from "react";
-import { CheckCircle, XCircle, Loader2, Send, FileText, Mail, ListTodo } from "lucide-react";
+import { CheckCircle, XCircle, Loader2, Send, FileText, Mail, ListTodo, Sparkles } from "lucide-react";
 import { toast } from "sonner";
+import ReactMarkdown from 'react-markdown';
 
 const API_URL = "https://sovereign-bridge.onrender.com";
 
@@ -9,7 +10,6 @@ type Action = {
   type: string;
   params: any;
   label: string;
-  confirm?: boolean;
 };
 
 type MessageWithActionsProps = {
@@ -28,7 +28,7 @@ export function MessageWithActions({ content, actions = [], onActionComplete }: 
       case "create_task": return <CheckCircle className="w-3 h-3" />;
       case "create_draft": return <FileText className="w-3 h-3" />;
       case "create_subtasks": return <ListTodo className="w-3 h-3" />;
-      default: return <Send className="w-3 h-3" />;
+      default: return <Sparkles className="w-3 h-3" />;
     }
   };
 
@@ -55,6 +55,7 @@ export function MessageWithActions({ content, actions = [], onActionComplete }: 
         toast.error(`❌ Erreur : ${result.results[0]?.error || "inconnue"}`);
       }
     } catch (error) {
+      console.error("Erreur action:", error);
       toast.error("Erreur de connexion");
     } finally {
       setExecutingActions(prev => {
@@ -67,11 +68,22 @@ export function MessageWithActions({ content, actions = [], onActionComplete }: 
 
   return (
     <div className="space-y-3">
-      <div className="prose prose-invert max-w-none">
-        {content.split('\n').map((line, i) => (
-          <p key={i} className="text-sm text-ivory">{line}</p>
-        ))}
-      </div>
+      <ReactMarkdown
+        components={{
+          img: ({ ...props }) => (
+            <img {...props} className="rounded-xl max-w-full max-h-96 object-contain my-2 border border-white/10" loading="lazy" />
+          ),
+          a: ({ href, children, ...props }) => {
+            const isImage = href?.match(/\.(jpg|jpeg|png|gif|webp)$/i);
+            if (isImage) {
+              return <img src={href} alt={String(children)} className="rounded-xl max-w-full max-h-96 object-contain my-2 border border-white/10" loading="lazy" />;
+            }
+            return <a href={href} target="_blank" rel="noopener noreferrer" className="text-gold-500 hover:underline" {...props}>{children}</a>;
+          },
+        }}
+      >
+        {content}
+      </ReactMarkdown>
       
       {actions.length > 0 && (
         <div className="flex flex-wrap gap-2 mt-3 pt-2 border-t border-white/10">
@@ -93,7 +105,7 @@ export function MessageWithActions({ content, actions = [], onActionComplete }: 
               ) : (
                 getActionIcon(action.type)
               )}
-              {executedActions.has(idx) ? "Fait" : action.label}
+              {executedActions.has(idx) ? action.label.replace("Faire ", "✅ ") : action.label}
             </button>
           ))}
         </div>
