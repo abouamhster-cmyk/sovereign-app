@@ -2,7 +2,36 @@
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 
-// Fonction de formatage (garde les accents)
+// =====================================================
+// CONFIGURATION DES COULEURS (unifiée)
+// =====================================================
+
+const COLORS = {
+  // Fond et arrière-plans
+  background: [10, 10, 11] as [number, number, number],     // Midnight
+  cardBg: [30, 30, 35] as [number, number, number],        // Dark gray
+  altRowBg: [40, 40, 45] as [number, number, number],       // Slightly lighter
+  
+  // Texte
+  textPrimary: [245, 245, 240] as [number, number, number], // Ivory
+  textSecondary: [150, 150, 160] as [number, number, number], // Gray
+  textMuted: [100, 100, 100] as [number, number, number],   // Dark gray
+  
+  // Accents (Sovereign Gold)
+  gold: [212, 175, 55] as [number, number, number],
+  goldDark: [180, 150, 40] as [number, number, number],
+  
+  // Alertes
+  success: [16, 185, 129] as [number, number, number],      // Emerald
+  warning: [245, 158, 11] as [number, number, number],      // Amber
+  error: [239, 68, 68] as [number, number, number],         // Red
+  info: [59, 130, 246] as [number, number, number],         // Blue
+};
+
+// =====================================================
+// FONCTIONS UTILITAIRES
+// =====================================================
+
 function formatCellValue(value: any, accessor: string): string {
   if (value === null || value === undefined) return "-";
   if (accessor === "due_date" || accessor === "date") {
@@ -22,15 +51,52 @@ function formatCellValue(value: any, accessor: string): string {
   return String(value);
 }
 
-// Couleurs pour un bon contraste
-const COLORS = {
-  primary: [212, 175, 55] as [number, number, number],   // Gold
-  headerBg: [212, 175, 55] as [number, number, number],  // Gold
-  headerText: [10, 10, 11] as [number, number, number],  // Dark text on gold
-  bodyText: [245, 245, 240] as [number, number, number], // Ivory text on dark
-  altRowBg: [40, 40, 45] as [number, number, number],    // Slightly lighter dark
-  border: [50, 50, 60] as [number, number, number]
-};
+function addHeader(doc: jsPDF, title: string, subtitle?: string) {
+  // Fond d'en-tête
+  doc.setFillColor(COLORS.background[0], COLORS.background[1], COLORS.background[2]);
+  doc.rect(0, 0, 210, 45, "F");
+  
+  // Titre principal
+  doc.setFontSize(20);
+  doc.setFont("helvetica", "bold");
+  doc.setTextColor(COLORS.gold[0], COLORS.gold[1], COLORS.gold[2]);
+  doc.text(title, 20, 20);
+  
+  // Sous-titre
+  if (subtitle) {
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(COLORS.textSecondary[0], COLORS.textSecondary[1], COLORS.textSecondary[2]);
+    doc.text(subtitle, 20, 30);
+  }
+  
+  // Date d'export
+  doc.setFontSize(8);
+  doc.setTextColor(COLORS.textMuted[0], COLORS.textMuted[1], COLORS.textMuted[2]);
+  doc.text(`Exporté le ${new Date().toLocaleDateString('fr-FR')} à ${new Date().toLocaleTimeString('fr-FR')}`, 20, 40);
+  
+  // Ligne de séparation gold
+  doc.setDrawColor(COLORS.gold[0], COLORS.gold[1], COLORS.gold[2]);
+  doc.line(20, 45, 190, 45);
+}
+
+function addFooter(doc: jsPDF, title: string) {
+  const pageCount = doc.getNumberOfPages();
+  for (let i = 1; i <= pageCount; i++) {
+    doc.setPage(i);
+    doc.setFontSize(7);
+    doc.setTextColor(COLORS.textMuted[0], COLORS.textMuted[1], COLORS.textMuted[2]);
+    doc.text(
+      `SOVEREIGN - ${title} - Page ${i}/${pageCount}`,
+      20,
+      doc.internal.pageSize.getHeight() - 10
+    );
+  }
+}
+
+// =====================================================
+// EXPORT PRINCIPAL
+// =====================================================
 
 export function exportToPDFStructured(
   title: string,
@@ -48,27 +114,7 @@ export function exportToPDFStructured(
   const doc = new jsPDF({ unit: "mm", format: "a4" });
   
   // En-tête
-  doc.setFillColor(10, 10, 11);
-  doc.rect(0, 0, 210, 45, "F");
-  
-  doc.setFontSize(20);
-  doc.setFont("helvetica", "bold");
-  doc.setTextColor(COLORS.primary[0], COLORS.primary[1], COLORS.primary[2]);
-  doc.text(title, 20, 20);
-  
-  if (subtitle) {
-    doc.setFontSize(10);
-    doc.setFont("helvetica", "normal");
-    doc.setTextColor(100, 100, 100);
-    doc.text(subtitle, 20, 30);
-  }
-  
-  doc.setFontSize(8);
-  doc.setTextColor(100, 100, 100);
-  doc.text(`Exporté le ${new Date().toLocaleDateString('fr-FR')} à ${new Date().toLocaleTimeString('fr-FR')}`, 20, 40);
-  
-  doc.setDrawColor(COLORS.primary[0], COLORS.primary[1], COLORS.primary[2]);
-  doc.line(20, 45, 190, 45);
+  addHeader(doc, title, subtitle);
   
   let startY = 55;
   
@@ -76,16 +122,16 @@ export function exportToPDFStructured(
   if (summary && summary.length > 0) {
     doc.setFontSize(10);
     doc.setFont("helvetica", "bold");
-    doc.setTextColor(COLORS.primary[0], COLORS.primary[1], COLORS.primary[2]);
+    doc.setTextColor(COLORS.gold[0], COLORS.gold[1], COLORS.gold[2]);
     doc.text("RÉSUMÉ", 20, startY);
     startY += 6;
     
     doc.setFontSize(9);
     doc.setFont("helvetica", "normal");
     summary.forEach((item, idx) => {
-      doc.setTextColor(COLORS.bodyText[0], COLORS.bodyText[1], COLORS.bodyText[2]);
+      doc.setTextColor(COLORS.textPrimary[0], COLORS.textPrimary[1], COLORS.textPrimary[2]);
       doc.text(`${item.label}:`, 25, startY + (idx * 5));
-      doc.setTextColor(COLORS.primary[0], COLORS.primary[1], COLORS.primary[2]);
+      doc.setTextColor(COLORS.gold[0], COLORS.gold[1], COLORS.gold[2]);
       doc.text(item.value, 70, startY + (idx * 5));
     });
     
@@ -104,47 +150,34 @@ export function exportToPDFStructured(
     startY: startY,
     theme: "striped",
     headStyles: {
-      fillColor: COLORS.headerBg,
-      textColor: COLORS.headerText,
+      fillColor: COLORS.gold,
+      textColor: COLORS.background,
       fontStyle: "bold",
       fontSize: 9,
       halign: "left",
       valign: "middle"
     },
     bodyStyles: {
-      textColor: COLORS.bodyText,
+      textColor: COLORS.textPrimary,
       fontSize: 8,
-      lineColor: COLORS.border,
+      lineColor: COLORS.cardBg,
       halign: "left",
       valign: "middle"
     },
     alternateRowStyles: {
       fillColor: COLORS.altRowBg
     },
-    margin: { left: 20, right: 20 },
-    columnStyles: {
-      0: { cellWidth: "auto" }
-    }
+    margin: { left: 20, right: 20 }
   });
   
   // Pied de page
-  const pageCount = doc.getNumberOfPages();
-  for (let i = 1; i <= pageCount; i++) {
-    doc.setPage(i);
-    doc.setFontSize(7);
-    doc.setTextColor(100, 100, 100);
-    doc.text(
-      `SOVEREIGN - ${title} - Page ${i}/${pageCount}`,
-      20,
-      doc.internal.pageSize.getHeight() - 10
-    );
-  }
+  addFooter(doc, title);
   
   doc.save(`${filename}_${new Date().toISOString().split('T')[0]}.pdf`);
 }
 
 // =====================================================
-// FONCTIONS D'EXPORT SPÉCIFIQUES (gardent les accents)
+// FONCTIONS D'EXPORT SPÉCIFIQUES
 // =====================================================
 
 export function exportTasksToPDF(tasks: any[]) {
@@ -220,7 +253,12 @@ export function exportMissionsToPDF(missions: any[]) {
 
 export function exportWinsToPDF(wins: any[]) {
   const summary = [
-    { label: "Total des victoires", value: wins.length.toString() }
+    { label: "Total des victoires", value: wins.length.toString() },
+    { label: "Cette semaine", value: wins.filter(w => {
+      const weekAgo = new Date();
+      weekAgo.setDate(weekAgo.getDate() - 7);
+      return new Date(w.date) >= weekAgo;
+    }).length.toString() }
   ];
   
   exportToPDFStructured(
@@ -251,33 +289,23 @@ export function exportFinancialToPDF(spending: any[], revenue: any[]) {
   const doc = new jsPDF({ unit: "mm", format: "a4" });
   
   // En-tête
-  doc.setFillColor(10, 10, 11);
-  doc.rect(0, 0, 210, 45, "F");
-  doc.setFontSize(20);
-  doc.setFont("helvetica", "bold");
-  doc.setTextColor(212, 175, 55);
-  doc.text("Rapport financier", 20, 20);
-  doc.setFontSize(8);
-  doc.setTextColor(100, 100, 100);
-  doc.text(`Exporté le ${new Date().toLocaleDateString('fr-FR')}`, 20, 40);
-  doc.setDrawColor(212, 175, 55);
-  doc.line(20, 45, 190, 45);
+  addHeader(doc, "Rapport financier");
   
   let startY = 55;
   
   // Résumé
   doc.setFontSize(10);
   doc.setFont("helvetica", "bold");
-  doc.setTextColor(212, 175, 55);
+  doc.setTextColor(COLORS.gold[0], COLORS.gold[1], COLORS.gold[2]);
   doc.text("RÉSUMÉ FINANCIER", 20, startY);
   startY += 6;
   
   doc.setFontSize(9);
   doc.setFont("helvetica", "normal");
   summary.forEach((item, idx) => {
-    doc.setTextColor(245, 245, 240);
+    doc.setTextColor(COLORS.textPrimary[0], COLORS.textPrimary[1], COLORS.textPrimary[2]);
     doc.text(`${item.label}:`, 25, startY + (idx * 5));
-    doc.setTextColor(212, 175, 55);
+    doc.setTextColor(COLORS.gold[0], COLORS.gold[1], COLORS.gold[2]);
     doc.text(item.value, 70, startY + (idx * 5));
   });
   startY += 25;
@@ -286,7 +314,7 @@ export function exportFinancialToPDF(spending: any[], revenue: any[]) {
   if (spending.length > 0) {
     doc.setFontSize(10);
     doc.setFont("helvetica", "bold");
-    doc.setTextColor(212, 175, 55);
+    doc.setTextColor(COLORS.gold[0], COLORS.gold[1], COLORS.gold[2]);
     doc.text("DÉPENSES", 20, startY);
     startY += 5;
     
@@ -300,8 +328,17 @@ export function exportFinancialToPDF(spending: any[], revenue: any[]) {
       ]),
       startY: startY,
       theme: "striped",
-      headStyles: { fillColor: [212, 175, 55], textColor: [10, 10, 11], fontStyle: "bold" },
-      bodyStyles: { textColor: [245, 245, 240] }
+      headStyles: {
+        fillColor: COLORS.gold,
+        textColor: COLORS.background,
+        fontStyle: "bold"
+      },
+      bodyStyles: {
+        textColor: COLORS.textPrimary
+      },
+      alternateRowStyles: {
+        fillColor: COLORS.altRowBg
+      }
     });
     startY = (doc as any).lastAutoTable.finalY + 15;
   }
@@ -310,7 +347,7 @@ export function exportFinancialToPDF(spending: any[], revenue: any[]) {
   if (revenue.length > 0) {
     doc.setFontSize(10);
     doc.setFont("helvetica", "bold");
-    doc.setTextColor(212, 175, 55);
+    doc.setTextColor(COLORS.gold[0], COLORS.gold[1], COLORS.gold[2]);
     doc.text("REVENUS", 20, startY);
     startY += 5;
     
@@ -323,10 +360,22 @@ export function exportFinancialToPDF(spending: any[], revenue: any[]) {
       ]),
       startY: startY,
       theme: "striped",
-      headStyles: { fillColor: [212, 175, 55], textColor: [10, 10, 11], fontStyle: "bold" },
-      bodyStyles: { textColor: [245, 245, 240] }
+      headStyles: {
+        fillColor: COLORS.gold,
+        textColor: COLORS.background,
+        fontStyle: "bold"
+      },
+      bodyStyles: {
+        textColor: COLORS.textPrimary
+      },
+      alternateRowStyles: {
+        fillColor: COLORS.altRowBg
+      }
     });
   }
+  
+  // Pied de page
+  addFooter(doc, "Rapport financier");
   
   doc.save(`finances_${new Date().toISOString().split('T')[0]}.pdf`);
 }
@@ -336,30 +385,20 @@ export function exportFarmToPDF(infrastructure: any[], production: any[], spendi
   const totalSpent = spending.reduce((sum, s) => sum + (s.amount || 0), 0);
   
   // En-tête
-  doc.setFillColor(10, 10, 11);
-  doc.rect(0, 0, 210, 45, "F");
-  doc.setFontSize(20);
-  doc.setFont("helvetica", "bold");
-  doc.setTextColor(212, 175, 55);
-  doc.text("Rapport Ifè Living Farm", 20, 20);
-  doc.setFontSize(8);
-  doc.setTextColor(100, 100, 100);
-  doc.text(`Exporté le ${new Date().toLocaleDateString('fr-FR')}`, 20, 40);
-  doc.setDrawColor(212, 175, 55);
-  doc.line(20, 45, 190, 45);
+  addHeader(doc, "Rapport Ifè Living Farm");
   
   let startY = 55;
   
   // Résumé
   doc.setFontSize(10);
   doc.setFont("helvetica", "bold");
-  doc.setTextColor(212, 175, 55);
+  doc.setTextColor(COLORS.gold[0], COLORS.gold[1], COLORS.gold[2]);
   doc.text("SYNTHÈSE", 20, startY);
   startY += 6;
   
   doc.setFontSize(9);
   doc.setFont("helvetica", "normal");
-  doc.setTextColor(245, 245, 240);
+  doc.setTextColor(COLORS.textPrimary[0], COLORS.textPrimary[1], COLORS.textPrimary[2]);
   doc.text(`Investissement total: ${totalSpent.toLocaleString()} CFA`, 25, startY);
   doc.text(`Productions actives: ${production.filter(p => p.status === "active").length}`, 25, startY + 6);
   doc.text(`Infrastructures: ${infrastructure.filter(i => i.status === "complete").length}/${infrastructure.length}`, 25, startY + 12);
@@ -369,7 +408,8 @@ export function exportFarmToPDF(infrastructure: any[], production: any[], spendi
   // Infrastructures
   if (infrastructure.length > 0) {
     doc.setFontSize(10);
-    doc.setTextColor(212, 175, 55);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(COLORS.gold[0], COLORS.gold[1], COLORS.gold[2]);
     doc.text("INFRASTRUCTURES", 20, startY);
     startY += 5;
     
@@ -378,8 +418,17 @@ export function exportFarmToPDF(infrastructure: any[], production: any[], spendi
       body: infrastructure.map(i => [i.name, i.type || "-", i.status || "-", i.location_on_site || "-"]),
       startY: startY,
       theme: "striped",
-      headStyles: { fillColor: [212, 175, 55], textColor: [10, 10, 11], fontStyle: "bold" },
-      bodyStyles: { textColor: [245, 245, 240] }
+      headStyles: {
+        fillColor: COLORS.gold,
+        textColor: COLORS.background,
+        fontStyle: "bold"
+      },
+      bodyStyles: {
+        textColor: COLORS.textPrimary
+      },
+      alternateRowStyles: {
+        fillColor: COLORS.altRowBg
+      }
     });
     startY = (doc as any).lastAutoTable.finalY + 15;
   }
@@ -387,7 +436,8 @@ export function exportFarmToPDF(infrastructure: any[], production: any[], spendi
   // Production
   if (production.length > 0) {
     doc.setFontSize(10);
-    doc.setTextColor(212, 175, 55);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(COLORS.gold[0], COLORS.gold[1], COLORS.gold[2]);
     doc.text("UNITÉS DE PRODUCTION", 20, startY);
     startY += 5;
     
@@ -396,8 +446,17 @@ export function exportFarmToPDF(infrastructure: any[], production: any[], spendi
       body: production.map(p => [p.name, p.category || "-", p.status || "-", p.current_capacity || "-"]),
       startY: startY,
       theme: "striped",
-      headStyles: { fillColor: [212, 175, 55], textColor: [10, 10, 11], fontStyle: "bold" },
-      bodyStyles: { textColor: [245, 245, 240] }
+      headStyles: {
+        fillColor: COLORS.gold,
+        textColor: COLORS.background,
+        fontStyle: "bold"
+      },
+      bodyStyles: {
+        textColor: COLORS.textPrimary
+      },
+      alternateRowStyles: {
+        fillColor: COLORS.altRowBg
+      }
     });
     startY = (doc as any).lastAutoTable.finalY + 15;
   }
@@ -405,7 +464,8 @@ export function exportFarmToPDF(infrastructure: any[], production: any[], spendi
   // Dépenses
   if (spending.length > 0) {
     doc.setFontSize(10);
-    doc.setTextColor(212, 175, 55);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(COLORS.gold[0], COLORS.gold[1], COLORS.gold[2]);
     doc.text("DÉPENSES", 20, startY);
     startY += 5;
     
@@ -414,8 +474,17 @@ export function exportFarmToPDF(infrastructure: any[], production: any[], spendi
       body: spending.map(s => [s.title, `${s.amount?.toLocaleString()} CFA`, s.category || "-", s.project_area || "-"]),
       startY: startY,
       theme: "striped",
-      headStyles: { fillColor: [212, 175, 55], textColor: [10, 10, 11], fontStyle: "bold" },
-      bodyStyles: { textColor: [245, 245, 240] }
+      headStyles: {
+        fillColor: COLORS.gold,
+        textColor: COLORS.background,
+        fontStyle: "bold"
+      },
+      bodyStyles: {
+        textColor: COLORS.textPrimary
+      },
+      alternateRowStyles: {
+        fillColor: COLORS.altRowBg
+      }
     });
     startY = (doc as any).lastAutoTable.finalY + 15;
   }
@@ -423,7 +492,8 @@ export function exportFarmToPDF(infrastructure: any[], production: any[], spendi
   // Équipe
   if (team.length > 0) {
     doc.setFontSize(10);
-    doc.setTextColor(212, 175, 55);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(COLORS.gold[0], COLORS.gold[1], COLORS.gold[2]);
     doc.text("ÉQUIPE", 20, startY);
     startY += 5;
     
@@ -432,16 +502,28 @@ export function exportFarmToPDF(infrastructure: any[], production: any[], spendi
       body: team.map(t => [t.name, t.role || "-", t.area || "-", t.status === "active" ? "Actif" : t.status === "occasional" ? "Occasionnel" : "En attente"]),
       startY: startY,
       theme: "striped",
-      headStyles: { fillColor: [212, 175, 55], textColor: [10, 10, 11], fontStyle: "bold" },
-      bodyStyles: { textColor: [245, 245, 240] }
+      headStyles: {
+        fillColor: COLORS.gold,
+        textColor: COLORS.background,
+        fontStyle: "bold"
+      },
+      bodyStyles: {
+        textColor: COLORS.textPrimary
+      },
+      alternateRowStyles: {
+        fillColor: COLORS.altRowBg
+      }
     });
   }
+  
+  // Pied de page
+  addFooter(doc, "Rapport Ifè Living Farm");
   
   doc.save(`farm_${new Date().toISOString().split('T')[0]}.pdf`);
 }
 
 // =====================================================
-// EXPORT GÉNÉRIQUE (pour compatibilité)
+// EXPORT GÉNÉRIQUE (capture d'écran)
 // =====================================================
 
 export async function exportToPDF(elementId: string, filename: string) {
@@ -454,7 +536,7 @@ export async function exportToPDF(elementId: string, filename: string) {
   try {
     const html2canvas = (await import("html2canvas")).default;
     const canvas = await html2canvas(element, {
-      scale: 2,
+      scale: 2.5,
       backgroundColor: "#0A0A0B",
       logging: false,
       useCORS: true
