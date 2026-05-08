@@ -1,13 +1,14 @@
+// lib/exportPDF.ts
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 
-// Configuration des couleurs Sovereign
+// Configuration des couleurs Sovereign (tuples exacts)
 const COLORS = {
-  primary: [212, 175, 55],   // Gold
-  secondary: [30, 30, 35],   // Dark gray
-  text: [245, 245, 240],     // Ivory
-  textDark: [100, 100, 100], // Gray
-  border: [50, 50, 60]       // Border
+  primary: [212, 175, 55] as [number, number, number],   // Gold
+  secondary: [30, 30, 35] as [number, number, number],   // Dark gray
+  text: [245, 245, 240] as [number, number, number],     // Ivory
+  textDark: [100, 100, 100] as [number, number, number], // Gray
+  border: [50, 50, 60] as [number, number, number]       // Border
 };
 
 // =====================================================
@@ -25,7 +26,7 @@ export function exportToPDFStructured(
   const doc = new jsPDF({ unit: "mm", format: "a4" });
   
   // ========== EN-TÊTE ==========
-  doc.setFillColor(10, 10, 11); // Midnight
+  doc.setFillColor(10, 10, 11);
   doc.rect(0, 0, 210, 50, "F");
   
   // Titre principal
@@ -100,10 +101,7 @@ export function exportToPDFStructured(
       alternateRowStyles: {
         fillColor: [40, 40, 45]
       },
-      margin: { left: 20, right: 20 },
-      columnStyles: {
-        0: { cellWidth: "auto" }
-      }
+      margin: { left: 20, right: 20 }
     });
     
     const finalY = (doc as any).lastAutoTable.finalY + 10;
@@ -245,12 +243,6 @@ export async function exportFinancialToPDF(spending: any[], revenue: any[]) {
   const totalSpending = spending.reduce((sum, s) => sum + (s.amount || 0), 0);
   const totalRevenue = revenue.reduce((sum, r) => sum + (r.amount || 0), 0);
   const balance = totalRevenue - totalSpending;
-  
-  const summary = [
-    { label: "Total revenus", value: `${totalRevenue.toLocaleString()} CFA` },
-    { label: "Total dépenses", value: `${totalSpending.toLocaleString()} CFA` },
-    { label: "Solde", value: `${balance.toLocaleString()} CFA` }
-  ];
   
   const doc = new jsPDF({ unit: "mm", format: "a4" });
   
