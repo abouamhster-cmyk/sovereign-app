@@ -165,7 +165,7 @@ async function fetchSpending() {
     .eq("project", "Ifè Farm")
     .order("date", { ascending: false });
   
-  // Transformer pour correspondre au type FarmSpending
+  // Transformer pour correspondre au format attendu
   const formatted = (data || []).map(s => ({
     id: s.id,
     title: s.title,
@@ -174,12 +174,12 @@ async function fetchSpending() {
     project: s.project,
     date: s.date,
     notes: s.notes,
-    verified: s.verified || false
+    verified: s.verified || false,
+    created_at: s.created_at
   }));
   
   setSpending(formatted);
 }
-
   async function fetchTeam() {
     const { data } = await supabase.from("farm_team").select("*").order("name");
     setTeam(data || []);
