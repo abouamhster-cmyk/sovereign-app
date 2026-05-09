@@ -1,6 +1,6 @@
 "use client";
 import { useState } from "react";
-import { CheckCircle, XCircle, Loader2, Send, FileText, Mail, ListTodo, Sparkles } from "lucide-react";
+import { CheckCircle, Loader2, Mail, FileText, ListTodo, Sparkles, DollarSign, Calendar } from "lucide-react";
 import { toast } from "sonner";
 import ReactMarkdown from 'react-markdown';
 
@@ -27,7 +27,9 @@ export function MessageWithActions({ content, actions = [], onActionComplete }: 
       case "send_email": return <Mail className="w-3 h-3" />;
       case "create_task": return <CheckCircle className="w-3 h-3" />;
       case "create_draft": return <FileText className="w-3 h-3" />;
-      case "create_subtasks": return <ListTodo className="w-3 h-3" />;
+      case "create_checklist": return <ListTodo className="w-3 h-3" />;
+      case "get_financial_summary": return <DollarSign className="w-3 h-3" />;
+      case "create_calendar_event": return <Calendar className="w-3 h-3" />;
       default: return <Sparkles className="w-3 h-3" />;
     }
   };
@@ -36,23 +38,100 @@ export function MessageWithActions({ content, actions = [], onActionComplete }: 
     setExecutingActions(prev => new Set(prev).add(index));
     
     try {
-      const response = await fetch(`${API_URL}/api/executor/batch`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          actions: [{ action_type: action.type, params: action.params, requires_confirmation: false }],
-          auto_confirm: true
-        })
-      });
+      let response;
+      let result;
       
-      const result = await response.json();
+      // ✅ Router vers le bon endpoint selon le type d'action
+      switch (action.type) {
+        case "create_task":
+          response = await fetch(`${API_URL}/api/execute/create-task`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              title: action.params.title,
+              due_date: action.params.due_date || null,
+              priority: action.params.priority || "normal"
+            })
+          });
+          result = await response.json();
+          break;
+          
+        case "send_email":
+          response = await fetch(`${API_URL}/api/email/send`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              to: action.params.to,
+              subject: action.params.subject,
+              body: action.params.body
+            })
+          });
+          result = await response.json();
+          break;
+          
+        case "create_checklist":
+          response = await fetch(`${API_URL}/api/execute/create-checklist`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              title: action.params.title,
+              steps: action.params.steps || []
+            })
+          });
+          result = await response.json();
+          break;
+          
+        case "create_draft":
+          response = await fetch(`${API_URL}/api/execute/create-draft`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              type: action.params.type || "email",
+              context: action.params.context || ""
+            })
+          });
+          result = await response.json();
+          break;
+          
+        case "get_financial_summary":
+          response = await fetch(`${API_URL}/financials/summary`);
+          result = await response.json();
+          break;
+          
+        case "create_calendar_event":
+          response = await fetch(`${API_URL}/api/calendar/event`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              summary: action.params.summary,
+              start_datetime: action.params.start_datetime,
+              end_datetime: action.params.end_datetime,
+              description: action.params.description || ""
+            })
+          });
+          result = await response.json();
+          break;
+          
+        default:
+          // Fallback : utiliser l'executor batch
+          response = await fetch(`${API_URL}/api/executor/batch`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              actions: [{ action_type: action.type, params: action.params, requires_confirmation: false }],
+              auto_confirm: true
+            })
+          });
+          result = await response.json();
+          result = { success: result.success && result.results?.[0]?.success, error: result.results?.[0]?.error };
+      }
       
-      if (result.success && result.results[0]?.success) {
-        toast.success(`✅ Action exécutée : ${action.label}`);
+      if (result && result.success) {
+        toast.success(`✅ ${action.label}`);
         setExecutedActions(prev => new Set(prev).add(index));
         onActionComplete?.();
       } else {
-        toast.error(`❌ Erreur : ${result.results[0]?.error || "inconnue"}`);
+        toast.error(`❌ ${result?.error || "Erreur inconnue"}`);
       }
     } catch (error) {
       console.error("Erreur action:", error);
@@ -105,7 +184,7 @@ export function MessageWithActions({ content, actions = [], onActionComplete }: 
               ) : (
                 getActionIcon(action.type)
               )}
-              {executedActions.has(idx) ? action.label.replace("Faire ", "✅ ") : action.label}
+              {action.label}
             </button>
           ))}
         </div>
