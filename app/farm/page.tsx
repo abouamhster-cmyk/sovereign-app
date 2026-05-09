@@ -42,10 +42,11 @@ type FarmSpending = {
   title: string;
   amount: number;
   category: string;
-  project: string;
+  project: string;        
   date: string;
   notes?: string;
   verified?: boolean;
+  created_at?: string;
 };
 
 type FarmTeam = {
@@ -212,12 +213,12 @@ async function fetchSpending() {
         notes: formData.notes || null
       };
     } else if (activeTab === "spending") {
-      table = "spending";  // ← au lieu de "farm_spending"
+      table = "spending";  
       data = {
         title: formData.title,
         amount: parseFloat(formData.amount),
         category: formData.category,
-        project: "Ifè Farm",  // ← Force le projet
+        project: "Ifè Farm",   
         date: new Date().toISOString().split('T')[0],
         notes: formData.notes || null
       };
@@ -288,15 +289,15 @@ async function fetchSpending() {
         technical_lead: item.technical_lead || "",
         notes: item.notes || ""
       });
-      } else if (type === "spending") {
-        setFormData({
-          title: item.title,
-          amount: item.amount,
-          category: item.category,
-          project_area: item.project,
-          notes: item.notes || ""
-        });
-      }else if (type === "team") {
+    } else if (type === "spending") {
+      setFormData({
+        title: item.title,
+        amount: item.amount,
+        category: item.category,
+        project_area: item.project,   
+        notes: item.notes || ""
+      });
+    } else if (type === "team") {
       setFormData({
         name: item.name,
         role: item.role,
@@ -429,7 +430,7 @@ async function fetchSpending() {
                   {item.verified ? "✓ Vérifié" : "⏳ En attente"}
                 </span>
               </div>
-              <div className="text-xs text-gray-500">📂 {spendConfig.label} • 📍 {item.project_area}</div>
+                <div className="text-xs text-gray-500">📂 {spendConfig.label} • 📍 {item.project}</div>
             </div>
             <div className="flex gap-2">
               <button onClick={() => editItem(item, "spending")} className="text-gray-500 hover:text-gold-500"><Edit2 className="w-4 h-4" /></button>
