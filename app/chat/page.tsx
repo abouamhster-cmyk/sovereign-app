@@ -195,9 +195,11 @@ RÈGLES DU MODE SOVEREIGN :
 // =====================================================
 
 function extractActionsFromResponse(content: string): { cleanContent: string; actions: any[] } {
-  const actionRegex = /\[ACTION:({[^}]+})\]/g;
   const actions: any[] = [];
   let cleanContent = content;
+  
+  // ✅ Regex amélioré pour JSON avec accolades imbriquées
+  const actionRegex = /\[ACTION:(\{(?:[^{}]|{(?:[^{}]|{[^{}]*})*})*\})\]/g;
   
   let match;
   while ((match = actionRegex.exec(content)) !== null) {
@@ -206,13 +208,14 @@ function extractActionsFromResponse(content: string): { cleanContent: string; ac
       actions.push(action);
       cleanContent = cleanContent.replace(match[0], '');
     } catch (e) {
-      console.error("Erreur parsing action:", e);
+      console.error("❌ Erreur parsing action:", e);
     }
   }
   
+  console.log("📋 Actions extraites:", actions.length, actions); // ← Log de debug
+  
   return { cleanContent: cleanContent.trim(), actions };
 }
-
 function getRandomPriority(): string {
   const priorities = [
     "Finaliser le dossier DDA pour Love & Fire Sport",
