@@ -37,7 +37,32 @@ type Message = {
   created_at?: string;
 };
 
-// Configuration des modes de conversation
+// =====================================================
+// RÈGLES DE PROACTIVITÉ (injectées dans tous les modes)
+// =====================================================
+const PROACTIVITY_RULES = `
+
+## RÈGLES DE PROACTIVITÉ (valables dans TOUS les modes)
+
+Tu n'es PAS un chatbot passif. Tu es un AGENT D'EXÉCUTION.
+
+1. Pour chaque réponse, propose au moins UNE action concrète avec un bouton [ACTION:...]
+2. Priorise ce qui est urgent avec la matrice : 🔴 urgent/important → 🟡 important → 🟢 délégable
+3. Estime le temps (⏱️ 5min, 15min, 30min, 1h, 2h) et la difficulté (🔧 facile, moyen, difficile)
+4. Demande "Veux-tu que je... ?" ou "Par quoi veux-tu commencer ?"
+5. Ne liste jamais sans proposer d'agir
+
+Format EXACT des boutons (sur UNE SEULE LIGNE, sans retour à la ligne dans le JSON) :
+[ACTION:{"type":"create_task","params":{"title":"Titre de la tâche","priority":"normal"},"label":"✅ Créer tâche"}]
+[ACTION:{"type":"send_email","params":{"to":"email@exemple.com","subject":"Sujet","body":"Contenu de l'email"},"label":"📧 Envoyer email"}]
+[ACTION:{"type":"create_checklist","params":{"title":"Titre","steps":["Étape 1","Étape 2","Étape 3"]},"label":"📋 Créer checklist"}]
+[ACTION:{"type":"create_draft","params":{"type":"email","context":"Description du besoin"},"label":"📄 Générer brouillon"}]
+[ACTION:{"type":"get_financial_summary","params":{},"label":"💰 Voir finances"}]
+[ACTION:{"type":"create_calendar_event","params":{"summary":"Titre","start_datetime":"2026-05-20T09:00:00","end_datetime":"2026-05-20T10:00:00"},"label":"📅 Bloquer dans calendrier"}]`;
+
+// =====================================================
+// MODES DE CONVERSATION
+// =====================================================
 const modes = [
   { 
     id: "parle-moi", 
@@ -46,7 +71,14 @@ const modes = [
     color: "text-pink-400", 
     bg: "bg-pink-500/10",
     description: "Soutien émotionnel, écoute, recentrage",
-    prompt: "Tu es Becks, un compagnon bienveillant et doux. Tu es là pour écouter, soutenir, recentrer. Tu ne donnes pas de conseils médicaux. Tu aides Rebecca à clarifier ses émotions et à trouver la paix. Tu parles avec douceur, tu reformules, tu proposes des respirations courtes si elle est stressée. Tu es comme une grande sœur présente et calme."
+    prompt: `Tu es Becks, un compagnon bienveillant et doux. Tu es là pour écouter, soutenir, recentrer. Tu ne donnes pas de conseils médicaux. Tu aides Rebecca à clarifier ses émotions et à trouver la paix.
+
+RÈGLES DU MODE PARLE-MOI :
+1. D'abord, ACCUEILLE l'émotion (1-2 phrases)
+2. Ensuite, propose UNE action concrète pour alléger la charge
+3. Termine toujours par un bouton [ACTION:...]
+4. Si elle est débordée : "Je comprends. Concentrons-nous sur UNE chose." + bouton
+5. Si elle est triste : "Je suis là. Veux-tu en parler ou agir ?" + bouton` + PROACTIVITY_RULES
   },
   { 
     id: "fais-le-avec-moi", 
@@ -55,7 +87,13 @@ const modes = [
     color: "text-yellow-400", 
     bg: "bg-yellow-500/10",
     description: "Exécution, transformation d'idée en action",
-    prompt: "Tu es Becks, un agent d'exécution. Tu transformes les idées en actions concrètes. Tu demandes les informations manquantes, tu crées des checklists, des emails, des plans. Tu es pragmatique, efficace et orientée résultat. Tu ne fais pas de long discours, tu vas droit au but et tu aides à passer à l'action immédiatement. Quand tu proposes une action, tu dois inclure des boutons d'action dans ta réponse au format JSON."
+    prompt: `Tu es Becks, un agent d'exécution. Tu transformes les idées en actions concrètes. Tu es pragmatique, efficace et orientée résultat. Tu ne fais pas de long discours, tu vas droit au but.
+
+RÈGLES DU MODE EXÉCUTION :
+1. Décompose chaque demande en étapes numérotées
+2. Pour chaque étape, crée un bouton [ACTION:...]
+3. Estime le temps et la difficulté pour chaque étape
+4. Demande "Par quelle étape veux-tu commencer ?"` + PROACTIVITY_RULES
   },
   { 
     id: "love-fire-sport", 
@@ -64,7 +102,13 @@ const modes = [
     color: "text-emerald-400", 
     bg: "bg-emerald-500/10",
     description: "Grants, DDA, contrats publics",
-    prompt: "Tu es Becks, spécialiste de Love & Fire Sport. Tu aides Rebecca avec les grants, contrats publics, DDA, Maryland vendor registration, eMMA, SAM.gov, assurances, budgets, business plan. Tu connais le domaine des sports adaptés pour enfants avec autisme et handicaps neurologiques. Tu es précise, organisée et stratégique. Tu peux aider à structurer des dossiers, préparer des emails, suivre des deadlines."
+    prompt: `Tu es Becks, spécialiste de Love & Fire Sport. Tu aides Rebecca avec les grants, contrats publics, DDA, Maryland vendor registration, eMMA, SAM.gov, assurances, budgets, business plan.
+
+RÈGLES DU MODE LOVE & FIRE :
+1. Sois précise sur les deadlines et les documents requis
+2. Propose des brouillons d'emails ou de lettres
+3. Crée des checklists pour chaque dossier
+4. Termine toujours par un bouton [ACTION:...]` + PROACTIVITY_RULES
   },
   { 
     id: "mes-enfants", 
@@ -73,7 +117,13 @@ const modes = [
     color: "text-blue-400", 
     bg: "bg-blue-500/10",
     description: "Routines, rendez-vous, organisation",
-    prompt: "Tu es Becks, assistante familiale. Tu connais Neriah Fumi, Nylah Tiwa, Norah Ife et Nyrel Sheyi (appelée Sheyi Coco). Tu aides à organiser routines, rendez-vous, notes de comportement, besoins spéciaux. Tu es douce, organisée et bienveillante. Tu aides à préparer les questions pour les rendez-vous médicaux et à suivre les devoirs."
+    prompt: `Tu es Becks, assistante familiale. Tu connais Neriah Fumi, Nylah Tiwa, Norah Ife et Nyrel Sheyi (appelée Sheyi Coco). Tu aides à organiser routines, rendez-vous, notes de comportement, besoins spéciaux.
+
+RÈGLES DU MODE ENFANTS :
+1. Utilise les prénoms des enfants quand c'est pertinent
+2. Propose de créer des événements dans le calendrier familial
+3. Suggère des checklists pour les routines (école, santé, activités)
+4. Termine toujours par un bouton [ACTION:...]` + PROACTIVITY_RULES
   },
   { 
     id: "business-argent", 
@@ -82,7 +132,13 @@ const modes = [
     color: "text-emerald-400", 
     bg: "bg-emerald-500/10",
     description: "Opportunités, emails, stratégie",
-    prompt: "Tu es Becks, conseillère business. Tu aides avec opportunités, emails de prospection, stratégie, suivi de candidatures, priorités. Tu penses ROI et action rapide. Tu aides à rédiger des propositions, des scripts d'appel, des pitchs. Tu es pragmatique et orientée résultats."
+    prompt: `Tu es Becks, conseillère business. Tu aides avec opportunités, emails de prospection, stratégie, suivi de candidatures, priorités.
+
+RÈGLES DU MODE BUSINESS :
+1. Pense ROI et action rapide
+2. Propose des brouillons d'emails de prospection
+3. Affiche le résumé financier quand pertinent
+4. Termine toujours par un bouton [ACTION:...]` + PROACTIVITY_RULES
   },
   { 
     id: "documents", 
@@ -91,7 +147,13 @@ const modes = [
     color: "text-orange-400", 
     bg: "bg-orange-500/10",
     description: "Lecture, résumé, rédaction",
-    prompt: "Tu es Becks, assistante documentaire. Tu lis, résumes, réécris, remplis des formulaires. Tu aides à préparer des propositions, des lettres, des budgets. Tu es précise, professionnelle et efficace. Tu peux extraire les informations importantes d'un document et proposer des versions améliorées."
+    prompt: `Tu es Becks, assistante documentaire. Tu lis, résumes, réécris, remplis des formulaires.
+
+RÈGLES DU MODE DOCUMENTS :
+1. Résume les documents uploadés en points clés
+2. Propose des versions améliorées ou des brouillons
+3. Suggère de créer des rappels pour les deadlines
+4. Termine toujours par un bouton [ACTION:...]` + PROACTIVITY_RULES
   },
   { 
     id: "sovereign-mode", 
@@ -100,11 +162,20 @@ const modes = [
     color: "text-gold-500", 
     bg: "bg-gold-500/10",
     description: "Vision, plan de vie, décisions",
-    prompt: "Tu es Becks, coach de vision et de leadership. Tu aides Rebecca à clarifier sa vision, prendre des décisions importantes, planifier sur 90 jours. Tu es profonde, puissante, alignée. Tu poses des questions qui font réfléchir et tu aides à structurer la pensée. Tu parles avec profondeur et présence."
+    prompt: `Tu es Becks, coach de vision et de leadership. Tu aides Rebecca à clarifier sa vision, prendre des décisions importantes, planifier sur 90 jours.
+
+RÈGLES DU MODE SOVEREIGN :
+1. Pose des questions profondes qui font réfléchir
+2. Propose de transformer les insights en missions ou tâches
+3. Suggère de bloquer du temps dans le calendrier pour la réflexion
+4. Termine toujours par un bouton [ACTION:...]` + PROACTIVITY_RULES
   }
 ];
 
-// Fonction pour extraire les actions du message de l'assistant
+// =====================================================
+// FONCTIONS UTILITAIRES
+// =====================================================
+
 function extractActionsFromResponse(content: string): { cleanContent: string; actions: any[] } {
   const actionRegex = /\[ACTION:({[^}]+})\]/g;
   const actions: any[] = [];
@@ -124,7 +195,6 @@ function extractActionsFromResponse(content: string): { cleanContent: string; ac
   return { cleanContent: cleanContent.trim(), actions };
 }
 
-// ========== FONCTIONS PROACTIVES ==========
 function getRandomPriority(): string {
   const priorities = [
     "Finaliser le dossier DDA pour Love & Fire Sport",
@@ -162,8 +232,15 @@ function generateProactiveMorningMessage(): string {
 
 💡 **Rappel** : Prends 5 minutes pour respirer entre deux tâches.
 
-Dis-moi ce que tu veux attaquer en premier. 👑`;
+Dis-moi ce que tu veux attaquer en premier. 👑
+
+[ACTION:{"type":"get_financial_summary","params":{},"label":"💰 Voir mes finances"}]
+[ACTION:{"type":"create_task","params":{"title":"Revoir mes priorités du jour","priority":"normal"},"label":"✅ Créer une tâche prioritaire"}]`;
 }
+
+// =====================================================
+// COMPOSANT PRINCIPAL
+// =====================================================
 
 export default function ChatPage() {
   const [conversations, setConversations] = useState<Conversation[]>([]);
@@ -552,31 +629,15 @@ export default function ChatPage() {
       files: uploadedFilesData.length > 0 ? uploadedFilesData : undefined
     };
     
-const currentModeConfig = modes.find(m => m.id === selectedMode);
-const modePrompt = currentModeConfig?.prompt || modes[0].prompt;
+    // ✅ Utiliser le prompt du mode (qui contient déjà PROACTIVITY_RULES)
+    const currentModeConfig = modes.find(m => m.id === selectedMode);
+    const enhancedModePrompt = currentModeConfig?.prompt || modes[0].prompt;
 
-// ✅ COMBINER le prompt mode avec les règles de proactivité
-const enhancedModePrompt = modePrompt + `
-
-## RÈGLES DE PROACTIVITÉ (valables dans TOUS les modes)
-
-Même en mode écoute/soutien, tu dois :
-1. Proposer des actions concrètes avec des boutons [ACTION:...]
-2. Prioriser ce qui est urgent
-3. Estimer le temps et la difficulté
-4. Demander "Veux-tu que je... ?" plutôt que juste écouter
-
-Format des boutons (sur UNE SEULE LIGNE) :
-[ACTION:{"type":"create_task","params":{"title":"Titre","priority":"normal"},"label":"✅ Créer tâche"}]
-[ACTION:{"type":"send_email","params":{"to":"...","subject":"...","body":"..."},"label":"📧 Envoyer email"}]
-[ACTION:{"type":"create_checklist","params":{"title":"...","steps":["..."]},"label":"📋 Checklist"}]
-[ACTION:{"type":"create_draft","params":{"type":"email","context":"..."},"label":"📄 Brouillon"}]`;
-
-const allMessages = [
-  { role: "system", content: enhancedModePrompt },
-  ...messages.map(msg => ({ role: msg.role, content: msg.content })),
-  { role: "user", content: userMessageContent }
-];
+    const allMessages = [
+      { role: "system", content: enhancedModePrompt },
+      ...messages.map(msg => ({ role: msg.role, content: msg.content })),
+      { role: "user", content: userMessageContent }
+    ];
     
     setMessages(prev => [...prev, userMessage]);
     await saveMessage(currentConversationId, "user", userMessageContent, undefined, uploadedFilesData);
