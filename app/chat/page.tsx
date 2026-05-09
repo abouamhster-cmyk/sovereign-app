@@ -552,14 +552,31 @@ export default function ChatPage() {
       files: uploadedFilesData.length > 0 ? uploadedFilesData : undefined
     };
     
-    const currentModeConfig = modes.find(m => m.id === selectedMode);
-    const systemPrompt = currentModeConfig?.prompt || modes[0].prompt;
-    
-    const allMessages = [
-      { role: "system", content: systemPrompt },
-      ...messages.map(msg => ({ role: msg.role, content: msg.content })),
-      { role: "user", content: userMessageContent }
-    ];
+const currentModeConfig = modes.find(m => m.id === selectedMode);
+const modePrompt = currentModeConfig?.prompt || modes[0].prompt;
+
+// ✅ COMBINER le prompt mode avec les règles de proactivité
+const enhancedModePrompt = modePrompt + `
+
+## RÈGLES DE PROACTIVITÉ (valables dans TOUS les modes)
+
+Même en mode écoute/soutien, tu dois :
+1. Proposer des actions concrètes avec des boutons [ACTION:...]
+2. Prioriser ce qui est urgent
+3. Estimer le temps et la difficulté
+4. Demander "Veux-tu que je... ?" plutôt que juste écouter
+
+Format des boutons (sur UNE SEULE LIGNE) :
+[ACTION:{"type":"create_task","params":{"title":"Titre","priority":"normal"},"label":"✅ Créer tâche"}]
+[ACTION:{"type":"send_email","params":{"to":"...","subject":"...","body":"..."},"label":"📧 Envoyer email"}]
+[ACTION:{"type":"create_checklist","params":{"title":"...","steps":["..."]},"label":"📋 Checklist"}]
+[ACTION:{"type":"create_draft","params":{"type":"email","context":"..."},"label":"📄 Brouillon"}]`;
+
+const allMessages = [
+  { role: "system", content: enhancedModePrompt },
+  ...messages.map(msg => ({ role: msg.role, content: msg.content })),
+  { role: "user", content: userMessageContent }
+];
     
     setMessages(prev => [...prev, userMessage]);
     await saveMessage(currentConversationId, "user", userMessageContent, undefined, uploadedFilesData);
