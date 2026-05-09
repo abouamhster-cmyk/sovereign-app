@@ -158,14 +158,13 @@ export default function FarmPage() {
   }
 
 async function fetchSpending() {
-  // Récupérer les dépenses de la ferme depuis la table spending
+  // Récupérer les dépenses de la ferme avec un filtre plus souple
   const { data } = await supabase
     .from("spending")
     .select("*")
-    .eq("project", "Ifè Farm")
+    .or('project.eq."Ifè Farm",project.eq."Ifè Living Farm"')   
     .order("date", { ascending: false });
   
-  // Transformer pour correspondre au format attendu
   const formatted = (data || []).map(s => ({
     id: s.id,
     title: s.title,
@@ -180,6 +179,7 @@ async function fetchSpending() {
   
   setSpending(formatted);
 }
+  
   async function fetchTeam() {
     const { data } = await supabase.from("farm_team").select("*").order("name");
     setTeam(data || []);
