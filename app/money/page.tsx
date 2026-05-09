@@ -85,6 +85,7 @@ export default function MoneyPage() {
     { value: "crops", label: "Cultures", color: "bg-green-500/20 text-green-400" },
     { value: "transport", label: "Transport", color: "bg-yellow-500/20 text-yellow-400" },
     { value: "equipment", label: "Équipement", color: "bg-indigo-500/20 text-indigo-400" },
+    { value: "food", label: "🍽️ Alimentation", color: "bg-pink-500/20 text-pink-400" }, 
     { value: "other", label: "Autre", color: "bg-gray-500/20 text-gray-400" }
   ];
 
