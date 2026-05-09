@@ -34,108 +34,116 @@ export function MessageWithActions({ content, actions = [], onActionComplete }: 
     }
   };
 
-  const executeAction = async (index: number, action: Action) => {
+const executeAction = async (index: number, action: Action) => {
     setExecutingActions(prev => new Set(prev).add(index));
     
     try {
-      let response;
-      let result;
+      // ✅ Mapper les types d'action vers les endpoints directs
+      let endpoint = "";
+      let body: any = {};
       
-      // ✅ Router vers le bon endpoint selon le type d'action
       switch (action.type) {
         case "create_task":
-          response = await fetch(`${API_URL}/api/execute/create-task`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              title: action.params.title,
-              due_date: action.params.due_date || null,
-              priority: action.params.priority || "normal"
-            })
-          });
-          result = await response.json();
+          endpoint = `${API_URL}/api/execute/create-task`;
+          body = action.params;
           break;
           
         case "send_email":
-          response = await fetch(`${API_URL}/api/email/send`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              to: action.params.to,
-              subject: action.params.subject,
-              body: action.params.body
-            })
-          });
-          result = await response.json();
+          endpoint = `${API_URL}/api/email/send`;
+          body = action.params;
           break;
           
         case "create_checklist":
-          response = await fetch(`${API_URL}/api/execute/create-checklist`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              title: action.params.title,
-              steps: action.params.steps || []
-            })
-          });
-          result = await response.json();
+          endpoint = `${API_URL}/api/execute/create-checklist`;
+          body = action.params;
           break;
           
         case "create_draft":
-          response = await fetch(`${API_URL}/api/execute/create-draft`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              type: action.params.type || "email",
-              context: action.params.context || ""
-            })
-          });
-          result = await response.json();
+          endpoint = `${API_URL}/api/execute/create-draft`;
+          body = action.params;
           break;
           
         case "get_financial_summary":
-          response = await fetch(`${API_URL}/financials/summary`);
-          result = await response.json();
-          break;
+          endpoint = `${API_URL}/chat`;
+          body = {
+            messages: [{ role: "user", content: "get_financial_summary" }]
+          };
+          // Cas spécial : on affiche juste un toast
+          toast.info("💰 Redirige vers la page Money pour voir le résumé");
+          window.open("/money", "_self");
+          setExecutedActions(prev => new Set(prev).add(index));
+          onActionComplete?.();
+          setExecutingActions(prev => {
+            const next = new Set(prev);
+            next.delete(index);
+            return next;
+          });
+          return;
           
         case "create_calendar_event":
-          response = await fetch(`${API_URL}/api/calendar/event`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              summary: action.params.summary,
-              start_datetime: action.params.start_datetime,
-              end_datetime: action.params.end_datetime,
-              description: action.params.description || ""
-            })
-          });
-          result = await response.json();
+          endpoint = `${API_URL}/api/calendar/event`;
+          body = action.params;
           break;
           
+        case "write_to_table":
+          endpoint = `${API_URL}/spending`;  // ou revenue selon le contexte
+          body = { table: "spending", data: action.params };
+          break;
+          
+        case "read_table":
+          // Rediriger vers la page appropriée
+          toast.info("📊 Redirection vers la page appropriée");
+          const tableMap: any = {
+            "tasks": "/tasks",
+            "missions": "/missions",
+            "spending": "/money",
+            "revenue": "/money",
+            "documents": "/documents",
+            "family_events": "/family",
+            "wins": "/wins"
+          };
+          const table = action.params?.table;
+          if (table && tableMap[table]) {
+            window.open(tableMap[table], "_self");
+          }
+          setExecutedActions(prev => new Set(prev).add(index));
+          onActionComplete?.();
+          return;
+          
         default:
-          // Fallback : utiliser l'executor batch
-          response = await fetch(`${API_URL}/api/executor/batch`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              actions: [{ action_type: action.type, params: action.params, requires_confirmation: false }],
-              auto_confirm: true
-            })
-          });
-          result = await response.json();
-          result = { success: result.success && result.results?.[0]?.success, error: result.results?.[0]?.error };
+          // Fallback : utiliser le batch executor
+          endpoint = `${API_URL}/api/executor/batch`;
+          body = {
+            actions: [{ action_type: action.type, params: action.params, requires_confirmation: false }],
+            auto_confirm: true
+          };
       }
       
-      if (result && result.success) {
-        toast.success(`✅ ${action.label}`);
+      const method = endpoint.includes("/chat") ? "POST" : "POST";
+      
+      const response = await fetch(endpoint, {
+        method,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body)
+      });
+      
+      if (!response.ok) {
+        const errText = await response.text();
+        throw new Error(`${response.status}: ${errText.substring(0, 100)}`);
+      }
+      
+      const result = await response.json();
+      
+      if (result.success || result.reply) {
+        toast.success(`✅ Action exécutée : ${action.label}`);
         setExecutedActions(prev => new Set(prev).add(index));
         onActionComplete?.();
       } else {
-        toast.error(`❌ ${result?.error || "Erreur inconnue"}`);
+        toast.error(`❌ Erreur : ${result.error || "inconnue"}`);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Erreur action:", error);
-      toast.error("Erreur de connexion");
+      toast.error(`❌ ${error.message || "Erreur de connexion"}`);
     } finally {
       setExecutingActions(prev => {
         const next = new Set(prev);
