@@ -97,7 +97,9 @@ const spendingCategoryConfig: Record<string, { label: string; icon: any }> = {
   livestock: { label: "Élevage", icon: Fish },
   crops: { label: "Cultures", icon: Leaf },
   transport: { label: "Transport", icon: Truck },
-  security: { label: "Sécurité", icon: Shield }
+  security: { label: "Sécurité", icon: Shield },
+  food: { label: "🍽️ Alimentation", icon: Home } 
+
 };
 
 export default function FarmPage() {
