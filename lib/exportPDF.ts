@@ -3,32 +3,20 @@ import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 
 // =====================================================
-// CONFIGURATION DES COULEURS (contraste garanti)
+// CONFIGURATION DES COULEURS (contraste élevé)
 // =====================================================
 
 const COLORS = {
-  // Fonds
-  background: [10, 10, 11] as [number, number, number],     // Midnight (très foncé)
-  cardBg: [25, 25, 30] as [number, number, number],         // Gris très foncé
-  altRowBg: [35, 35, 42] as [number, number, number],       // Gris légèrement plus clair
+  // Noirs et blancs
+  black: [0, 0, 0] as [number, number, number],
+  white: [255, 255, 255] as [number, number, number],
   
-  // Textes clairs (sur fond sombre)
-  textWhite: [255, 255, 255] as [number, number, number],   // Blanc pur
-  textIvory: [245, 245, 240] as [number, number, number],   // Ivoire clair
-  textLight: [210, 210, 210] as [number, number, number],   // Gris clair lisible
+  // Or (Sovereign)
+  gold: [212, 175, 55] as [number, number, number],
+  goldDark: [180, 150, 40] as [number, number, number],
   
-  // Accents (Sovereign Gold)
-  gold: [212, 175, 55] as [number, number, number],         // Doré
-  goldLight: [230, 200, 80] as [number, number, number],    // Doré clair pour fonds
-  
-  // Texte sur fond gold (doit être foncé pour contraster)
-  textOnGold: [10, 10, 11] as [number, number, number],     // Noir/midnight
-  
-  // Alertes
-  success: [16, 185, 129] as [number, number, number],
-  warning: [245, 158, 11] as [number, number, number],
-  error: [239, 68, 68] as [number, number, number],
-  info: [59, 130, 246] as [number, number, number],
+  // Gris clair pour délimitations subtiles (optionnel)
+  lightGray: [240, 240, 240] as [number, number, number]
 };
 
 // =====================================================
@@ -54,41 +42,49 @@ function formatCellValue(value: any, accessor: string): string {
   return String(value);
 }
 
+// =====================================================
+// EN-TÊTE : fond noir, titre or, texte blanc
+// =====================================================
+
 function addHeader(doc: jsPDF, title: string, subtitle?: string) {
-  // Fond d'en-tête (noir)
-  doc.setFillColor(COLORS.background[0], COLORS.background[1], COLORS.background[2]);
+  // Fond noir
+  doc.setFillColor(COLORS.black[0], COLORS.black[1], COLORS.black[2]);
   doc.rect(0, 0, 210, 45, "F");
   
-  // Titre principal (doré, visible)
+  // Titre en or
   doc.setFontSize(20);
   doc.setFont("helvetica", "bold");
   doc.setTextColor(COLORS.gold[0], COLORS.gold[1], COLORS.gold[2]);
   doc.text(title, 20, 20);
   
-  // Sous-titre (gris clair, lisible)
+  // Sous-titre en blanc
   if (subtitle) {
     doc.setFontSize(10);
     doc.setFont("helvetica", "normal");
-    doc.setTextColor(COLORS.textLight[0], COLORS.textLight[1], COLORS.textLight[2]);
+    doc.setTextColor(COLORS.white[0], COLORS.white[1], COLORS.white[2]);
     doc.text(subtitle, 20, 30);
   }
   
-  // Date d'export (gris moyen)
+  // Date d'export en blanc
   doc.setFontSize(8);
-  doc.setTextColor(150, 150, 160);
+  doc.setTextColor(COLORS.white[0], COLORS.white[1], COLORS.white[2]);
   doc.text(`Exporté le ${new Date().toLocaleDateString('fr-FR')} à ${new Date().toLocaleTimeString('fr-FR')}`, 20, 40);
   
-  // Ligne de séparation dorée
+  // Ligne de séparation or
   doc.setDrawColor(COLORS.gold[0], COLORS.gold[1], COLORS.gold[2]);
   doc.line(20, 45, 190, 45);
 }
+
+// =====================================================
+// PIED DE PAGE : texte blanc (car fond blanc, mais on met du noir)
+// =====================================================
 
 function addFooter(doc: jsPDF, title: string) {
   const pageCount = doc.getNumberOfPages();
   for (let i = 1; i <= pageCount; i++) {
     doc.setPage(i);
     doc.setFontSize(7);
-    doc.setTextColor(120, 120, 130); // Gris lisible
+    doc.setTextColor(COLORS.black[0], COLORS.black[1], COLORS.black[2]);
     doc.text(
       `SOVEREIGN - ${title} - Page ${i}/${pageCount}`,
       20,
@@ -116,25 +112,30 @@ export function exportToPDFStructured(
 
   const doc = new jsPDF({ unit: "mm", format: "a4" });
   
-  // En-tête
+  // En-tête (fond noir, titre or)
   addHeader(doc, title, subtitle);
   
   let startY = 55;
+  
+  // Corps du document : fond blanc par défaut
+  // On force le fond blanc pour tout le reste de la page
+  doc.setFillColor(COLORS.white[0], COLORS.white[1], COLORS.white[2]);
+  doc.rect(0, 45, 210, 300, "F");
   
   // Résumé
   if (summary && summary.length > 0) {
     doc.setFontSize(10);
     doc.setFont("helvetica", "bold");
-    doc.setTextColor(COLORS.gold[0], COLORS.gold[1], COLORS.gold[2]);
+    doc.setTextColor(COLORS.black[0], COLORS.black[1], COLORS.black[2]);
     doc.text("RÉSUMÉ", 20, startY);
     startY += 6;
     
     doc.setFontSize(9);
     doc.setFont("helvetica", "normal");
     summary.forEach((item, idx) => {
-      doc.setTextColor(COLORS.textIvory[0], COLORS.textIvory[1], COLORS.textIvory[2]); // Blanc cassé
+      doc.setTextColor(COLORS.black[0], COLORS.black[1], COLORS.black[2]);
       doc.text(`${item.label}:`, 25, startY + (idx * 5));
-      doc.setTextColor(COLORS.gold[0], COLORS.gold[1], COLORS.gold[2]); // Doré pour la valeur
+      doc.setTextColor(COLORS.gold[0], COLORS.gold[1], COLORS.gold[2]);
       doc.text(item.value, 70, startY + (idx * 5));
     });
     
@@ -153,22 +154,22 @@ export function exportToPDFStructured(
     startY: startY,
     theme: "striped",
     headStyles: {
-      fillColor: COLORS.gold,           // Fond doré
-      textColor: COLORS.textOnGold,     // Texte noir/midnight sur doré
+      fillColor: COLORS.gold,      // Fond or pour l'en-tête
+      textColor: COLORS.black,     // Texte noir sur or
       fontStyle: "bold",
       fontSize: 9,
       halign: "left",
       valign: "middle"
     },
     bodyStyles: {
-      textColor: COLORS.textIvory,      // Texte blanc cassé
+      textColor: COLORS.black,     // Texte noir (sera écrasé par les alternances)
       fontSize: 8,
-      lineColor: [50, 50, 60],
       halign: "left",
       valign: "middle"
     },
     alternateRowStyles: {
-      fillColor: COLORS.altRowBg        // Gris légèrement plus clair pour alternance
+      fillColor: COLORS.lightGray, // Gris clair pour alternance
+      textColor: COLORS.black
     },
     margin: { left: 20, right: 20 }
   });
@@ -296,17 +297,21 @@ export function exportFinancialToPDF(spending: any[], revenue: any[]) {
   
   let startY = 55;
   
+  // Fond blanc pour le corps
+  doc.setFillColor(COLORS.white[0], COLORS.white[1], COLORS.white[2]);
+  doc.rect(0, 45, 210, 300, "F");
+  
   // Résumé
   doc.setFontSize(10);
   doc.setFont("helvetica", "bold");
-  doc.setTextColor(COLORS.gold[0], COLORS.gold[1], COLORS.gold[2]);
+  doc.setTextColor(COLORS.black[0], COLORS.black[1], COLORS.black[2]);
   doc.text("RÉSUMÉ FINANCIER", 20, startY);
   startY += 6;
   
   doc.setFontSize(9);
   doc.setFont("helvetica", "normal");
   summary.forEach((item, idx) => {
-    doc.setTextColor(COLORS.textIvory[0], COLORS.textIvory[1], COLORS.textIvory[2]);
+    doc.setTextColor(COLORS.black[0], COLORS.black[1], COLORS.black[2]);
     doc.text(`${item.label}:`, 25, startY + (idx * 5));
     doc.setTextColor(COLORS.gold[0], COLORS.gold[1], COLORS.gold[2]);
     doc.text(item.value, 70, startY + (idx * 5));
@@ -317,7 +322,7 @@ export function exportFinancialToPDF(spending: any[], revenue: any[]) {
   if (spending.length > 0) {
     doc.setFontSize(10);
     doc.setFont("helvetica", "bold");
-    doc.setTextColor(COLORS.gold[0], COLORS.gold[1], COLORS.gold[2]);
+    doc.setTextColor(COLORS.black[0], COLORS.black[1], COLORS.black[2]);
     doc.text("DÉPENSES", 20, startY);
     startY += 5;
     
@@ -333,14 +338,15 @@ export function exportFinancialToPDF(spending: any[], revenue: any[]) {
       theme: "striped",
       headStyles: {
         fillColor: COLORS.gold,
-        textColor: COLORS.textOnGold,
+        textColor: COLORS.black,
         fontStyle: "bold"
       },
       bodyStyles: {
-        textColor: COLORS.textIvory
+        textColor: COLORS.black
       },
       alternateRowStyles: {
-        fillColor: COLORS.altRowBg
+        fillColor: COLORS.lightGray,
+        textColor: COLORS.black
       }
     });
     startY = (doc as any).lastAutoTable.finalY + 15;
@@ -350,7 +356,7 @@ export function exportFinancialToPDF(spending: any[], revenue: any[]) {
   if (revenue.length > 0) {
     doc.setFontSize(10);
     doc.setFont("helvetica", "bold");
-    doc.setTextColor(COLORS.gold[0], COLORS.gold[1], COLORS.gold[2]);
+    doc.setTextColor(COLORS.black[0], COLORS.black[1], COLORS.black[2]);
     doc.text("REVENUS", 20, startY);
     startY += 5;
     
@@ -365,14 +371,15 @@ export function exportFinancialToPDF(spending: any[], revenue: any[]) {
       theme: "striped",
       headStyles: {
         fillColor: COLORS.gold,
-        textColor: COLORS.textOnGold,
+        textColor: COLORS.black,
         fontStyle: "bold"
       },
       bodyStyles: {
-        textColor: COLORS.textIvory
+        textColor: COLORS.black
       },
       alternateRowStyles: {
-        fillColor: COLORS.altRowBg
+        fillColor: COLORS.lightGray,
+        textColor: COLORS.black
       }
     });
   }
@@ -392,16 +399,20 @@ export function exportFarmToPDF(infrastructure: any[], production: any[], spendi
   
   let startY = 55;
   
+  // Fond blanc pour le corps
+  doc.setFillColor(COLORS.white[0], COLORS.white[1], COLORS.white[2]);
+  doc.rect(0, 45, 210, 300, "F");
+  
   // Résumé
   doc.setFontSize(10);
   doc.setFont("helvetica", "bold");
-  doc.setTextColor(COLORS.gold[0], COLORS.gold[1], COLORS.gold[2]);
+  doc.setTextColor(COLORS.black[0], COLORS.black[1], COLORS.black[2]);
   doc.text("SYNTHÈSE", 20, startY);
   startY += 6;
   
   doc.setFontSize(9);
   doc.setFont("helvetica", "normal");
-  doc.setTextColor(COLORS.textIvory[0], COLORS.textIvory[1], COLORS.textIvory[2]);
+  doc.setTextColor(COLORS.black[0], COLORS.black[1], COLORS.black[2]);
   doc.text(`Investissement total: ${totalSpent.toLocaleString()} CFA`, 25, startY);
   doc.text(`Productions actives: ${production.filter(p => p.status === "active").length}`, 25, startY + 6);
   doc.text(`Infrastructures: ${infrastructure.filter(i => i.status === "complete").length}/${infrastructure.length}`, 25, startY + 12);
@@ -412,7 +423,7 @@ export function exportFarmToPDF(infrastructure: any[], production: any[], spendi
   if (infrastructure.length > 0) {
     doc.setFontSize(10);
     doc.setFont("helvetica", "bold");
-    doc.setTextColor(COLORS.gold[0], COLORS.gold[1], COLORS.gold[2]);
+    doc.setTextColor(COLORS.black[0], COLORS.black[1], COLORS.black[2]);
     doc.text("INFRASTRUCTURES", 20, startY);
     startY += 5;
     
@@ -423,14 +434,15 @@ export function exportFarmToPDF(infrastructure: any[], production: any[], spendi
       theme: "striped",
       headStyles: {
         fillColor: COLORS.gold,
-        textColor: COLORS.textOnGold,
+        textColor: COLORS.black,
         fontStyle: "bold"
       },
       bodyStyles: {
-        textColor: COLORS.textIvory
+        textColor: COLORS.black
       },
       alternateRowStyles: {
-        fillColor: COLORS.altRowBg
+        fillColor: COLORS.lightGray,
+        textColor: COLORS.black
       }
     });
     startY = (doc as any).lastAutoTable.finalY + 15;
@@ -440,7 +452,7 @@ export function exportFarmToPDF(infrastructure: any[], production: any[], spendi
   if (production.length > 0) {
     doc.setFontSize(10);
     doc.setFont("helvetica", "bold");
-    doc.setTextColor(COLORS.gold[0], COLORS.gold[1], COLORS.gold[2]);
+    doc.setTextColor(COLORS.black[0], COLORS.black[1], COLORS.black[2]);
     doc.text("UNITÉS DE PRODUCTION", 20, startY);
     startY += 5;
     
@@ -451,14 +463,15 @@ export function exportFarmToPDF(infrastructure: any[], production: any[], spendi
       theme: "striped",
       headStyles: {
         fillColor: COLORS.gold,
-        textColor: COLORS.textOnGold,
+        textColor: COLORS.black,
         fontStyle: "bold"
       },
       bodyStyles: {
-        textColor: COLORS.textIvory
+        textColor: COLORS.black
       },
       alternateRowStyles: {
-        fillColor: COLORS.altRowBg
+        fillColor: COLORS.lightGray,
+        textColor: COLORS.black
       }
     });
     startY = (doc as any).lastAutoTable.finalY + 15;
@@ -468,7 +481,7 @@ export function exportFarmToPDF(infrastructure: any[], production: any[], spendi
   if (spending.length > 0) {
     doc.setFontSize(10);
     doc.setFont("helvetica", "bold");
-    doc.setTextColor(COLORS.gold[0], COLORS.gold[1], COLORS.gold[2]);
+    doc.setTextColor(COLORS.black[0], COLORS.black[1], COLORS.black[2]);
     doc.text("DÉPENSES", 20, startY);
     startY += 5;
     
@@ -479,14 +492,15 @@ export function exportFarmToPDF(infrastructure: any[], production: any[], spendi
       theme: "striped",
       headStyles: {
         fillColor: COLORS.gold,
-        textColor: COLORS.textOnGold,
+        textColor: COLORS.black,
         fontStyle: "bold"
       },
       bodyStyles: {
-        textColor: COLORS.textIvory
+        textColor: COLORS.black
       },
       alternateRowStyles: {
-        fillColor: COLORS.altRowBg
+        fillColor: COLORS.lightGray,
+        textColor: COLORS.black
       }
     });
     startY = (doc as any).lastAutoTable.finalY + 15;
@@ -496,7 +510,7 @@ export function exportFarmToPDF(infrastructure: any[], production: any[], spendi
   if (team.length > 0) {
     doc.setFontSize(10);
     doc.setFont("helvetica", "bold");
-    doc.setTextColor(COLORS.gold[0], COLORS.gold[1], COLORS.gold[2]);
+    doc.setTextColor(COLORS.black[0], COLORS.black[1], COLORS.black[2]);
     doc.text("ÉQUIPE", 20, startY);
     startY += 5;
     
@@ -507,14 +521,15 @@ export function exportFarmToPDF(infrastructure: any[], production: any[], spendi
       theme: "striped",
       headStyles: {
         fillColor: COLORS.gold,
-        textColor: COLORS.textOnGold,
+        textColor: COLORS.black,
         fontStyle: "bold"
       },
       bodyStyles: {
-        textColor: COLORS.textIvory
+        textColor: COLORS.black
       },
       alternateRowStyles: {
-        fillColor: COLORS.altRowBg
+        fillColor: COLORS.lightGray,
+        textColor: COLORS.black
       }
     });
   }
@@ -540,7 +555,7 @@ export async function exportToPDF(elementId: string, filename: string) {
     const html2canvas = (await import("html2canvas")).default;
     const canvas = await html2canvas(element, {
       scale: 2.5,
-      backgroundColor: "#0A0A0B",
+      backgroundColor: "#FFFFFF",
       logging: false,
       useCORS: true
     });
