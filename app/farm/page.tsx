@@ -41,12 +41,11 @@ type FarmSpending = {
   id: string;
   title: string;
   amount: number;
-  currency: string;
   category: string;
-  project_area: string;
-  verified: boolean;
-  notes: string | null;
-  created_at: string;
+  project: string;
+  date: string;
+  notes?: string;
+  verified?: boolean;
 };
 
 type FarmTeam = {
@@ -157,10 +156,28 @@ export default function FarmPage() {
     setProduction(data || []);
   }
 
-  async function fetchSpending() {
-    const { data } = await supabase.from("farm_spending").select("*").order("created_at", { ascending: false });
-    setSpending(data || []);
-  }
+async function fetchSpending() {
+  // Récupérer les dépenses de la ferme depuis la table spending
+  const { data } = await supabase
+    .from("spending")
+    .select("*")
+    .eq("project", "Ifè Farm")
+    .order("date", { ascending: false });
+  
+  // Transformer pour correspondre au type FarmSpending
+  const formatted = (data || []).map(s => ({
+    id: s.id,
+    title: s.title,
+    amount: s.amount,
+    category: s.category,
+    project: s.project,
+    date: s.date,
+    notes: s.notes,
+    verified: s.verified || false
+  }));
+  
+  setSpending(formatted);
+}
 
   async function fetchTeam() {
     const { data } = await supabase.from("farm_team").select("*").order("name");
@@ -195,14 +212,13 @@ export default function FarmPage() {
         notes: formData.notes || null
       };
     } else if (activeTab === "spending") {
-      table = "farm_spending";
+      table = "spending";  // ← au lieu de "farm_spending"
       data = {
         title: formData.title,
         amount: parseFloat(formData.amount),
-        currency: "XOF",
         category: formData.category,
-        project_area: formData.project_area,
-        verified: false,
+        project: "Ifè Farm",  // ← Force le projet
+        date: new Date().toISOString().split('T')[0],
         notes: formData.notes || null
       };
     } else if (activeTab === "team") {
@@ -243,7 +259,7 @@ export default function FarmPage() {
       if (!error) {
         if (table === "farm_infrastructure") fetchInfrastructure();
         else if (table === "farm_production_units") fetchProduction();
-        else if (table === "farm_spending") fetchSpending();
+        else if (table === "spending") fetchSpending();  
         else if (table === "farm_team") fetchTeam();
       }
     }
@@ -272,15 +288,15 @@ export default function FarmPage() {
         technical_lead: item.technical_lead || "",
         notes: item.notes || ""
       });
-    } else if (type === "spending") {
-      setFormData({
-        title: item.title,
-        amount: item.amount,
-        category: item.category,
-        project_area: item.project_area,
-        notes: item.notes || ""
-      });
-    } else if (type === "team") {
+      } else if (type === "spending") {
+        setFormData({
+          title: item.title,
+          amount: item.amount,
+          category: item.category,
+          project_area: item.project,
+          notes: item.notes || ""
+        });
+      }else if (type === "team") {
       setFormData({
         name: item.name,
         role: item.role,
