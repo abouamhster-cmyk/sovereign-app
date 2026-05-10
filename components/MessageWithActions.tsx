@@ -1,6 +1,6 @@
 "use client";
 import { useState } from "react";
-import { CheckCircle, Loader2, Send, Mail, FileText, ListTodo, Sparkles, DollarSign, Calendar, Phone, MessageCircle, X } from "lucide-react";
+import { CheckCircle, Loader2, Mic, Send, MapPin, Clock, Mail, FileText, ListTodo, Sparkles, DollarSign, Calendar, Phone, MessageCircle, X } from "lucide-react";
 import { toast } from "sonner";
 import ReactMarkdown from 'react-markdown';
 
@@ -63,6 +63,10 @@ const getActionIcon = (type: string) => {
     case "send_sms": return <MessageCircle className="w-3 h-3" />;
     case "send_whatsapp": return <MessageCircle className="w-3 h-3 text-green-400" />;
     case "send_telegram": return <Send className="w-3 h-3 text-sky-400" />;
+    case "schedule_reminder": return <Clock className="w-3 h-3" />;
+    case "share_location": return <MapPin className="w-3 h-3" />;
+    case "read_table": return <ListTodo className="w-3 h-3" />;
+    case "voice_message": return <Mic className="w-3 h-3" />;
     default: return <Sparkles className="w-3 h-3" />;
   }
 };
@@ -328,7 +332,159 @@ const executeActionFn = async (action: Action): Promise<{ success: boolean; data
         }
         toast.error("❌ Nom d'utilisateur Telegram manquant");
         break;
+
+      // ========== RAPPELS PROGRAMMÉS ==========
+      case "schedule_reminder":
+        const reminderTitle = params.title || "Rappel";
+        const reminderMinutes = params.minutes;
         
+        if (reminderMinutes && typeof reminderMinutes === 'number') {
+          toast.success(`⏰ Rappel dans ${reminderMinutes} minutes: "${reminderTitle}"`);
+          
+          // Stocker dans localStorage pour persistance
+          const reminder = {
+            id: Date.now(),
+            title: reminderTitle,
+            minutes: reminderMinutes,
+            createdAt: new Date().toISOString()
+          };
+          const existing = JSON.parse(localStorage.getItem('sovereign_reminders') || '[]');
+          existing.push(reminder);
+          localStorage.setItem('sovereign_reminders', JSON.stringify(existing));
+          
+          // Programmer la notification
+          setTimeout(() => {
+            toast.info(`🔔 ${reminderTitle}`, { duration: 10000 });
+            
+            // Notification browser
+            if ("Notification" in window && Notification.permission === "granted") {
+              new Notification(reminderTitle);
+            } else if ("Notification" in window && Notification.permission !== "denied") {
+              Notification.requestPermission().then(perm => {
+                if (perm === "granted") new Notification(reminderTitle);
+              });
+            }
+          }, reminderMinutes * 60 * 1000);
+          
+          return { success: true };
+        }
+        
+        toast.error("❌ Durée du rappel manquante (ex: minutes: 30)");
+        break;
+
+
+        // ========== PARTAGE DE POSITION ==========
+      case "share_location":
+        if ("geolocation" in navigator) {
+          toast.info("📍 Récupération de votre position...", { duration: 2000 });
+          
+          navigator.geolocation.getCurrentPosition(
+            (position) => {
+              const { latitude, longitude } = position.coords;
+              const mapsUrl = `https://maps.google.com/?q=${latitude},${longitude}`;
+              const mapsShortUrl = `https://maps.app.goo.gl/?q=${latitude},${longitude}`;
+              
+              toast.success(`📍 Position trouvée !`);
+              navigator.clipboard.writeText(mapsUrl);
+              toast.info(`📋 Lien Google Maps copié`);
+              
+              // Si un destinataire est fourni, proposer l'envoi
+              if (params.sendTo) {
+                toast.info(`📍 Envoi de la position à ${params.sendTo} - Utilise WhatsApp ou SMS`);
+              }
+              
+              // Option d'ouverture directe
+              setTimeout(() => {
+                if (confirm("Ouvrir Google Maps pour voir votre position ?")) {
+                  window.open(mapsUrl, '_blank');
+                }
+              }, 1000);
+            },
+            (error) => {
+              console.error("Erreur géolocation:", error);
+              let errorMsg = "Impossible d'obtenir la position";
+              if (error.code === 1) errorMsg = "📍 Permission refusée. Activez la localisation.";
+              if (error.code === 2) errorMsg = "📍 Position non disponible";
+              if (error.code === 3) errorMsg = "📍 Délai dépassé";
+              toast.error(errorMsg);
+            },
+            { timeout: 10000, enableHighAccuracy: true }
+          );
+          return { success: true };
+        }
+        toast.error("❌ Géolocalisation non supportée par votre navigateur");
+        break;
+
+      // ========== LECTURE TABLE AVEC AFFICHAGE ==========
+      case "read_table":
+        const tableName = params.table;
+        const filters = params.filters || {};
+        
+        if (!tableName) {
+          toast.error("❌ Nom de table manquant");
+          break;
+        }
+        
+        toast.info(`📊 Chargement des données depuis ${tableName}...`, { duration: 1500 });
+        
+        try {
+          // Construire l'URL avec les filtres
+          let url = `${API_URL}/${tableName}?limit=${params.limit || 20}`;
+          
+          const readResponse = await fetch(url, {
+            method: "GET",
+            headers: { "Content-Type": "application/json" }
+          });
+          const readResult = await readResponse.json();
+          
+          if (readResult.success && readResult.data && readResult.data.length > 0) {
+            // Formater les données pour affichage
+            const data = readResult.data;
+            let formattedData = `📋 **${tableName.toUpperCase()}** (${data.length} élément(s)):\n\n`;
+            
+            data.slice(0, 10).forEach((item: any, idx: number) => {
+              if (tableName === "tasks") {
+                formattedData += `${idx + 1}. ${item.title} - ${item.status || 'pending'} ${item.due_date ? `📅 ${item.due_date}` : ''}\n`;
+              } else if (tableName === "spending" || tableName === "revenue") {
+                formattedData += `${idx + 1}. ${item.title || item.source} : ${item.amount?.toLocaleString()} CFA\n`;
+              } else if (tableName === "missions") {
+                formattedData += `${idx + 1}. 🎯 ${item.name} - ${item.status}\n`;
+              } else {
+                formattedData += `${idx + 1}. ${JSON.stringify(item).substring(0, 100)}...\n`;
+              }
+            });
+            
+            if (data.length > 10) {
+              formattedData += `\n... et ${data.length - 10} autre(s)`;
+            }
+            
+            toast.success(`📊 Données chargées (${data.length} éléments)`);
+            
+            // Retourner les données pour affichage
+            return { 
+              success: true, 
+              data: { 
+                type: "table_data",
+                title: tableName,
+                content: formattedData,
+                rawData: data
+              } 
+            };
+          } else {
+            toast.info(`📊 Aucune donnée trouvée dans ${tableName}`);
+            return { success: true, data: { type: "table_data", title: tableName, content: `📊 Aucune donnée dans ${tableName}` } };
+          }
+        } catch (error) {
+          console.error("Erreur read_table:", error);
+          toast.error("❌ Erreur chargement des données");
+          break;
+        }
+
+        // ========== MESSAGES VOCAUX ==========
+      case "voice_message":
+        toast.info("🎤 Message vocal - Fonctionnalité à venir", { duration: 3000 });
+        // TODO: Intégration avec service de messagerie vocale
+        return { success: true };
       // ========== DÉFAUT ==========
       default:
         console.warn("⚠️ Action non implémentée:", type, params);
@@ -353,6 +509,8 @@ export function MessageWithActions({ content, actions: providedActions = [], onA
   
   const [executingActions, setExecutingActions] = useState<Set<number>>(new Set());
   const [executedActions, setExecutedActions] = useState<Set<number>>(new Set());
+  const [showDataModal, setShowDataModal] = useState(false);
+  const [currentData, setCurrentData] = useState<{ title: string; content: string } | null>(null);
   
   // États pour les modales
   const [showChecklistModal, setShowChecklistModal] = useState(false);
@@ -375,6 +533,14 @@ export function MessageWithActions({ content, actions: providedActions = [], onA
         });
         setShowChecklistModal(true);
       }
+
+      if (result.data?.type === "table_data") {
+          setCurrentData({
+            title: result.data.title,
+            content: result.data.content
+          });
+          setShowDataModal(true);
+        }
       
       // Vérifier si c'est un brouillon à afficher
       if (result.data?.type === "draft") {
@@ -513,6 +679,31 @@ export function MessageWithActions({ content, actions: providedActions = [], onA
           </div>
         </div>
       )}
+
+      {/* MODALE DONNÉES TABLE */}
+        {showDataModal && currentData && (
+          <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4" onClick={() => setShowDataModal(false)}>
+            <div className="bg-midnight border border-gold-500/30 rounded-xl max-w-lg w-full p-6" onClick={(e) => e.stopPropagation()}>
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="text-lg font-serif text-gold-500">📊 {currentData.title}</h3>
+                <button onClick={() => setShowDataModal(false)} className="text-gray-400 hover:text-gold-500">
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+              <div className="bg-black/30 rounded-lg p-4 mb-4 max-h-96 overflow-y-auto">
+                <pre className="text-sm text-ivory whitespace-pre-wrap font-sans">
+                  {currentData.content}
+                </pre>
+              </div>
+              <button
+                onClick={() => setShowDataModal(false)}
+                className="w-full py-2 bg-gold-500/20 text-gold-500 rounded-lg hover:bg-gold-500/30"
+              >
+                Fermer
+              </button>
+            </div>
+          </div>
+        )}
     </>
   );
 }
