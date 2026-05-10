@@ -1,6 +1,6 @@
 "use client";
 import { useState } from "react";
-import { CheckCircle, Loader2, Mail, FileText, ListTodo, Sparkles, DollarSign, Calendar, Phone, MessageCircle, X } from "lucide-react";
+import { CheckCircle, Loader2, Send, Mail, FileText, ListTodo, Sparkles, DollarSign, Calendar, Phone, MessageCircle, X } from "lucide-react";
 import { toast } from "sonner";
 import ReactMarkdown from 'react-markdown';
 
@@ -61,6 +61,8 @@ const getActionIcon = (type: string) => {
     case "create_calendar_event": return <Calendar className="w-3 h-3" />;
     case "make_call": return <Phone className="w-3 h-3" />;
     case "send_sms": return <MessageCircle className="w-3 h-3" />;
+    case "send_whatsapp": return <MessageCircle className="w-3 h-3 text-green-400" />;
+    case "send_telegram": return <Send className="w-3 h-3 text-sky-400" />;
     default: return <Sparkles className="w-3 h-3" />;
   }
 };
@@ -292,6 +294,41 @@ const executeActionFn = async (action: Action): Promise<{ success: boolean; data
           }
           toast.error("❌ Numéro de téléphone non disponible");
           break;
+
+        // ========== WHATSAPP ==========
+        case "send_whatsapp":
+          const waNumber = params.phone || params.number || params.to;
+          const waMessage = params.body || params.message || "Message de Sovereign";
+          if (waNumber && waNumber !== "__NUMÉRO__" && !waNumber.includes("__")) {
+            const cleanNumber = waNumber.replace(/\s/g, '').replace(/^\+/, '');
+            const encodedMessage = encodeURIComponent(waMessage);
+            toast.info(`💬 Ouverture WhatsApp...`, { duration: 2000 });
+            setTimeout(() => {
+              window.open(`https://wa.me/${cleanNumber}?text=${encodedMessage}`, '_blank');
+            }, 500);
+            return { success: true };
+          }
+          toast.error("❌ Numéro WhatsApp non disponible");
+          break;
+
+        // ========== TELEGRAM ==========
+      case "send_telegram":
+        const tgUsername = params.username || params.to;
+        const tgMessage = params.body || params.message;
+        if (tgUsername) {
+          const cleanUsername = tgUsername.replace('@', '');
+          toast.info(`💬 Ouverture Telegram...`, { duration: 2000 });
+          setTimeout(() => {
+            const url = tgMessage 
+              ? `https://t.me/${cleanUsername}?text=${encodeURIComponent(tgMessage)}`
+              : `https://t.me/${cleanUsername}`;
+            window.open(url, '_blank');
+          }, 500);
+          return { success: true };
+        }
+        toast.error("❌ Nom d'utilisateur Telegram manquant");
+        break;
+        
       // ========== DÉFAUT ==========
       default:
         console.warn("⚠️ Action non implémentée:", type, params);
