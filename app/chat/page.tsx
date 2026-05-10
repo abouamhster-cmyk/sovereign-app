@@ -412,7 +412,10 @@ async function fetchConversations() {
 // =====================================================
 // VERSION CORRIGÉE DE fetchMessages
 // =====================================================
-async function fetchMessages(conversationId: string) {
+
+
+
+  async function fetchMessages(conversationId: string) {
   console.log("🔍 fetchMessages pour:", conversationId);
   
   const { data, error } = await supabase
@@ -431,23 +434,22 @@ async function fetchMessages(conversationId: string) {
   if (data && data.length > 0) {
     const parsedMessages = data.map(msg => {
       try {
-        // Essayer de parser le JSON
         const parsed = JSON.parse(msg.content);
         return { 
           id: msg.id,
           role: msg.role, 
           content: parsed.content || msg.content, 
           actions: parsed.actions,
-          files: parsed.files,
+          files: Array.isArray(parsed.files) ? parsed.files : [], // ✅ Force un tableau
           created_at: msg.created_at
         };
       } catch (e) {
-        // Pas du JSON, c'est du texte brut
         console.log("📝 Message texte brut:", msg.content?.substring(0, 50));
         return { 
           id: msg.id,
           role: msg.role, 
           content: msg.content,
+          files: [], // ✅ Par défaut, tableau vide
           created_at: msg.created_at
         };
       }
@@ -455,13 +457,15 @@ async function fetchMessages(conversationId: string) {
     
     setMessages(parsedMessages);
   } else {
-    // ✅ Ne créer un message proactif que s'il n'y a vraiment rien
     if (messages.length === 0) {
       console.log("💬 Aucun message, création d'un message proactif");
       setMessages([{ role: "assistant", content: generateProactiveMorningMessage() }]);
     }
   }
 }
+
+
+  
   async function createNewConversation() {
     const title = `Nouvelle conversation ${new Date().toLocaleDateString('fr-FR')}`;
     const { data, error } = await supabase
@@ -821,18 +825,20 @@ try {
                 >
                   {m.content}
                 </ReactMarkdown>
-                {m.files && m.files.length > 0 && (
+                
+                {/* ✅ VERSION CORRIGÉE - Vérifie que files est un tableau */}
+                {m.files && Array.isArray(m.files) && m.files.length > 0 && (
                   <div className="mt-3">
                     <div className="grid grid-cols-2 gap-2">
-                      {m.files.filter(f => f.type.startsWith('image/')).map((file, idx) => (
+                      {m.files.filter(f => f.type?.startsWith('image/')).map((file, idx) => (
                         <a key={idx} href={file.url} target="_blank" rel="noopener noreferrer" className="block">
                           <img src={file.url} alt={file.name} className="rounded-xl w-full h-auto max-h-48 object-cover border border-white/10 hover:border-gold-500 transition-all" />
                         </a>
                       ))}
                     </div>
-                    {m.files.filter(f => !f.type.startsWith('image/')).length > 0 && (
+                    {m.files.filter(f => !f.type?.startsWith('image/')).length > 0 && (
                       <div className="mt-2 pt-2 border-t border-white/10">
-                        {m.files.filter(f => !f.type.startsWith('image/')).map((file, idx) => (
+                        {m.files.filter(f => !f.type?.startsWith('image/')).map((file, idx) => (
                           <a key={idx} href={file.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-xs text-gold-500 hover:underline mt-1">
                             <File className="w-3 h-3" /> {file.name}
                           </a>
