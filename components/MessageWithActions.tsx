@@ -1,6 +1,6 @@
 "use client";
 import { useState } from "react";
-import { CheckCircle, Loader2, Mail, FileText, ListTodo, Sparkles, DollarSign, Calendar, Phone, X } from "lucide-react";
+import { CheckCircle, Loader2, Mail, FileText, ListTodo, Sparkles, DollarSign, Calendar, Phone, MessageCircle, X } from "lucide-react";
 import { toast } from "sonner";
 import ReactMarkdown from 'react-markdown';
 
@@ -60,6 +60,7 @@ const getActionIcon = (type: string) => {
     case "get_financial_summary": return <DollarSign className="w-3 h-3" />;
     case "create_calendar_event": return <Calendar className="w-3 h-3" />;
     case "make_call": return <Phone className="w-3 h-3" />;
+    case "send_sms": return <MessageCircle className="w-3 h-3" />;
     default: return <Sparkles className="w-3 h-3" />;
   }
 };
@@ -256,7 +257,20 @@ const executeActionFn = async (action: Action): Promise<{ success: boolean; data
             return { success: true };
           }
           break;
-      
+
+        // ========== SMS ==========
+        case "send_sms":
+          const smsNumber = params.phone || params.number || params.to;
+          const smsBody = params.body || params.message || "Message de Sovereign";
+          if (smsNumber && smsNumber !== "__NUMÉRO__" && !smsNumber.includes("__")) {
+            toast.info(`📱 Envoi SMS à ${smsNumber}...`, { duration: 2000 });
+            setTimeout(() => {
+              window.location.href = `sms:${smsNumber.replace(/\s/g, '').replace(/^\+/, '')}?body=${encodeURIComponent(smsBody)}`;
+            }, 500);
+            return { success: true };
+          }
+          toast.error("❌ Numéro de téléphone non disponible");
+          break;
       // ========== DÉFAUT ==========
       default:
         console.warn("⚠️ Action non implémentée:", type, params);
