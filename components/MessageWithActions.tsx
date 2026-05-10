@@ -211,27 +211,6 @@ const executeActionFn = async (action: Action): Promise<{ success: boolean; data
           return { success: true };
         }
         break;
-      
-      // ========== LECTURE TABLE ==========
-      case "read_table":
-        const tableMap: Record<string, string> = {
-          "tasks": "/tasks",
-          "missions": "/missions",
-          "spending": "/money",
-          "revenue": "/money",
-          "documents": "/documents",
-          "family_events": "/family",
-          "wins": "/wins",
-          "checklists": "/checklists"
-        };
-        const targetPage = tableMap[params.table];
-        if (targetPage) {
-          toast.info(`📊 Redirection vers ${targetPage}`, { duration: 1000 });
-          setTimeout(() => window.open(targetPage, "_self"), 500);
-          return { success: true };
-        }
-        break;
-
 
         // ========== APPELS TÉLÉPHONIQUES ==========
         case "make_call":
@@ -333,87 +312,140 @@ const executeActionFn = async (action: Action): Promise<{ success: boolean; data
         toast.error("❌ Nom d'utilisateur Telegram manquant");
         break;
 
-      // ========== RAPPELS PROGRAMMÉS ==========
-      case "schedule_reminder":
-        const reminderTitle = params.title || "Rappel";
-        const reminderMinutes = params.minutes;
+      // ========== RAPPELS PROGRAMMÉS AVEC SON & VIBRATION ==========
+    case "schedule_reminder":
+      const reminderTitle = params.title || "Rappel";
+      const reminderMinutes = params.minutes;
+      
+      if (reminderMinutes && typeof reminderMinutes === 'number') {
+        toast.success(`⏰ Rappel dans ${reminderMinutes} minute(s): "${reminderTitle}"`);
         
-        if (reminderMinutes && typeof reminderMinutes === 'number') {
-          toast.success(`⏰ Rappel dans ${reminderMinutes} minutes: "${reminderTitle}"`);
+        // Programme la notification
+        setTimeout(() => {
+          // 1. Vibration (si supporté)
+          if ("vibrate" in navigator) {
+            navigator.vibrate([200, 100, 200, 100, 500]);
+          }
           
-          // Stocker dans localStorage pour persistance
-          const reminder = {
-            id: Date.now(),
-            title: reminderTitle,
-            minutes: reminderMinutes,
-            createdAt: new Date().toISOString()
-          };
-          const existing = JSON.parse(localStorage.getItem('sovereign_reminders') || '[]');
-          existing.push(reminder);
-          localStorage.setItem('sovereign_reminders', JSON.stringify(existing));
+          // 2. Son (via une API Web Audio ou simple beep)
+          try {
+            const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+            const oscillator = audioContext.createOscillator();
+            const gainNode = audioContext.createGain();
+            oscillator.connect(gainNode);
+            gainNode.connect(audioContext.destination);
+            oscillator.frequency.value = 880;
+            gainNode.gain.value = 0.3;
+            oscillator.start();
+            gainNode.gain.exponentialRampToValueAtTime(0.00001, audioContext.currentTime + 1);
+            oscillator.stop(audioContext.currentTime + 0.8);
+          } catch(e) { console.log("Son non supporté"); }
           
-          // Programmer la notification
-          setTimeout(() => {
-            toast.info(`🔔 ${reminderTitle}`, { duration: 10000 });
-            
-            // Notification browser
-            if ("Notification" in window && Notification.permission === "granted") {
-              new Notification(reminderTitle);
-            } else if ("Notification" in window && Notification.permission !== "denied") {
+          // 3. Toast visuel
+          toast.info(`🔔 ${reminderTitle}`, { duration: 10000 });
+          
+          // 4. Notification browser (même app fermée si service worker)
+          if ("Notification" in window) {
+            if (Notification.permission === "granted") {
+              new Notification(reminderTitle, {
+                body: `⏰ Rappel programmé il y a ${reminderMinutes} minute(s)`,
+                icon: "/icons/icon-192x192.png",
+                badge: "/icons/icon-96x96.png",
+                tag: `reminder-${Date.now()}`,
+                vibrate: [200, 100, 200],
+                silent: false
+              });
+            } else if (Notification.permission !== "denied") {
               Notification.requestPermission().then(perm => {
-                if (perm === "granted") new Notification(reminderTitle);
+                if (perm === "granted") {
+                  new Notification(reminderTitle, {
+                    body: `⏰ Rappel programmé`,
+                    icon: "/icons/icon-192x192.png"
+                  });
+                }
               });
             }
-          }, reminderMinutes * 60 * 1000);
-          
-          return { success: true };
-        }
+          }
+        }, reminderMinutes * 60 * 1000);
         
-        toast.error("❌ Durée du rappel manquante (ex: minutes: 30)");
-        break;
+        return { success: true };
+      }
+      
+      toast.error("❌ Durée du rappel manquante (ex: minutes: 30)");
+      break;
 
-
-        // ========== PARTAGE DE POSITION ==========
-      case "share_location":
-        if ("geolocation" in navigator) {
-          toast.info("📍 Récupération de votre position...", { duration: 2000 });
-          
-          navigator.geolocation.getCurrentPosition(
-            (position) => {
-              const { latitude, longitude } = position.coords;
-              const mapsUrl = `https://maps.google.com/?q=${latitude},${longitude}`;
-              const mapsShortUrl = `https://maps.app.goo.gl/?q=${latitude},${longitude}`;
-              
-              toast.success(`📍 Position trouvée !`);
-              navigator.clipboard.writeText(mapsUrl);
-              toast.info(`📋 Lien Google Maps copié`);
-              
-              // Si un destinataire est fourni, proposer l'envoi
-              if (params.sendTo) {
-                toast.info(`📍 Envoi de la position à ${params.sendTo} - Utilise WhatsApp ou SMS`);
+          // ========== PARTAGE DE POSITION AVEC SON ==========
+    case "share_location":
+      if ("geolocation" in navigator) {
+        toast.info("📍 Récupération de votre position...", { duration: 2000 });
+        
+        // Petit son de début
+        try {
+          const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+          const oscillator = audioContext.createOscillator();
+          const gainNode = audioContext.createGain();
+          oscillator.connect(gainNode);
+          gainNode.connect(audioContext.destination);
+          oscillator.frequency.value = 440;
+          gainNode.gain.value = 0.1;
+          oscillator.start();
+          oscillator.stop(audioContext.currentTime + 0.2);
+        } catch(e) {}
+        
+        navigator.geolocation.getCurrentPosition(
+          (position) => {
+            const { latitude, longitude } = position.coords;
+            const mapsUrl = `https://maps.google.com/?q=${latitude},${longitude}`;
+            
+            toast.success(`📍 Position trouvée !`);
+            navigator.clipboard.writeText(mapsUrl);
+            toast.success(`📋 Lien copié !`, { duration: 3000 });
+            
+            // Son de succès
+            try {
+              const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+              const oscillator = audioContext.createOscillator();
+              const gainNode = audioContext.createGain();
+              oscillator.connect(gainNode);
+              gainNode.connect(audioContext.destination);
+              oscillator.frequency.value = 660;
+              gainNode.gain.value = 0.1;
+              oscillator.start();
+              oscillator.stop(audioContext.currentTime + 0.3);
+            } catch(e) {}
+            
+            setTimeout(() => {
+              if (confirm("📍 Voir votre position sur Google Maps ?")) {
+                window.open(mapsUrl, '_blank');
               }
-              
-              // Option d'ouverture directe
-              setTimeout(() => {
-                if (confirm("Ouvrir Google Maps pour voir votre position ?")) {
-                  window.open(mapsUrl, '_blank');
-                }
-              }, 1000);
-            },
-            (error) => {
-              console.error("Erreur géolocation:", error);
-              let errorMsg = "Impossible d'obtenir la position";
-              if (error.code === 1) errorMsg = "📍 Permission refusée. Activez la localisation.";
-              if (error.code === 2) errorMsg = "📍 Position non disponible";
-              if (error.code === 3) errorMsg = "📍 Délai dépassé";
-              toast.error(errorMsg);
-            },
-            { timeout: 10000, enableHighAccuracy: true }
-          );
-          return { success: true };
-        }
-        toast.error("❌ Géolocalisation non supportée par votre navigateur");
-        break;
+            }, 1000);
+          },
+          (error) => {
+            let errorMsg = "❌ Impossible d'obtenir la position";
+            if (error.code === 1) errorMsg = "📍 Permission refusée. Activez la localisation.";
+            if (error.code === 2) errorMsg = "📍 Position non disponible, réessayez.";
+            if (error.code === 3) errorMsg = "📍 Délai dépassé, vérifiez votre connexion GPS.";
+            toast.error(errorMsg);
+            
+            // Son d'erreur
+            try {
+              const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+              const oscillator = audioContext.createOscillator();
+              const gainNode = audioContext.createGain();
+              oscillator.connect(gainNode);
+              gainNode.connect(audioContext.destination);
+              oscillator.frequency.value = 220;
+              gainNode.gain.value = 0.1;
+              oscillator.start();
+              oscillator.stop(audioContext.currentTime + 0.5);
+            } catch(e) {}
+          },
+          { timeout: 10000, enableHighAccuracy: true }
+        );
+        return { success: true };
+      }
+      toast.error("❌ Géolocalisation non supportée");
+      break;
 
       // ========== LECTURE TABLE AVEC AFFICHAGE ==========
       case "read_table":
