@@ -313,66 +313,76 @@ const executeActionFn = async (action: Action): Promise<{ success: boolean; data
         break;
 
       // ========== RAPPELS PROGRAMMÉS AVEC SON & VIBRATION ==========
-    case "schedule_reminder":
-      const reminderTitle = params.title || "Rappel";
-      const reminderMinutes = params.minutes;
-      
-      if (reminderMinutes && typeof reminderMinutes === 'number') {
-        toast.success(`⏰ Rappel dans ${reminderMinutes} minute(s): "${reminderTitle}"`);
+      // ========== RAPPELS PROGRAMMÉS AVEC SON & VIBRATION ==========
+      case "schedule_reminder":
+        const reminderTitle = params.title || "Rappel";
+        const reminderMinutes = params.minutes;
         
-        // Programme la notification
-        setTimeout(() => {
-          // 1. Vibration (si supporté)
-          if ("vibrate" in navigator) {
-            navigator.vibrate([200, 100, 200, 100, 500]);
-          }
+        if (reminderMinutes && typeof reminderMinutes === 'number') {
+          toast.success(`⏰ Rappel dans ${reminderMinutes} minute(s): "${reminderTitle}"`);
           
-          // 2. Son (via une API Web Audio ou simple beep)
-          try {
-            const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
-            const oscillator = audioContext.createOscillator();
-            const gainNode = audioContext.createGain();
-            oscillator.connect(gainNode);
-            gainNode.connect(audioContext.destination);
-            oscillator.frequency.value = 880;
-            gainNode.gain.value = 0.3;
-            oscillator.start();
-            gainNode.gain.exponentialRampToValueAtTime(0.00001, audioContext.currentTime + 1);
-            oscillator.stop(audioContext.currentTime + 0.8);
-          } catch(e) { console.log("Son non supporté"); }
-          
-          // 3. Toast visuel
-          toast.info(`🔔 ${reminderTitle}`, { duration: 10000 });
-          
-          // 4. Notification browser (même app fermée si service worker)
-          if ("Notification" in window) {
-            if (Notification.permission === "granted") {
-              new Notification(reminderTitle, {
-                body: `⏰ Rappel programmé il y a ${reminderMinutes} minute(s)`,
-                icon: "/icons/icon-192x192.png",
-                badge: "/icons/icon-96x96.png",
-                tag: `reminder-${Date.now()}`,
-                vibrate: [200, 100, 200],
-                silent: false
-              });
-            } else if (Notification.permission !== "denied") {
-              Notification.requestPermission().then(perm => {
-                if (perm === "granted") {
-                  new Notification(reminderTitle, {
-                    body: `⏰ Rappel programmé`,
-                    icon: "/icons/icon-192x192.png"
-                  });
-                }
-              });
+          setTimeout(() => {
+            // 1. Vibration (si supporté)
+            if ("vibrate" in navigator) {
+              navigator.vibrate([200, 100, 200, 100, 500]);
             }
-          }
-        }, reminderMinutes * 60 * 1000);
+            
+            // 2. Son (via une API Web Audio)
+            try {
+              const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+              const oscillator = audioContext.createOscillator();
+              const gainNode = audioContext.createGain();
+              oscillator.connect(gainNode);
+              gainNode.connect(audioContext.destination);
+              oscillator.frequency.value = 880;
+              gainNode.gain.value = 0.3;
+              oscillator.start();
+              gainNode.gain.exponentialRampToValueAtTime(0.00001, audioContext.currentTime + 1);
+              oscillator.stop(audioContext.currentTime + 0.8);
+            } catch(e) { console.log("Son non supporté"); }
+            
+            // 3. Toast visuel
+            toast.info(`🔔 ${reminderTitle}`, { duration: 10000 });
+            
+            // 4. Notification browser (même app fermée si service worker)
+            if ("Notification" in window) {
+              if (Notification.permission === "granted") {
+                const notificationOptions: any = {
+                  body: `⏰ Rappel programmé il y a ${reminderMinutes} minute(s)`,
+                  icon: "/icons/icon-192x192.png",
+                  badge: "/icons/icon-96x96.png",
+                  tag: `reminder-${Date.now()}`,
+                  silent: false
+                };
+                // Vibration seulement si supportée
+                if ("vibrate" in navigator) {
+                  notificationOptions.vibrate = [200, 100, 200];
+                }
+                new Notification(reminderTitle, notificationOptions);
+              } else if (Notification.permission !== "denied") {
+                Notification.requestPermission().then(perm => {
+                  if (perm === "granted") {
+                    const notificationOptions: any = {
+                      body: `⏰ Rappel programmé`,
+                      icon: "/icons/icon-192x192.png",
+                      badge: "/icons/icon-96x96.png",
+                      tag: `reminder-${Date.now()}`
+                    };
+                    if ("vibrate" in navigator) {
+                      notificationOptions.vibrate = [200, 100, 200];
+                    }
+                    new Notification(reminderTitle, notificationOptions);
+                  }
+                });
+              }
+            }
+          }, reminderMinutes * 60 * 1000);
+          
+          return { success: true };
+        }
         
-        return { success: true };
-      }
-      
-      toast.error("❌ Durée du rappel manquante (ex: minutes: 30)");
-      break;
+        toast.error("❌ Durée du rappel manquante (ex: minutes: 30)");
+        break;
 
           // ========== PARTAGE DE POSITION AVEC SON ==========
     case "share_location":
