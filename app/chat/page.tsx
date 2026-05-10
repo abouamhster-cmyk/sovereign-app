@@ -391,21 +391,23 @@ export default function ChatPage() {
     return uploaded;
   }
 
-  async function fetchConversations() {
-    const { data } = await supabase
-      .from("conversations")
-      .select("*")
-      .order("updated_at", { ascending: false });
-    
-    setConversations(data || []);
-    setFilteredConversations(data || []);
-    
-    if (!data || data.length === 0) {
-      createNewConversation();
-    } else if (!currentConversationId) {
-      setCurrentConversationId(data[0].id);
-    }
+async function fetchConversations() {
+  const { data } = await supabase
+    .from("conversations")
+    .select("*")
+    .eq("user_id", "rebecca")  
+    .order("updated_at", { ascending: false });
+  
+  console.log("📋 Conversations chargées:", data?.length);
+  setConversations(data || []);
+  setFilteredConversations(data || []);
+  
+  if (!data || data.length === 0) {
+    createNewConversation();
+  } else if (!currentConversationId) {
+    setCurrentConversationId(data[0].id);
   }
+}
 
 // =====================================================
 // VERSION CORRIGÉE DE fetchMessages
