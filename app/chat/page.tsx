@@ -569,6 +569,7 @@ async function saveMessage(conversationId: string, role: string, content: string
     if (isSending || (!input.trim() && uploadedFiles.length === 0) || isLoading || !currentConversationId) return;
     
     setIsSending(true);
+    setIsLoading(true);  // ← AJOUTE CETTE LIGNE
     
     const uploadedFilesData = await uploadFilesToStorage();
     
@@ -592,11 +593,10 @@ async function saveMessage(conversationId: string, role: string, content: string
     
     const currentModeConfig = modes.find(m => m.id === selectedMode);
     const enhancedModePrompt = currentModeConfig?.prompt || modes[0].prompt;
-
-    // ✅ Forcer la proactivité côté client (double sécurité)
+  
     const forcedUserMessage = userMessageContent + 
       "\n\n[RAPPEL SYSTÈME : Sois brève. 1 phrase d'empathie max. Propose UNE action avec un bouton [ACTION:{\"type\":\"...\",\"params\":{...},\"label\":\"...\"}] sur UNE SEULE LIGNE.]";
-
+  
     const allMessages = [
       { role: "system", content: enhancedModePrompt },
       ...messages.map(msg => ({ role: msg.role, content: msg.content })),
@@ -607,38 +607,37 @@ async function saveMessage(conversationId: string, role: string, content: string
     await saveMessage(currentConversationId, "user", userMessageContent, undefined, uploadedFilesData);
     setInput("");
     setUploadedFiles([]);
-    setIsLoading(true);
     resetTranscript();
-
-try {
-  let assistantContent: string = await sendRegularMessage(allMessages);
   
-  console.log("📨 Réponse reçue:", assistantContent.substring(0, 200));
-  
-  // ✅ Ne PAS parser les actions ici - MessageWithActions le fera
-  const assistantMessage: Message = { 
-    role: "assistant", 
-    content: assistantContent,
+    try {
+      let assistantContent: string = await sendRegularMessage(allMessages);
+      
+      console.log("📨 Réponse reçue:", assistantContent.substring(0, 200));
+      
+      const assistantMessage: Message = { 
+        role: "assistant", 
+        content: assistantContent,
+      };
+      
+      setMessages(prev => [...prev, assistantMessage]);
+      await saveMessage(currentConversationId, "assistant", assistantContent);
+      await fetchConversations();
+      inputRef.current?.focus();
+      
+    } catch (error) {
+      console.error("❌ Erreur:", error);
+      setMessages(prev => [...prev, { 
+        role: "assistant", 
+        content: "❌ Erreur de connexion. Vérifie que le backend est bien démarré." 
+      }]);
+    } finally {
+      // ✅ CES LIGNES SONT CRUCIALES - Elles arrêtent le loader
+      setIsLoading(false);
+      setIsSending(false);
+    }
   };
+
   
-  setMessages(prev => [...prev, assistantMessage]);
-  
-  // ✅ Sauvegarder avec actions = undefined (sera parsé à l'affichage)
-  await saveMessage(currentConversationId, "assistant", assistantContent);
-  
-  // ✅ Rafraîchir la liste des conversations (mettre à jour les timestamps)
-  await fetchConversations();
-  
-  inputRef.current?.focus();
-  
-} catch (error) {
-  console.error("❌ Erreur:", error);
-  setMessages(prev => [...prev, { 
-    role: "assistant", 
-    content: "❌ Erreur de connexion. Vérifie que le backend est bien démarré." 
-  }]);
-}
-};
   const startVoiceRecording = () => {
     resetTranscript();
     SpeechRecognition.startListening({ continuous: true, language: 'fr-FR' });
