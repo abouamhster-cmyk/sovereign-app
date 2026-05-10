@@ -259,14 +259,35 @@ const executeActionFn = async (action: Action): Promise<{ success: boolean; data
           break;
 
         // ========== SMS ==========
-        case "send_sms":
+         case "send_sms":
           const smsNumber = params.phone || params.number || params.to;
           const smsBody = params.body || params.message || "Message de Sovereign";
           if (smsNumber && smsNumber !== "__NUMÉRO__" && !smsNumber.includes("__")) {
-            toast.info(`📱 Envoi SMS à ${smsNumber}...`, { duration: 2000 });
-            setTimeout(() => {
-              window.location.href = `sms:${smsNumber.replace(/\s/g, '').replace(/^\+/, '')}?body=${encodeURIComponent(smsBody)}`;
-            }, 500);
+            const cleanNumber = smsNumber.replace(/\s/g, '').replace(/^\+/, '');
+            const encodedBody = encodeURIComponent(smsBody);
+            
+            // Détecter si c'est un mobile ou desktop
+            const isMobile = /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+            
+            if (isMobile) {
+              // Mobile : utiliser sms:
+              toast.info(`📱 Envoi SMS à ${smsNumber}...`, { duration: 2000 });
+              setTimeout(() => {
+                window.location.href = `sms:${cleanNumber}?body=${encodedBody}`;
+              }, 500);
+            } else {
+              // Desktop : ouvrir WhatsApp Web ou copier le numéro
+              toast.info(`📱 Sur ordinateur, utilise WhatsApp ou copie le numéro: ${smsNumber}`, { duration: 4000 });
+              navigator.clipboard.writeText(smsNumber);
+              toast.success(`📋 Numéro ${smsNumber} copié dans le presse-papier`);
+              
+              // Proposer d'ouvrir WhatsApp Web
+              setTimeout(() => {
+                if (confirm("Ouvrir WhatsApp Web pour envoyer ce message ?")) {
+                  window.open(`https://wa.me/${cleanNumber}?text=${encodedBody}`, '_blank');
+                }
+              }, 1000);
+            }
             return { success: true };
           }
           toast.error("❌ Numéro de téléphone non disponible");
