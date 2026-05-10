@@ -407,33 +407,59 @@ export default function ChatPage() {
     }
   }
 
-  async function fetchMessages(conversationId: string) {
-    const { data } = await supabase
-      .from("conversation_messages")
-      .select("*")
-      .eq("conversation_id", conversationId)
-      .order("created_at", { ascending: true });
+// =====================================================
+// VERSION CORRIGÉE DE fetchMessages
+// =====================================================
+async function fetchMessages(conversationId: string) {
+  console.log("🔍 fetchMessages pour:", conversationId);
+  
+  const { data, error } = await supabase
+    .from("conversation_messages")
+    .select("*")
+    .eq("conversation_id", conversationId)
+    .order("created_at", { ascending: true });
+  
+  if (error) {
+    console.error("❌ Erreur fetchMessages:", error);
+    return;
+  }
+  
+  console.log(`📥 ${data?.length || 0} messages trouvés`);
+  
+  if (data && data.length > 0) {
+    const parsedMessages = data.map(msg => {
+      try {
+        // Essayer de parser le JSON
+        const parsed = JSON.parse(msg.content);
+        return { 
+          id: msg.id,
+          role: msg.role, 
+          content: parsed.content || msg.content, 
+          actions: parsed.actions,
+          files: parsed.files,
+          created_at: msg.created_at
+        };
+      } catch (e) {
+        // Pas du JSON, c'est du texte brut
+        console.log("📝 Message texte brut:", msg.content?.substring(0, 50));
+        return { 
+          id: msg.id,
+          role: msg.role, 
+          content: msg.content,
+          created_at: msg.created_at
+        };
+      }
+    });
     
-    if (data && data.length > 0) {
-      const parsedMessages = data.map(msg => {
-        try {
-          const parsed = JSON.parse(msg.content);
-          return { 
-            ...msg, 
-            content: parsed.content, 
-            actions: parsed.actions,
-            files: parsed.files 
-          };
-        } catch {
-          return msg;
-        }
-      });
-      setMessages(parsedMessages);
-    } else {
+    setMessages(parsedMessages);
+  } else {
+    // ✅ Ne créer un message proactif que s'il n'y a vraiment rien
+    if (messages.length === 0) {
+      console.log("💬 Aucun message, création d'un message proactif");
       setMessages([{ role: "assistant", content: generateProactiveMorningMessage() }]);
     }
   }
-
+}
   async function createNewConversation() {
     const title = `Nouvelle conversation ${new Date().toLocaleDateString('fr-FR')}`;
     const { data, error } = await supabase
@@ -490,19 +516,35 @@ export default function ChatPage() {
     }
   }
 
-  async function saveMessage(conversationId: string, role: string, content: string, actions?: any[], files?: any[]) {
-    const messageData = actions ? { content, actions, files } : (files ? { content, files } : { content });
-    await supabase.from("conversation_messages").insert({
-      conversation_id: conversationId,
-      role: role,
-      content: JSON.stringify(messageData)
-    });
-    
-    await supabase
-      .from("conversations")
-      .update({ updated_at: new Date().toISOString() })
-      .eq("id", conversationId);
+// =====================================================
+// VERSION CORRIGÉE DE saveMessage
+// =====================================================
+async function saveMessage(conversationId: string, role: string, content: string, actions?: any[], files?: any[]) {
+  // ✅ Construire l'objet message correctement
+  const messageData: any = { content };
+  if (actions && actions.length > 0) messageData.actions = actions;
+  if (files && files.length > 0) messageData.files = files;
+  
+  const messageJson = JSON.stringify(messageData);
+  console.log(`💾 Sauvegarde [${role}]:`, messageJson.substring(0, 200));
+  
+  const { error } = await supabase.from("conversation_messages").insert({
+    conversation_id: conversationId,
+    role: role,
+    content: messageJson
+  });
+  
+  if (error) {
+    console.error("❌ Erreur sauvegarde message:", error);
   }
+  
+  // Mettre à jour le timestamp de la conversation
+  await supabase
+    .from("conversations")
+    .update({ updated_at: new Date().toISOString() })
+    .eq("id", conversationId);
+}
+
 
   const sendRegularMessage = async (allMessages: any[]) => {
     const response = await fetch(`${API_URL}/chat`, {
@@ -562,32 +604,35 @@ export default function ChatPage() {
     setIsLoading(true);
     resetTranscript();
 
-    try {
-      let assistantContent: string = await sendRegularMessage(allMessages);
-      
-      setLastAssistantMessage(assistantContent);
-      
-      const assistantMessage: Message = { 
-        role: "assistant", 
-        content: assistantContent,
-        actions: undefined  // ✅ Les actions seront parsées par MessageWithActions
-      };
-      
-      setMessages(prev => [...prev, assistantMessage]);
-      await saveMessage(currentConversationId, "assistant", assistantContent, undefined);
-      
-      fetchConversations();
-      inputRef.current?.focus();
-      
-    } catch (error) {
-      console.error("Erreur:", error);
-      setMessages(prev => [...prev, { role: "assistant", content: "Erreur de connexion. Vérifie que le backend est bien démarré." }]);
-    } finally {
-      setIsLoading(false);
-      setIsSending(false);
-    }
+try {
+  let assistantContent: string = await sendRegularMessage(allMessages);
+  
+  console.log("📨 Réponse reçue:", assistantContent.substring(0, 200));
+  
+  // ✅ Ne PAS parser les actions ici - MessageWithActions le fera
+  const assistantMessage: Message = { 
+    role: "assistant", 
+    content: assistantContent,
   };
-
+  
+  setMessages(prev => [...prev, assistantMessage]);
+  
+  // ✅ Sauvegarder avec actions = undefined (sera parsé à l'affichage)
+  await saveMessage(currentConversationId, "assistant", assistantContent);
+  
+  // ✅ Rafraîchir la liste des conversations (mettre à jour les timestamps)
+  await fetchConversations();
+  
+  inputRef.current?.focus();
+  
+} catch (error) {
+  console.error("❌ Erreur:", error);
+  setMessages(prev => [...prev, { 
+    role: "assistant", 
+    content: "❌ Erreur de connexion. Vérifie que le backend est bien démarré." 
+  }]);
+}
+}
   const startVoiceRecording = () => {
     resetTranscript();
     SpeechRecognition.startListening({ continuous: true, language: 'fr-FR' });
