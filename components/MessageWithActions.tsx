@@ -1,6 +1,6 @@
 "use client";
 import { useState } from "react";
-import { CheckCircle, Loader2, Mail, FileText, ListTodo, Sparkles, DollarSign, Calendar, X } from "lucide-react";
+import { CheckCircle, Loader2, Mail, FileText, ListTodo, Sparkles, DollarSign, Calendar, Phone, X } from "lucide-react";
 import { toast } from "sonner";
 import ReactMarkdown from 'react-markdown';
 
@@ -59,6 +59,7 @@ const getActionIcon = (type: string) => {
     case "create_checklist": return <ListTodo className="w-3 h-3" />;
     case "get_financial_summary": return <DollarSign className="w-3 h-3" />;
     case "create_calendar_event": return <Calendar className="w-3 h-3" />;
+    case "make_call": return <Phone className="w-3 h-3" />;
     default: return <Sparkles className="w-3 h-3" />;
   }
 };
@@ -223,6 +224,38 @@ const executeActionFn = async (action: Action): Promise<{ success: boolean; data
           return { success: true };
         }
         break;
+
+
+        // ========== APPELS TÉLÉPHONIQUES ==========
+        case "make_call":
+          const phoneNumber = params.phone || params.number || params.to;
+          if (phoneNumber && phoneNumber !== "__NUMÉRO__" && !phoneNumber.includes("__")) {
+            toast.info(`📞 Appel de ${phoneNumber}...`, { duration: 2000 });
+            setTimeout(() => {
+              window.location.href = `tel:${phoneNumber.replace(/\s/g, '').replace(/^\+/, '')}`;
+            }, 500);
+            return { success: true };
+          }
+          toast.error("❌ Numéro de téléphone non disponible");
+          break;
+
+        // ========== SAUVEGARDER EN MÉMOIRE ==========
+        case "save_memory":
+          const saveResponse = await fetch(`${API_URL}/api/memory/save`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              category: params.category || "general",
+              key: params.key,
+              value: params.value
+            })
+          });
+          const saveResult = await saveResponse.json();
+          if (saveResult.success) {
+            toast.success(`💾 "${params.key}" sauvegardé`);
+            return { success: true };
+          }
+          break;
       
       // ========== DÉFAUT ==========
       default:
