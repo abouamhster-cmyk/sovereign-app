@@ -632,7 +632,7 @@ try {
     content: "❌ Erreur de connexion. Vérifie que le backend est bien démarré." 
   }]);
 }
-}
+};
   const startVoiceRecording = () => {
     resetTranscript();
     SpeechRecognition.startListening({ continuous: true, language: 'fr-FR' });
