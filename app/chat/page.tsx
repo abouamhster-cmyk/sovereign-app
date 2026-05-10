@@ -194,28 +194,6 @@ RÈGLES DU MODE SOVEREIGN :
 // FONCTIONS UTILITAIRES
 // =====================================================
 
-function extractActionsFromResponse(content: string): { cleanContent: string; actions: any[] } {
-  const actions: any[] = [];
-  let cleanContent = content;
-  
-  // ✅ Regex amélioré pour JSON avec accolades imbriquées
-  const actionRegex = /\[ACTION:(\{(?:[^{}]|{(?:[^{}]|{[^{}]*})*})*\})\]/g;
-  
-  let match;
-  while ((match = actionRegex.exec(content)) !== null) {
-    try {
-      const action = JSON.parse(match[1]);
-      actions.push(action);
-      cleanContent = cleanContent.replace(match[0], '');
-    } catch (e) {
-      console.error("❌ Erreur parsing action:", e);
-    }
-  }
-  
-  console.log("📋 Actions extraites:", actions.length, actions); // ← Log de debug
-  
-  return { cleanContent: cleanContent.trim(), actions };
-}
 function getRandomPriority(): string {
   const priorities = [
     "Finaliser le dossier DDA pour Love & Fire Sport",
@@ -539,92 +517,6 @@ export default function ChatPage() {
     return data.reply;
   };
 
-  const handleExecuteMode = async (userMessageContent: string) => {
-    try {
-      const analysisRes = await fetch(`${API_URL}/api/execute/analyze-request`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ query: userMessageContent })
-      });
-      const analysis = await analysisRes.json();
-      
-      if (analysis.success && analysis.execution_plan) {
-        const plan = analysis.execution_plan;
-        
-        let responseText = `🎯 **Mode Exécution activé**\n\n`;
-        responseText += `**${plan.title}**\n\n`;
-        
-        if (plan.steps && plan.steps.length > 0) {
-          responseText += `**📋 Plan d'action :**\n`;
-          plan.steps.forEach((step: string, i: number) => {
-            responseText += `${i + 1}. ${step}\n`;
-          });
-          responseText += `\n`;
-        }
-        
-        if (plan.type === "checklist" || (plan.steps && plan.steps.length > 0)) {
-          const checklistRes = await fetch(`${API_URL}/api/execute/create-checklist`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              title: plan.title,
-              steps: plan.steps || plan.suggested_tasks?.map((t: any) => t.title) || []
-            })
-          });
-          const checklist = await checklistRes.json();
-          if (checklist.success) {
-            responseText += `✅ **Checklist créée** - Tu peux suivre ta progression\n\n`;
-          }
-        }
-        
-        if (plan.suggested_tasks && plan.suggested_tasks.length > 0) {
-          responseText += `**📝 Tâches créées automatiquement :**\n`;
-          for (const task of plan.suggested_tasks) {
-            await fetch(`${API_URL}/api/execute/create-task`, {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                title: task.title,
-                priority: task.priority || "normal",
-                due_date: null
-              })
-            });
-            responseText += `- ${task.title}\n`;
-          }
-          responseText += `\n`;
-        }
-        
-        if (plan.type === "email" || plan.type === "document") {
-          const draftRes = await fetch(`${API_URL}/api/execute/create-draft`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              type: plan.type,
-              context: userMessageContent
-            })
-          });
-          const draft = await draftRes.json();
-          if (draft.success && draft.draft) {
-            responseText += `**✏️ Brouillon généré :**\n\n`;
-            responseText += `\`\`\`\n${draft.draft.content}\n\`\`\`\n\n`;
-            responseText += `*Copie et colle ce contenu ou demande-moi de le modifier.*\n\n`;
-          }
-        }
-        
-        if (plan.next_action) {
-          responseText += `**⚡ Prochaine action :** ${plan.next_action}\n\n`;
-        }
-        
-        responseText += `\n---\n💡 *Ce plan a été généré automatiquement. Dis-moi quand tu avances ou si tu veux ajuster quelque chose.*`;
-        
-        return responseText;
-      }
-    } catch (error) {
-      console.error("Erreur execute mode:", error);
-    }
-    return null;
-  };
-
   const sendMessage = async () => {
     if (isSending || (!input.trim() && uploadedFiles.length === 0) || isLoading || !currentConversationId) return;
     
@@ -650,19 +542,19 @@ export default function ChatPage() {
       files: uploadedFilesData.length > 0 ? uploadedFilesData : undefined
     };
     
-    // ✅ Utiliser le prompt du mode (qui contient déjà PROACTIVITY_RULES)
     const currentModeConfig = modes.find(m => m.id === selectedMode);
     const enhancedModePrompt = currentModeConfig?.prompt || modes[0].prompt;
 
     // ✅ Forcer la proactivité côté client (double sécurité)
     const forcedUserMessage = userMessageContent + 
-      "\n\n[RAPPEL SYSTÈME IMPORTANT : Sois brève. 1 phrase d'empathie max. Propose UNE action avec un bouton [ACTION:{\"type\":\"...\",\"params\":{...},\"label\":\"...\"}] sur UNE SEULE LIGNE. Pas de longs paragraphes. Pas de liste sans bouton.]";
+      "\n\n[RAPPEL SYSTÈME : Sois brève. 1 phrase d'empathie max. Propose UNE action avec un bouton [ACTION:{\"type\":\"...\",\"params\":{...},\"label\":\"...\"}] sur UNE SEULE LIGNE.]";
 
     const allMessages = [
       { role: "system", content: enhancedModePrompt },
       ...messages.map(msg => ({ role: msg.role, content: msg.content })),
       { role: "user", content: forcedUserMessage }
     ];
+    
     setMessages(prev => [...prev, userMessage]);
     await saveMessage(currentConversationId, "user", userMessageContent, undefined, uploadedFilesData);
     setInput("");
@@ -671,28 +563,18 @@ export default function ChatPage() {
     resetTranscript();
 
     try {
-      let assistantContent: string;
+      let assistantContent: string = await sendRegularMessage(allMessages);
       
-      if (selectedMode === "fais-le-avec-moi") {
-        const executeResult = await handleExecuteMode(userMessageContent);
-        assistantContent = executeResult || await sendRegularMessage(allMessages);
-      } else {
-        assistantContent = await sendRegularMessage(allMessages);
-      }
-      
-      // Extraire les actions du message si présentes
-      const { cleanContent, actions } = extractActionsFromResponse(assistantContent);
-      
-      setLastAssistantMessage(cleanContent);
+      setLastAssistantMessage(assistantContent);
       
       const assistantMessage: Message = { 
         role: "assistant", 
-        content: cleanContent,
-        actions: actions.length > 0 ? actions : undefined
+        content: assistantContent,
+        actions: undefined  // ✅ Les actions seront parsées par MessageWithActions
       };
       
       setMessages(prev => [...prev, assistantMessage]);
-      await saveMessage(currentConversationId, "assistant", cleanContent, actions);
+      await saveMessage(currentConversationId, "assistant", assistantContent, undefined);
       
       fetchConversations();
       inputRef.current?.focus();
