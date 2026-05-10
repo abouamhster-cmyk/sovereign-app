@@ -853,7 +853,6 @@ try {
                 <MessageWithActions 
                   content={m.content} 
                   actions={m.actions} 
-                  onActionComplete={() => fetchMessages(currentConversationId!)}
                 />
               </div>
             )}
