@@ -790,8 +790,6 @@ export function MessageWithActions({ content, actions: providedActions = [], onA
           </div>
         )}
 
-
-              // Modale WhatsApp Custom Reply
         {showWhatsAppModal && currentWhatsApp && (
           <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
             <div className="bg-midnight border border-gold-500/30 rounded-xl max-w-md w-full p-6">
