@@ -313,7 +313,6 @@ const executeActionFn = async (action: Action): Promise<{ success: boolean; data
         break;
 
       // ========== RAPPELS PROGRAMMÉS AVEC SON & VIBRATION ==========
-      // ========== RAPPELS PROGRAMMÉS AVEC SON & VIBRATION ==========
       case "schedule_reminder":
         const reminderTitle = params.title || "Rappel";
         const reminderMinutes = params.minutes;
@@ -527,6 +526,37 @@ const executeActionFn = async (action: Action): Promise<{ success: boolean; data
         toast.info("🎤 Message vocal - Fonctionnalité à venir", { duration: 3000 });
         // TODO: Intégration avec service de messagerie vocale
         return { success: true };
+
+
+
+        // ========== WHATSAPP RÉPONSES ==========
+      case "whatsapp_reply":
+        const replyResponse = await fetch(`${API_URL}/api/whatsapp/reply`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            to: params.to,
+            message: params.message,
+            message_id: params.message_id
+          })
+        });
+        const replyResult = await replyResponse.json();
+        if (replyResult.success) {
+          toast.success(`📱 Réponse envoyée à ${params.to}`);
+          return { success: true };
+        }
+        break;
+      
+      case "whatsapp_reply_custom":
+        // Ouvrir une modale pour personnaliser la réponse
+        return {
+          success: true,
+          data: {
+            type: "whatsapp_custom",
+            to: params.to,
+            original_message: params.original_message
+          }
+        };
       // ========== DÉFAUT ==========
       default:
         console.warn("⚠️ Action non implémentée:", type, params);
@@ -560,6 +590,11 @@ export function MessageWithActions({ content, actions: providedActions = [], onA
   
   const [showDraftModal, setShowDraftModal] = useState(false);
   const [currentDraft, setCurrentDraft] = useState<{ content: string; type: string } | null>(null);
+  
+    // États pour WhatsApp Custom Reply
+  const [showWhatsAppModal, setShowWhatsAppModal] = useState(false);
+  const [currentWhatsApp, setCurrentWhatsApp] = useState<{ to: string; original_message: string } | null>(null);
+  const [customReply, setCustomReply] = useState("");
 
   const handleExecuteAction = async (index: number, action: Action) => {
     setExecutingActions(prev => new Set(prev).add(index));
@@ -592,7 +627,15 @@ export function MessageWithActions({ content, actions: providedActions = [], onA
         });
         setShowDraftModal(true);
       }
-      
+
+    if (result.data?.type === "whatsapp_custom") {
+      setCurrentWhatsApp({
+        to: result.data.to,
+        original_message: result.data.original_message
+      });
+      setCustomReply("");
+      setShowWhatsAppModal(true);
+    }
       toast.success(`✅ ${action.label}`);
       setExecutedActions(prev => new Set(prev).add(index));
       onActionComplete?.();
@@ -743,6 +786,42 @@ export function MessageWithActions({ content, actions: providedActions = [], onA
               >
                 Fermer
               </button>
+            </div>
+          </div>
+        )}
+
+
+              // Modale WhatsApp Custom Reply
+        {showWhatsAppModal && currentWhatsApp && (
+          <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
+            <div className="bg-midnight border border-gold-500/30 rounded-xl max-w-md w-full p-6">
+              <h3 className="text-lg font-serif text-gold-500 mb-2">✏️ Répondre à {currentWhatsApp.to}</h3>
+              <p className="text-xs text-gray-400 mb-3">Message original : {currentWhatsApp.original_message}</p>
+              <textarea
+                value={customReply}
+                onChange={(e) => setCustomReply(e.target.value)}
+                className="w-full bg-white/10 border border-white/20 rounded-lg p-3 text-sm text-ivory"
+                rows={4}
+                placeholder="Ta réponse..."
+              />
+              <div className="flex gap-2 mt-4">
+                <button
+                  onClick={async () => {
+                    await executeActionFn({
+                      type: "whatsapp_reply",
+                      params: { to: currentWhatsApp.to, message: customReply },
+                      label: "Envoyer"
+                    });
+                    setShowWhatsAppModal(false);
+                  }}
+                  className="flex-1 py-2 bg-gold-500/20 text-gold-500 rounded-lg"
+                >
+                  📱 Envoyer
+                </button>
+                <button onClick={() => setShowWhatsAppModal(false)} className="flex-1 py-2 bg-white/10 text-gray-400 rounded-lg">
+                  Annuler
+                </button>
+              </div>
             </div>
           </div>
         )}
