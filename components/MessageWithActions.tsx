@@ -110,7 +110,7 @@ const executeActionFn = async (action: Action): Promise<{ success: boolean; data
         const emailResponse = await fetch(`${API_URL}/api/email/send`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: { to: params.to, subject: params.subject, body: params.body }
+          body: JSON.stringify({ to: params.to, subject: params.subject, body: params.body })
         });
         const emailResult = await emailResponse.json();
         if (emailResult.success) {
@@ -129,7 +129,7 @@ const executeActionFn = async (action: Action): Promise<{ success: boolean; data
         const draftResponse = await fetch(`${API_URL}/api/execute/create-draft`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: { type: params.type || "email", context: params.context || "Document à rédiger" }
+          body: JSON.stringify({ type: params.type || "email", context: params.context || "Document à rédiger" })
         });
         const draftResult = await draftResponse.json();
         if (draftResult.success && draftResult.draft) {
@@ -143,7 +143,7 @@ const executeActionFn = async (action: Action): Promise<{ success: boolean; data
         const calendarResponse = await fetch(`${API_URL}/api/calendar/event`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: { summary: params.summary, start_datetime: params.start_datetime, end_datetime: params.end_datetime, description: params.description || "" }
+          body: JSON.stringify({ summary: params.summary, start_datetime: params.start_datetime, end_datetime: params.end_datetime, description: params.description || "" })
         });
         const calendarResult = await calendarResponse.json();
         if (calendarResult.success) {
@@ -166,7 +166,7 @@ const executeActionFn = async (action: Action): Promise<{ success: boolean; data
         const writeResponse = await fetch(`${API_URL}/${table}`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: { data: params }
+          body: JSON.stringify({ data: params })
         });
         const writeResult = await writeResponse.json();
         if (writeResult.success) {
@@ -191,7 +191,7 @@ const executeActionFn = async (action: Action): Promise<{ success: boolean; data
         const saveResponse = await fetch(`${API_URL}/api/memory/save`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: { category: params.category || "general", key: params.key, value: params.value }
+          body: JSON.stringify({ category: params.category || "general", key: params.key, value: params.value })
         });
         const saveResult = await saveResponse.json();
         if (saveResult.success) {
