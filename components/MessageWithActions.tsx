@@ -68,6 +68,7 @@ const getActionIcon = (type: string) => {
     case "voice_message": return <Mic className="w-3 h-3" />;
     case "whatsapp_reply": return <MessageCircle className="w-3 h-3" />;
     case "whatsapp_get_conversations": return <MessageCircle className="w-3 h-3" />;
+    case "whatsapp_send_image": return <ImageIcon className="w-3 h-3" />;
     default: return <Sparkles className="w-3 h-3" />;
   }
 };
@@ -396,6 +397,66 @@ const executeActionFn = async (action: Action): Promise<{ success: boolean; data
         }
         break;
 
+        // ========== WHATSAPP ENVOI AVEC IMAGE ==========
+      case "whatsapp_send_image":
+        toast.info("🖼️ Envoi d'image WhatsApp...", { duration: 2000 });
+        
+        // Ouvrir un sélecteur de fichier
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = 'image/*';
+        input.onchange = async (e: any) => {
+          const file = e.target.files[0];
+          if (file) {
+            // Convertir en base64
+            const reader = new FileReader();
+            reader.onloadend = async () => {
+              const base64 = reader.result?.toString().split(',')[1];
+              
+              // Envoyer au backend
+              const imageResponse = await fetch(`${API_URL}/api/whatsapp/send-image`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  to: params.to,
+                  image: base64,
+                  caption: params.caption || ""
+                })
+              });
+              
+              const result = await imageResponse.json();
+              if (result.success) {
+                toast.success(`🖼️ Image envoyée à ${params.to}`);
+              } else {
+                toast.error("❌ Erreur envoi image");
+              }
+            };
+            reader.readAsDataURL(file);
+          }
+        };
+        input.click();
+        return { success: true };
+
+        // ========== TEMPLATES RAPIDES WHATSAPP ==========
+      case "whatsapp_quick_reply":
+        const templates = [
+          { label: "✅ OK, je m'en occupe", message: "OK, je m'en occupe aujourd'hui." },
+          { label: "📅 Je te redis ça demain", message: "Je te redis ça demain, promis." },
+          { label: "🙏 Merci !", message: "Merci beaucoup !" },
+          { label: "🔜 Je reviens vers toi", message: "Je reviens vers toi très vite." },
+          { label: "📱 Envoyé de ma part", message: "Message envoyé de ma part." },
+          { label: "✏️ Personnaliser", message: null }
+        ];
+        
+        return {
+          success: true,
+          data: {
+            type: "whatsapp_templates",
+            to: params.to,
+            templates: templates
+          }
+        };
+        
       default:
         console.warn("⚠️ Action non implémentée:", type, params);
         toast.info(`🔧 "${action.label}" - Fonctionnalité en cours d'implémentation`, { duration: 3000 });
@@ -423,6 +484,8 @@ export function MessageWithActions({ content, actions: providedActions = [], onA
   const [currentData, setCurrentData] = useState<{ title: string; content: string } | null>(null);
   const [showChecklistModal, setShowChecklistModal] = useState(false);
   const [currentChecklist, setCurrentChecklist] = useState<{ title: string; steps: string[] } | null>(null);
+  const [showTemplatesModal, setShowTemplatesModal] = useState(false);
+  const [currentTemplateTo, setCurrentTemplateTo] = useState("");
   const [showDraftModal, setShowDraftModal] = useState(false);
   const [currentDraft, setCurrentDraft] = useState<{ content: string; type: string } | null>(null);
   const [showWhatsAppModal, setShowWhatsAppModal] = useState(false);
