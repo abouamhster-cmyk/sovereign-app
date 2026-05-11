@@ -1,6 +1,6 @@
 "use client";
 import { useState } from "react";
-import { CheckCircle, Loader2, Mic, Send, MapPin, Clock, Mail, FileText, ListTodo, Sparkles, DollarSign, Calendar, Phone, MessageCircle, X } from "lucide-react";
+import { CheckCircle, Loader2, Mic, Send, MapPin, Clock, Mail, FileText, ListTodo, Sparkles, DollarSign, Calendar, Phone, MessageCircle, ImageIcon, X } from "lucide-react";
 import { toast } from "sonner";
 import ReactMarkdown from 'react-markdown';
 
@@ -69,6 +69,7 @@ const getActionIcon = (type: string) => {
     case "whatsapp_reply": return <MessageCircle className="w-3 h-3" />;
     case "whatsapp_get_conversations": return <MessageCircle className="w-3 h-3" />;
     case "whatsapp_send_image": return <ImageIcon className="w-3 h-3" />;
+    case "whatsapp_quick_reply": return <MessageCircle className="w-3 h-3" />;
     default: return <Sparkles className="w-3 h-3" />;
   }
 };
@@ -397,47 +398,34 @@ const executeActionFn = async (action: Action): Promise<{ success: boolean; data
         }
         break;
 
-        // ========== WHATSAPP ENVOI AVEC IMAGE ==========
+      // ========== WHATSAPP ENVOI AVEC IMAGE ==========
       case "whatsapp_send_image":
         toast.info("🖼️ Envoi d'image WhatsApp...", { duration: 2000 });
-        
-        // Ouvrir un sélecteur de fichier
-        const input = document.createElement('input');
-        input.type = 'file';
-        input.accept = 'image/*';
-        input.onchange = async (e: any) => {
+        const fileInput = document.createElement('input');
+        fileInput.type = 'file';
+        fileInput.accept = 'image/*';
+        fileInput.onchange = async (e: any) => {
           const file = e.target.files[0];
           if (file) {
-            // Convertir en base64
             const reader = new FileReader();
             reader.onloadend = async () => {
               const base64 = reader.result?.toString().split(',')[1];
-              
-              // Envoyer au backend
               const imageResponse = await fetch(`${API_URL}/api/whatsapp/send-image`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                  to: params.to,
-                  image: base64,
-                  caption: params.caption || ""
-                })
+                body: JSON.stringify({ to: params.to, image: base64, caption: params.caption || "" })
               });
-              
               const result = await imageResponse.json();
-              if (result.success) {
-                toast.success(`🖼️ Image envoyée à ${params.to}`);
-              } else {
-                toast.error("❌ Erreur envoi image");
-              }
+              if (result.success) toast.success(`🖼️ Image envoyée à ${params.to}`);
+              else toast.error("❌ Erreur envoi image");
             };
             reader.readAsDataURL(file);
           }
         };
-        input.click();
+        fileInput.click();
         return { success: true };
 
-        // ========== TEMPLATES RAPIDES WHATSAPP ==========
+      // ========== TEMPLATES RAPIDES WHATSAPP ==========
       case "whatsapp_quick_reply":
         const templates = [
           { label: "✅ OK, je m'en occupe", message: "OK, je m'en occupe aujourd'hui." },
@@ -447,15 +435,7 @@ const executeActionFn = async (action: Action): Promise<{ success: boolean; data
           { label: "📱 Envoyé de ma part", message: "Message envoyé de ma part." },
           { label: "✏️ Personnaliser", message: null }
         ];
-        
-        return {
-          success: true,
-          data: {
-            type: "whatsapp_templates",
-            to: params.to,
-            templates: templates
-          }
-        };
+        return { success: true, data: { type: "whatsapp_templates", to: params.to, templates: templates } };
         
       default:
         console.warn("⚠️ Action non implémentée:", type, params);
@@ -485,6 +465,7 @@ export function MessageWithActions({ content, actions: providedActions = [], onA
   const [showChecklistModal, setShowChecklistModal] = useState(false);
   const [currentChecklist, setCurrentChecklist] = useState<{ title: string; steps: string[] } | null>(null);
   const [showTemplatesModal, setShowTemplatesModal] = useState(false);
+  const [currentTemplates, setCurrentTemplates] = useState<{ label: string; message: string | null }[]>([]);
   const [currentTemplateTo, setCurrentTemplateTo] = useState("");
   const [showDraftModal, setShowDraftModal] = useState(false);
   const [currentDraft, setCurrentDraft] = useState<{ content: string; type: string } | null>(null);
@@ -514,6 +495,11 @@ export function MessageWithActions({ content, actions: providedActions = [], onA
         setCustomReply("");
         setShowWhatsAppModal(true);
       }
+      if (result.data?.type === "whatsapp_templates") {
+        setCurrentTemplates(result.data.templates);
+        setCurrentTemplateTo(result.data.to);
+        setShowTemplatesModal(true);
+      }
       toast.success(`✅ ${action.label}`);
       setExecutedActions(prev => new Set(prev).add(index));
       onActionComplete?.();
@@ -527,6 +513,11 @@ export function MessageWithActions({ content, actions: providedActions = [], onA
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
     toast.success("📋 Copié dans le presse-papier");
+  };
+
+  const executeWhatsAppReply = async (to: string, message: string) => {
+    const result = await executeActionFn({ type: "whatsapp_reply", params: { to, message }, label: "Envoyer" });
+    if (result.success) setShowTemplatesModal(false);
   };
 
   return (
@@ -570,19 +561,9 @@ export function MessageWithActions({ content, actions: providedActions = [], onA
       {showChecklistModal && currentChecklist && (
         <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4" onClick={() => setShowChecklistModal(false)}>
           <div className="bg-midnight border border-gold-500/30 rounded-xl max-w-md w-full p-6" onClick={(e) => e.stopPropagation()}>
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-serif text-gold-500">{currentChecklist.title}</h3>
-              <button onClick={() => setShowChecklistModal(false)} className="text-gray-400 hover:text-gold-500"><X className="w-5 h-5" /></button>
-            </div>
-            <div className="space-y-3 mb-6">
-              {currentChecklist.steps.map((step, idx) => (
-                <div key={idx} className="flex items-center gap-3 p-2 bg-white/5 rounded-lg">
-                  <input type="checkbox" className="w-4 h-4 rounded border-gold-500 accent-gold-500" />
-                  <span className="text-sm text-ivory">{step}</span>
-                </div>
-              ))}
-            </div>
-            <button onClick={() => setShowChecklistModal(false)} className="w-full py-2 bg-gold-500/20 text-gold-500 rounded-lg hover:bg-gold-500/30">Fermer</button>
+            <div className="flex justify-between items-center mb-4"><h3 className="text-lg font-serif text-gold-500">{currentChecklist.title}</h3><button onClick={() => setShowChecklistModal(false)}><X className="w-5 h-5 text-gray-400 hover:text-gold-500" /></button></div>
+            <div className="space-y-3 mb-6">{currentChecklist.steps.map((step, idx) => (<div key={idx} className="flex items-center gap-3 p-2 bg-white/5 rounded-lg"><input type="checkbox" className="w-4 h-4 rounded border-gold-500 accent-gold-500" /><span className="text-sm text-ivory">{step}</span></div>))}</div>
+            <button onClick={() => setShowChecklistModal(false)} className="w-full py-2 bg-gold-500/20 text-gold-500 rounded-lg">Fermer</button>
           </div>
         </div>
       )}
@@ -591,17 +572,9 @@ export function MessageWithActions({ content, actions: providedActions = [], onA
       {showDraftModal && currentDraft && (
         <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4" onClick={() => setShowDraftModal(false)}>
           <div className="bg-midnight border border-gold-500/30 rounded-xl max-w-2xl w-full p-6" onClick={(e) => e.stopPropagation()}>
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-serif text-gold-500">{currentDraft.type === "email" ? "📧 Brouillon d'email" : "📄 Brouillon de document"}</h3>
-              <button onClick={() => setShowDraftModal(false)} className="text-gray-400 hover:text-gold-500"><X className="w-5 h-5" /></button>
-            </div>
-            <div className="bg-black/30 rounded-lg p-4 mb-4 max-h-96 overflow-y-auto">
-              <pre className="text-sm text-ivory whitespace-pre-wrap font-sans">{currentDraft.content}</pre>
-            </div>
-            <div className="flex gap-3">
-              <button onClick={() => copyToClipboard(currentDraft.content)} className="flex-1 py-2 bg-gold-500/20 text-gold-500 rounded-lg hover:bg-gold-500/30">📋 Copier</button>
-              <button onClick={() => setShowDraftModal(false)} className="flex-1 py-2 bg-white/10 text-gray-400 rounded-lg hover:bg-white/20">Fermer</button>
-            </div>
+            <div className="flex justify-between items-center mb-4"><h3 className="text-lg font-serif text-gold-500">{currentDraft.type === "email" ? "📧 Brouillon d'email" : "📄 Brouillon de document"}</h3><button onClick={() => setShowDraftModal(false)}><X className="w-5 h-5 text-gray-400 hover:text-gold-500" /></button></div>
+            <div className="bg-black/30 rounded-lg p-4 mb-4 max-h-96 overflow-y-auto"><pre className="text-sm text-ivory whitespace-pre-wrap font-sans">{currentDraft.content}</pre></div>
+            <div className="flex gap-3"><button onClick={() => copyToClipboard(currentDraft.content)} className="flex-1 py-2 bg-gold-500/20 text-gold-500 rounded-lg">📋 Copier</button><button onClick={() => setShowDraftModal(false)} className="flex-1 py-2 bg-white/10 text-gray-400 rounded-lg">Fermer</button></div>
           </div>
         </div>
       )}
@@ -610,14 +583,9 @@ export function MessageWithActions({ content, actions: providedActions = [], onA
       {showDataModal && currentData && (
         <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4" onClick={() => setShowDataModal(false)}>
           <div className="bg-midnight border border-gold-500/30 rounded-xl max-w-lg w-full p-6" onClick={(e) => e.stopPropagation()}>
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-serif text-gold-500">📊 {currentData.title}</h3>
-              <button onClick={() => setShowDataModal(false)} className="text-gray-400 hover:text-gold-500"><X className="w-5 h-5" /></button>
-            </div>
-            <div className="bg-black/30 rounded-lg p-4 mb-4 max-h-96 overflow-y-auto">
-              <pre className="text-sm text-ivory whitespace-pre-wrap font-sans">{currentData.content}</pre>
-            </div>
-            <button onClick={() => setShowDataModal(false)} className="w-full py-2 bg-gold-500/20 text-gold-500 rounded-lg hover:bg-gold-500/30">Fermer</button>
+            <div className="flex justify-between items-center mb-4"><h3 className="text-lg font-serif text-gold-500">📊 {currentData.title}</h3><button onClick={() => setShowDataModal(false)}><X className="w-5 h-5 text-gray-400 hover:text-gold-500" /></button></div>
+            <div className="bg-black/30 rounded-lg p-4 mb-4 max-h-96 overflow-y-auto"><pre className="text-sm text-ivory whitespace-pre-wrap font-sans">{currentData.content}</pre></div>
+            <button onClick={() => setShowDataModal(false)} className="w-full py-2 bg-gold-500/20 text-gold-500 rounded-lg">Fermer</button>
           </div>
         </div>
       )}
@@ -628,23 +596,39 @@ export function MessageWithActions({ content, actions: providedActions = [], onA
           <div className="bg-midnight border border-gold-500/30 rounded-xl max-w-md w-full p-6">
             <h3 className="text-lg font-serif text-gold-500 mb-2">✏️ Répondre à {currentWhatsApp.to}</h3>
             <p className="text-xs text-gray-400 mb-3">Message original : {currentWhatsApp.original_message}</p>
-            <textarea
-              value={customReply}
-              onChange={(e) => setCustomReply(e.target.value)}
-              className="w-full bg-white/10 border border-white/20 rounded-lg p-3 text-sm text-ivory"
-              rows={4}
-              placeholder="Ta réponse..."
-            />
+            <textarea value={customReply} onChange={(e) => setCustomReply(e.target.value)} className="w-full bg-white/10 border border-white/20 rounded-lg p-3 text-sm text-ivory" rows={4} placeholder="Ta réponse..." />
             <div className="flex gap-2 mt-4">
-              <button
-                onClick={async () => {
-                  await executeActionFn({ type: "whatsapp_reply", params: { to: currentWhatsApp.to, message: customReply }, label: "Envoyer" });
-                  setShowWhatsAppModal(false);
-                }}
-                className="flex-1 py-2 bg-gold-500/20 text-gold-500 rounded-lg"
-              >📱 Envoyer</button>
+              <button onClick={async () => { await executeWhatsAppReply(currentWhatsApp.to, customReply); setShowWhatsAppModal(false); }} className="flex-1 py-2 bg-gold-500/20 text-gold-500 rounded-lg">📱 Envoyer</button>
               <button onClick={() => setShowWhatsAppModal(false)} className="flex-1 py-2 bg-white/10 text-gray-400 rounded-lg">Annuler</button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODALE TEMPLATES WHATSAPP */}
+      {showTemplatesModal && (
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
+          <div className="bg-midnight border border-gold-500/30 rounded-xl max-w-md w-full p-6">
+            <h3 className="text-lg font-serif text-gold-500 mb-4">⚡ Réponses rapides</h3>
+            <div className="space-y-2">
+              {currentTemplates.map((template, idx) => (
+                <button
+                  key={idx}
+                  onClick={async () => {
+                    if (template.message) {
+                      await executeWhatsAppReply(currentTemplateTo, template.message);
+                      setShowTemplatesModal(false);
+                    } else {
+                      setShowTemplatesModal(false);
+                    }
+                  }}
+                  className="w-full text-left p-3 bg-white/5 rounded-lg hover:bg-gold-500/20 transition-colors text-sm text-ivory"
+                >
+                  {template.label}
+                </button>
+              ))}
+            </div>
+            <button onClick={() => setShowTemplatesModal(false)} className="w-full mt-4 py-2 bg-white/10 text-gray-400 rounded-lg hover:bg-white/20">Fermer</button>
           </div>
         </div>
       )}
