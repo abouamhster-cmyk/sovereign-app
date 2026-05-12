@@ -355,31 +355,36 @@ export default function ChatPage() {
     }
   };
 
-  const executeWhatsAppAction = async (action: any) => {
-    try {
-      const response = await fetch(`${API_URL}/api/whatsapp/reply`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          to: action.params.to,
-          message: action.params.message || "Message de Sovereign",
-          message_id: action.params.message_id
-        })
-      });
-      const result = await response.json();
-      if (result.success) {
-        toast.success(`📱 Réponse envoyée à ${action.params.to}`);
-        return true;
-      } else {
-        toast.error("❌ Erreur d'envoi");
-        return false;
-      }
-    } catch (error) {
-      toast.error("❌ Erreur de connexion");
+const executeWhatsAppAction = async (action: any) => {
+  try {
+    console.log("📱 Exécution action WhatsApp:", action);
+    
+    const response = await fetch(`${API_URL}/api/whatsapp/reply`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        to: action.params.to,
+        message: action.params.message || "Message de Sovereign",
+        message_id: action.params.message_id
+      })
+    });
+    
+    const result = await response.json();
+    console.log("📱 Réponse API:", result);
+    
+    if (result.success) {
+      toast.success(`📱 Réponse envoyée à ${action.params.to}`);
+      return true;
+    } else {
+      toast.error("❌ Erreur d'envoi");
       return false;
     }
-  };
-  
+  } catch (error) {
+    console.error("❌ Erreur:", error);
+    toast.error("❌ Erreur de connexion");
+    return false;
+  }
+};
   return (
     <div className="fixed inset-0 bg-midnight flex flex-col">
       {/* HEADER */}
@@ -431,7 +436,20 @@ export default function ChatPage() {
               </div>
             ) : (
               <div className="max-w-[85%] p-4 rounded-2xl text-sm bg-white/10 text-ivory border border-white/5 rounded-bl-none">
-                <MessageWithActions content={m.content} actions={m.actions} onActionComplete={() => {}} />
+                  <MessageWithActions 
+                    content={m.content} 
+                    actions={m.actions} 
+                    onActionComplete={(data: any) => {
+                      if (data?.type === "whatsapp_conversations") {
+                        setCurrentData({
+                          title: "WhatsApp",
+                          content: data.text
+                        });
+                        setCurrentWhatsAppActions(data.actions || []);
+                        setShowDataModal(true);
+                      }
+                    }}
+                  />
               </div>
             )}
           </motion.div>
