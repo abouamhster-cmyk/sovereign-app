@@ -131,7 +131,6 @@ export default function ChatPage() {
   const [editingTitle, setEditingTitle] = useState("");
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
   const [selectedMode, setSelectedMode] = useState<string>("parle-moi");
-  const [currentWhatsAppActions, setCurrentWhatsAppActions] = useState<any[]>([]);
   const [isModeSelectorOpen, setIsModeSelectorOpen] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [isVoiceLocked, setIsVoiceLocked] = useState(false);
@@ -340,23 +339,21 @@ export default function ChatPage() {
   const CurrentIcon = currentModeConfig?.icon;
   const copyToClipboard = (text: string) => { navigator.clipboard.writeText(text); alert("📋 Copié !"); };
 
-  const executeAction = async (type: string, params: any) => {
-    if (type === "whatsapp_reply") {
-      const response = await fetch(`${API_URL}/api/whatsapp/reply`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(params) });
-      const result = await response.json();
-      if (result.success) alert(`✅ Réponse envoyée à ${params.to}`);
-      else alert("❌ Erreur d'envoi");
+ const executeAction = async (type: string, params: any) => {
+  if (type === "whatsapp_reply") {
+    const response = await fetch(`${API_URL}/api/whatsapp/reply`, { 
+      method: "POST", 
+      headers: { "Content-Type": "application/json" }, 
+      body: JSON.stringify(params) 
+    });
+    const result = await response.json();  // ← Définir result ici
+    if (result.success) {
+      toast.success(`✅ Réponse envoyée à ${params.to}`);
+    } else {
+      toast.error("❌ Erreur d'envoi");
     }
-    if (result.data?.type === "whatsapp_conversations") {
-      setCurrentData({
-        title: "WhatsApp",
-        content: result.data.text
-      });
-      setCurrentWhatsAppActions(result.data.actions);
-      setShowDataModal(true);
-    }
-  };
-
+  }
+};
 
                                                                       // Fonction simplifiée pour exécuter les actions WhatsApp depuis la modale
 const executeWhatsAppAction = async (action: any) => {
