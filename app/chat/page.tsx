@@ -388,6 +388,14 @@ const executeWhatsAppAction = async (action: any) => {
     return false;
   }
 };
+
+
+  const getActionIcon = (type: string) => {
+  switch(type) {
+    case "whatsapp_reply": return <MessageCircle className="w-3 h-3" />;
+    default: return <MessageCircle className="w-3 h-3" />;
+  }
+};
   return (
     <div className="fixed inset-0 bg-midnight flex flex-col">
       {/* HEADER */}
