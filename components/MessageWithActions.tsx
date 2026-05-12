@@ -489,6 +489,7 @@ export function MessageWithActions({ content, actions: providedActions = [], onA
   const [showDataModal, setShowDataModal] = useState(false);
   const [currentData, setCurrentData] = useState<{ title: string; content: string } | null>(null);
   const [showChecklistModal, setShowChecklistModal] = useState(false);
+  const [currentWhatsAppActions, setCurrentWhatsAppActions] = useState<Action[]>([]);
   const [currentChecklist, setCurrentChecklist] = useState<{ title: string; steps: string[] } | null>(null);
   const [showTemplatesModal, setShowTemplatesModal] = useState(false);
   const [currentTemplates, setCurrentTemplates] = useState<{ label: string; message: string | null }[]>([]);
@@ -520,6 +521,18 @@ export function MessageWithActions({ content, actions: providedActions = [], onA
         setCurrentWhatsApp({ to: result.data.to, original_message: result.data.original_message });
         setCustomReply("");
         setShowWhatsAppModal(true);
+      }
+
+      if (result.data?.type === "whatsapp_conversations") {
+        // Créer un message avec le texte et les actions
+        setCurrentData({
+          title: "WhatsApp",
+          content: result.data.text
+        });
+        setShowDataModal(true);
+        
+        // Stocker les actions pour la modale
+        setCurrentWhatsAppActions(result.data.actions);
       }
       if (result.data?.type === "whatsapp_templates") {
         setCurrentTemplates(result.data.templates);
