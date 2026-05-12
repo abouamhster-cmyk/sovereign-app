@@ -634,10 +634,30 @@ export function MessageWithActions({ content, actions: providedActions = [], onA
                   <button
                     key={idx}
                     onClick={async () => {
-                      const result = await executeActionFn(action);
-                      if (result.success) {
-                        toast.success(`✅ ${action.label}`);
-                        setShowDataModal(false);
+                      try {
+                        toast.info(`📱 Envoi du message à ${action.params.to}...`);
+                        
+                        const response = await fetch(`${API_URL}/api/whatsapp/reply`, {
+                          method: "POST",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({
+                            to: action.params.to,
+                            message: "Message envoyé depuis Sovereign",
+                            message_id: action.params.message_id
+                          })
+                        });
+                        
+                        const result = await response.json();
+                        
+                        if (result.success) {
+                          toast.success(`✅ Réponse envoyée à ${action.params.to}`);
+                          setShowDataModal(false);
+                        } else {
+                          toast.error("❌ Erreur d'envoi");
+                        }
+                      } catch (error) {
+                        console.error("Erreur:", error);
+                        toast.error("❌ Erreur de connexion");
                       }
                     }}
                     className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-gold-500/20 text-gold-400 hover:bg-gold-500/30"
