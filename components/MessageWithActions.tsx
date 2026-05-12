@@ -619,62 +619,95 @@ export function MessageWithActions({ content, actions: providedActions = [], onA
         </div>
       )}
 
-      {/* MODALE DONNÉES TABLE */}
+           {/* MODALE DONNÉES TABLE AVEC RÉPONSE WHATSAPP - VERSION MINI MODAL */}
       {showDataModal && currentData && (
-        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4" onClick={() => setShowDataModal(false)}>
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4" onClick={() => { setShowDataModal(false); setShowReplyInput(false); }}>
           <div className="bg-midnight border border-gold-500/30 rounded-xl max-w-lg w-full p-6" onClick={(e) => e.stopPropagation()}>
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-lg font-serif text-gold-500">📊 {currentData.title}</h3>
-              <button onClick={() => setShowDataModal(false)}><X className="w-5 h-5 text-gray-400 hover:text-gold-500" /></button>
+              <button onClick={() => { setShowDataModal(false); setShowReplyInput(false); }}><X className="w-5 h-5 text-gray-400 hover:text-gold-500" /></button>
             </div>
+            
             <div className="bg-black/30 rounded-lg p-4 mb-4 max-h-96 overflow-y-auto">
               <pre className="text-sm text-ivory whitespace-pre-wrap font-sans">{currentData.content}</pre>
             </div>
-              {currentWhatsAppActions.length > 0 && (
-                <div className="flex flex-wrap gap-2 mt-3 pt-2 border-t border-white/10">
-                  {currentWhatsAppActions.map((action, idx) => (
-                    <button
-                      key={idx}
-                      onClick={async () => {
-                        // Ouvrir une modale de saisie
-                        const message = prompt(`✏️ Répondre à ${action.params.to}\n\nMessage à envoyer :`, "Message envoyé depuis Sovereign");
-                        
-                        if (message && message.trim()) {
-                          try {
-                            toast.info(`📱 Envoi en cours...`);
-                            
-                            const response = await fetch(`${API_URL}/api/whatsapp/reply`, {
-                              method: "POST",
-                              headers: { "Content-Type": "application/json" },
-                              body: JSON.stringify({
-                                to: action.params.to,
-                                message: message,
-                                message_id: action.params.message_id
-                              })
-                            });
-                            
-                            const result = await response.json();
-                            
-                            if (result.success) {
-                              toast.success(`✅ Réponse envoyée à ${action.params.to}`);
-                              setShowDataModal(false);
-                            } else {
-                              toast.error("❌ Erreur d'envoi");
-                            }
-                          } catch (error) {
-                            toast.error("❌ Erreur de connexion");
+            
+            {/* Bouton pour répondre (affiche le mini modal) */}
+            {currentWhatsAppActions.length > 0 && !showReplyInput && (
+              <div className="flex flex-wrap gap-2 mt-3 pt-2 border-t border-white/10">
+                {currentWhatsAppActions.map((action, idx) => (
+                  <button
+                    key={idx}
+                    onClick={() => {
+                      setCurrentReplyTo(action.params.to);
+                      setReplyMessage("");
+                      setShowReplyInput(true);
+                    }}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-gold-500/20 text-gold-400 hover:bg-gold-500/30"
+                  >
+                    {getActionIcon(action.type)}
+                    {action.label}
+                  </button>
+                ))}
+              </div>
+            )}
+            
+            {/* Mini modal de saisie */}
+            {showReplyInput && (
+              <div className="mt-4 p-3 bg-white/5 rounded-lg border border-gold-500/30">
+                <p className="text-xs text-gray-400 mb-2">✏️ Répondre à {currentReplyTo}</p>
+                <textarea
+                  value={replyMessage}
+                  onChange={(e) => setReplyMessage(e.target.value)}
+                  className="w-full bg-black/30 border border-white/20 rounded-lg p-2 text-sm text-ivory"
+                  rows={3}
+                  placeholder="Votre message..."
+                  autoFocus
+                />
+                <div className="flex gap-2 mt-3">
+                  <button
+                    onClick={async () => {
+                      if (replyMessage.trim()) {
+                        try {
+                          toast.info(`📱 Envoi en cours...`);
+                          const response = await fetch(`${API_URL}/api/whatsapp/reply`, {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({
+                              to: currentReplyTo,
+                              message: replyMessage
+                            })
+                          });
+                          const result = await response.json();
+                          if (result.success) {
+                            toast.success(`✅ Réponse envoyée`);
+                            setShowReplyInput(false);
+                            setShowDataModal(false);
+                          } else {
+                            toast.error("❌ Erreur d'envoi");
                           }
+                        } catch (error) {
+                          toast.error("❌ Erreur de connexion");
                         }
-                      }}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-gold-500/20 text-gold-400 hover:bg-gold-500/30"
-                    >
-                      {getActionIcon(action.type)}
-                      {action.label}
-                    </button>
-                  ))}
+                      } else {
+                        toast.error("❌ Message vide");
+                      }
+                    }}
+                    className="flex-1 py-2 bg-gold-500/20 text-gold-500 rounded-lg text-sm"
+                  >
+                    📱 Envoyer
+                  </button>
+                  <button
+                    onClick={() => setShowReplyInput(false)}
+                    className="flex-1 py-2 bg-white/10 text-gray-400 rounded-lg text-sm"
+                  >
+                    Annuler
+                  </button>
                 </div>
-              )}
-            <button onClick={() => setShowDataModal(false)} className="w-full mt-3 py-2 bg-gold-500/20 text-gold-500 rounded-lg hover:bg-gold-500/30">Fermer</button>
+              </div>
+            )}
+            
+            <button onClick={() => { setShowDataModal(false); setShowReplyInput(false); }} className="w-full mt-3 py-2 bg-gold-500/20 text-gold-500 rounded-lg hover:bg-gold-500/30">Fermer</button>
           </div>
         </div>
       )}
