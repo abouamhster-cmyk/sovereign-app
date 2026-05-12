@@ -436,20 +436,14 @@ const executeWhatsAppAction = async (action: any) => {
               </div>
             ) : (
               <div className="max-w-[85%] p-4 rounded-2xl text-sm bg-white/10 text-ivory border border-white/5 rounded-bl-none">
-                  <MessageWithActions 
-                    content={m.content} 
-                    actions={m.actions} 
-                    onActionComplete={(data: any) => {
-                      if (data?.type === "whatsapp_conversations") {
-                        setCurrentData({
-                          title: "WhatsApp",
-                          content: data.text
-                        });
-                        setCurrentWhatsAppActions(data.actions || []);
-                        setShowDataModal(true);
-                      }
-                    }}
-                  />
+                <MessageWithActions 
+                  content={m.content} 
+                  actions={m.actions} 
+                  onActionComplete={() => {
+                    // Ne pas utiliser le paramètre data
+                    // La modale sera gérée directement par MessageWithActions
+                  }}
+                />
               </div>
             )}
           </motion.div>
