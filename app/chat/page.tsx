@@ -347,6 +347,33 @@ export default function ChatPage() {
     }
   };
 
+
+                                                                      // Fonction simplifiée pour exécuter les actions WhatsApp depuis la modale
+const executeWhatsAppAction = async (action: any) => {
+  try {
+    const response = await fetch(`${API_URL}/api/whatsapp/reply`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        to: action.params.to,
+        message: action.params.message || "Message de Sovereign",
+        message_id: action.params.message_id
+      })
+    });
+    const result = await response.json();
+    if (result.success) {
+      toast.success(`📱 Réponse envoyée à ${action.params.to}`);
+      return true;
+    } else {
+      toast.error("❌ Erreur d'envoi");
+      return false;
+    }
+  } catch (error) {
+    toast.error("❌ Erreur de connexion");
+    return false;
+  }
+};
+  
   return (
     <div className="fixed inset-0 bg-midnight flex flex-col">
       {/* HEADER */}
@@ -469,13 +496,29 @@ export default function ChatPage() {
                     <button
                       key={idx}
                       onClick={async () => {
-                        await executeActionFn(action);
-                        setShowDataModal(false);
+                        try {
+                          const response = await fetch(`${API_URL}/api/whatsapp/reply`, {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({
+                              to: action.params.to,
+                              message: action.params.message || "Message de Sovereign"
+                            })
+                          });
+                          const result = await response.json();
+                          if (result.success) {
+                            toast.success(`📱 Réponse envoyée`);
+                            setShowDataModal(false);
+                          } else {
+                            toast.error("❌ Erreur d'envoi");
+                          }
+                        } catch (error) {
+                          toast.error("❌ Erreur de connexion");
+                        }
                       }}
                       className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-gold-500/20 text-gold-400 hover:bg-gold-500/30"
                     >
-                      {getActionIcon(action.type)}
-                      {action.label}
+                      {action.label || "✏️ Répondre"}
                     </button>
                   ))}
                 </div>
