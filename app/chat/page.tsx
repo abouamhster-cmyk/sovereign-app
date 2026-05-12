@@ -14,7 +14,7 @@ import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import { useDropzone } from "react-dropzone";
 import SpeechRecognition, { useSpeechRecognition } from "react-speech-recognition";
-import { MessageWithActions } from "@/components/MessageWithActions";
+import { MessageWithActions, type Action } from "@/components/MessageWithActions";
 
 const API_URL = "https://sovereign-bridge.onrender.com";
 
