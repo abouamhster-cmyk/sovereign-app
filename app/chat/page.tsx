@@ -152,6 +152,9 @@ export default function ChatPage() {
   const [showWhatsAppModal, setShowWhatsAppModal] = useState(false);
   const [currentWhatsApp, setCurrentWhatsApp] = useState<{ to: string; original_message: string } | null>(null);
   const [customReply, setCustomReply] = useState("");
+  const [showReplyInput, setShowReplyInput] = useState(false);
+  const [currentReplyTo, setCurrentReplyTo] = useState("");
+  const [replyMessage, setReplyMessage] = useState("");
 
   useEffect(() => {
     if (transcript) { setInput(prev => prev + " " + transcript); resetTranscript(); }
