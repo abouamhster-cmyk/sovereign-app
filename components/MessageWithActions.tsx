@@ -6,7 +6,7 @@ import ReactMarkdown from 'react-markdown';
 
 const API_URL = "https://sovereign-bridge.onrender.com";
 
-type Action = {
+export type Action = {
   type: string;
   params: any;
   label: string;
