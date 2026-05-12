@@ -627,47 +627,50 @@ export function MessageWithActions({ content, actions: providedActions = [], onA
             <div className="bg-black/30 rounded-lg p-4 mb-4 max-h-96 overflow-y-auto">
               <pre className="text-sm text-ivory whitespace-pre-wrap font-sans">{currentData.content}</pre>
             </div>
-            {/* ✅ AJOUTE CES BOUTONS ICI */}
-            {currentWhatsAppActions.length > 0 && (
-              <div className="flex flex-wrap gap-2 mt-3 pt-2 border-t border-white/10">
-                {currentWhatsAppActions.map((action, idx) => (
-                  <button
-                    key={idx}
-                    onClick={async () => {
-                      try {
-                        toast.info(`📱 Envoi du message à ${action.params.to}...`);
+              {currentWhatsAppActions.length > 0 && (
+                <div className="flex flex-wrap gap-2 mt-3 pt-2 border-t border-white/10">
+                  {currentWhatsAppActions.map((action, idx) => (
+                    <button
+                      key={idx}
+                      onClick={async () => {
+                        // Ouvrir une modale de saisie
+                        const message = prompt(`✏️ Répondre à ${action.params.to}\n\nMessage à envoyer :`, "Message envoyé depuis Sovereign");
                         
-                        const response = await fetch(`${API_URL}/api/whatsapp/reply`, {
-                          method: "POST",
-                          headers: { "Content-Type": "application/json" },
-                          body: JSON.stringify({
-                            to: action.params.to,
-                            message: "Message envoyé depuis Sovereign",
-                            message_id: action.params.message_id
-                          })
-                        });
-                        
-                        const result = await response.json();
-                        
-                        if (result.success) {
-                          toast.success(`✅ Réponse envoyée à ${action.params.to}`);
-                          setShowDataModal(false);
-                        } else {
-                          toast.error("❌ Erreur d'envoi");
+                        if (message && message.trim()) {
+                          try {
+                            toast.info(`📱 Envoi en cours...`);
+                            
+                            const response = await fetch(`${API_URL}/api/whatsapp/reply`, {
+                              method: "POST",
+                              headers: { "Content-Type": "application/json" },
+                              body: JSON.stringify({
+                                to: action.params.to,
+                                message: message,
+                                message_id: action.params.message_id
+                              })
+                            });
+                            
+                            const result = await response.json();
+                            
+                            if (result.success) {
+                              toast.success(`✅ Réponse envoyée à ${action.params.to}`);
+                              setShowDataModal(false);
+                            } else {
+                              toast.error("❌ Erreur d'envoi");
+                            }
+                          } catch (error) {
+                            toast.error("❌ Erreur de connexion");
+                          }
                         }
-                      } catch (error) {
-                        console.error("Erreur:", error);
-                        toast.error("❌ Erreur de connexion");
-                      }
-                    }}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-gold-500/20 text-gold-400 hover:bg-gold-500/30"
-                  >
-                    {getActionIcon(action.type)}
-                    {action.label}
-                  </button>
-                ))}
-              </div>
-            )}
+                      }}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-gold-500/20 text-gold-400 hover:bg-gold-500/30"
+                    >
+                      {getActionIcon(action.type)}
+                      {action.label}
+                    </button>
+                  ))}
+                </div>
+              )}
             <button onClick={() => setShowDataModal(false)} className="w-full mt-3 py-2 bg-gold-500/20 text-gold-500 rounded-lg hover:bg-gold-500/30">Fermer</button>
           </div>
         </div>
