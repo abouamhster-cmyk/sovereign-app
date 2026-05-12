@@ -337,49 +337,48 @@ export default function ChatPage() {
   const handleKeyDown = (e: React.KeyboardEvent) => { if (e.key === 'Enter' && !e.shiftKey && !isRecording && !isVoiceLocked && !isSending) { e.preventDefault(); sendMessage(); } };
   const currentModeConfig = modes.find(m => m.id === selectedMode);
   const CurrentIcon = currentModeConfig?.icon;
-  const copyToClipboard = (text: string) => { navigator.clipboard.writeText(text); alert("📋 Copié !"); };
+  const copyToClipboard = (text: string) => { navigator.clipboard.writeText(text); toast.success("📋 Copié !"); };
 
- const executeAction = async (type: string, params: any) => {
-  if (type === "whatsapp_reply") {
-    const response = await fetch(`${API_URL}/api/whatsapp/reply`, { 
-      method: "POST", 
-      headers: { "Content-Type": "application/json" }, 
-      body: JSON.stringify(params) 
-    });
-    const result = await response.json();  // ← Définir result ici
-    if (result.success) {
-      toast.success(`✅ Réponse envoyée à ${params.to}`);
-    } else {
-      toast.error("❌ Erreur d'envoi");
+  const executeAction = async (type: string, params: any) => {
+    if (type === "whatsapp_reply") {
+      const response = await fetch(`${API_URL}/api/whatsapp/reply`, { 
+        method: "POST", 
+        headers: { "Content-Type": "application/json" }, 
+        body: JSON.stringify(params) 
+      });
+      const result = await response.json();
+      if (result.success) {
+        toast.success(`✅ Réponse envoyée à ${params.to}`);
+      } else {
+        toast.error("❌ Erreur d'envoi");
+      }
     }
-  }
-};
+  };
 
-                                                                      // Fonction simplifiée pour exécuter les actions WhatsApp depuis la modale
-const executeWhatsAppAction = async (action: any) => {
-  try {
-    const response = await fetch(`${API_URL}/api/whatsapp/reply`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        to: action.params.to,
-        message: action.params.message || "Message de Sovereign",
-        message_id: action.params.message_id
-      })
-    });
-    const result = await response.json();
-    if (result.success) {
-      toast.success(`📱 Réponse envoyée à ${action.params.to}`);
-      return true;
-    } else {
-      toast.error("❌ Erreur d'envoi");
+  const executeWhatsAppAction = async (action: any) => {
+    try {
+      const response = await fetch(`${API_URL}/api/whatsapp/reply`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          to: action.params.to,
+          message: action.params.message || "Message de Sovereign",
+          message_id: action.params.message_id
+        })
+      });
+      const result = await response.json();
+      if (result.success) {
+        toast.success(`📱 Réponse envoyée à ${action.params.to}`);
+        return true;
+      } else {
+        toast.error("❌ Erreur d'envoi");
+        return false;
+      }
+    } catch (error) {
+      toast.error("❌ Erreur de connexion");
       return false;
     }
-  } catch (error) {
-    toast.error("❌ Erreur de connexion");
-    return false;
-  }
-};
+  };
   
   return (
     <div className="fixed inset-0 bg-midnight flex flex-col">
@@ -485,54 +484,54 @@ const executeWhatsAppAction = async (action: any) => {
         </div>
       )}
 
-    {showDataModal && currentData && (
-      <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4" onClick={() => setShowDataModal(false)}>
-        <div className="bg-midnight border border-gold-500/30 rounded-xl max-w-lg w-full p-6" onClick={(e) => e.stopPropagation()}>
-          <div className="flex justify-between items-center mb-4">
-            <h3 className="text-lg font-serif text-gold-500">📊 {currentData.title}</h3>
-            <button onClick={() => setShowDataModal(false)}><X className="w-5 h-5 text-gray-400 hover:text-gold-500" /></button>
-          </div>
-          <div className="bg-black/30 rounded-lg p-4 mb-4 max-h-96 overflow-y-auto whitespace-pre-wrap text-sm text-ivory">
-            {currentData.content}
-          </div>
-          {/* ✅ AJOUTE LES BOUTONS ICI */}
-          {currentWhatsAppActions.length > 0 && (
-            <div className="flex flex-wrap gap-2 mt-3 pt-2 border-t border-white/10">
-              {currentWhatsAppActions.map((action, idx) => (
-                <button
-                  key={idx}
-                  onClick={async () => {
-                    try {
-                      const response = await fetch(`${API_URL}/api/whatsapp/reply`, {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({
-                          to: action.params.to,
-                          message: action.params.message || "Message de Sovereign"
-                        })
-                      });
-                      const result = await response.json();
-                      if (result.success) {
-                        toast.success(`📱 Réponse envoyée`);
-                        setShowDataModal(false);
-                      } else {
-                        toast.error("❌ Erreur d'envoi");
-                      }
-                    } catch (error) {
-                      toast.error("❌ Erreur de connexion");
-                    }
-                  }}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-gold-500/20 text-gold-400 hover:bg-gold-500/30"
-                >
-                  {action.label}
-                </button>
-              ))}
+      {/* MODALE DONNÉES TABLE AVEC BOUTONS WHATSAPP */}
+      {showDataModal && currentData && (
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4" onClick={() => setShowDataModal(false)}>
+          <div className="bg-midnight border border-gold-500/30 rounded-xl max-w-lg w-full p-6" onClick={(e) => e.stopPropagation()}>
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-serif text-gold-500">📊 {currentData.title}</h3>
+              <button onClick={() => setShowDataModal(false)}><X className="w-5 h-5 text-gray-400 hover:text-gold-500" /></button>
             </div>
-          )}
-          <button onClick={() => setShowDataModal(false)} className="w-full mt-3 py-2 bg-gold-500/20 text-gold-500 rounded-lg hover:bg-gold-500/30">Fermer</button>
+            <div className="bg-black/30 rounded-lg p-4 mb-4 max-h-96 overflow-y-auto whitespace-pre-wrap text-sm text-ivory">
+              {currentData.content}
+            </div>
+            {currentWhatsAppActions.length > 0 && (
+              <div className="flex flex-wrap gap-2 mt-3 pt-2 border-t border-white/10">
+                {currentWhatsAppActions.map((action, idx) => (
+                  <button
+                    key={idx}
+                    onClick={async () => {
+                      try {
+                        const response = await fetch(`${API_URL}/api/whatsapp/reply`, {
+                          method: "POST",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({
+                            to: action.params.to,
+                            message: action.params.message || "Message de Sovereign"
+                          })
+                        });
+                        const result = await response.json();
+                        if (result.success) {
+                          toast.success(`📱 Réponse envoyée`);
+                          setShowDataModal(false);
+                        } else {
+                          toast.error("❌ Erreur d'envoi");
+                        }
+                      } catch (error) {
+                        toast.error("❌ Erreur de connexion");
+                      }
+                    }}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-gold-500/20 text-gold-400 hover:bg-gold-500/30"
+                  >
+                    {action.label}
+                  </button>
+                ))}
+              </div>
+            )}
+            <button onClick={() => setShowDataModal(false)} className="w-full mt-3 py-2 bg-gold-500/20 text-gold-500 rounded-lg hover:bg-gold-500/30">Fermer</button>
+          </div>
         </div>
-      </div>
-    )}
+      )}
 
       {/* MODALE WHATSAPP CUSTOM REPLY */}
       {showWhatsAppModal && currentWhatsApp && (
