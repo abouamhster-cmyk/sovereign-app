@@ -378,7 +378,7 @@ const executeActionFn = async (action: Action): Promise<{ success: boolean; data
       case "whatsapp_reply_custom":
         return { success: true, data: { type: "whatsapp_custom", to: params.to, original_message: params.original_message } };
 
-      // ========== WHATSAPP - GET CONVERSATIONS ==========
+       // ========== WHATSAPP - GET CONVERSATIONS ==========
       case "whatsapp_get_conversations":
         const convResponse = await fetch(`${API_URL}/api/whatsapp/conversations?days=${params.days || 30}`, { 
           method: "GET", 
@@ -387,29 +387,36 @@ const executeActionFn = async (action: Action): Promise<{ success: boolean; data
         const convResult = await convResponse.json();
         
         if (convResult.conversations && convResult.conversations.length > 0) {
-          // Format sans Markdown pour éviter les astérisques
-          let formattedMessages = "📱 Messages WhatsApp du mois\n\n";
+          // Construire le message texte
+          let messageText = "📱 Messages WhatsApp du mois\n\n";
+          const allActions: Action[] = [];
           
           convResult.conversations.forEach((conv: any) => {
             const unreadBadge = conv.unread > 0 ? ` (${conv.unread} non lu)` : "";
-            formattedMessages += `👤 ${conv.from_name}${unreadBadge}\n`;
+            messageText += `👤 ${conv.from_name}${unreadBadge}\n`;
             
             const lastMsg = conv.messages[0];
             if (lastMsg) {
-              formattedMessages += `   💬 ${lastMsg.message}\n`;
-              formattedMessages += `   📅 ${new Date(lastMsg.created_at).toLocaleDateString('fr-FR')}\n`;
+              messageText += `   💬 ${lastMsg.message}\n`;
+              messageText += `   📅 ${new Date(lastMsg.created_at).toLocaleDateString('fr-FR')}\n`;
             }
+            messageText += `\n`;
             
-            // Bouton en texte clair (sera parsé par MessageWithActions)
-            formattedMessages += `\n[ACTION:{"type":"whatsapp_reply","params":{"to":"${conv.from}","message":""},"label":"✏️ Répondre"}]\n\n`;
+            // Ajouter l'action à la liste (pas dans le texte)
+            allActions.push({
+              type: "whatsapp_reply",
+              params: { to: conv.from, message: "" },
+              label: `✏️ Répondre à ${conv.from_name}`
+            });
           });
           
+          // Retourner le texte et les actions séparément
           return { 
             success: true, 
             data: { 
-              type: "table_data",
-              title: "WhatsApp",
-              content: formattedMessages
+              type: "whatsapp_conversations",  // Type spécial
+              text: messageText,
+              actions: allActions
             } 
           };
         } else {
@@ -417,7 +424,6 @@ const executeActionFn = async (action: Action): Promise<{ success: boolean; data
           return { success: true };
         }
         break;
-
       // ========== WHATSAPP ENVOI AVEC IMAGE ==========
       case "whatsapp_send_image":
         toast.info("🖼️ Envoi d'image WhatsApp...", { duration: 2000 });
