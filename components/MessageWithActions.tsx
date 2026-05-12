@@ -379,51 +379,50 @@ const executeActionFn = async (action: Action): Promise<{ success: boolean; data
         return { success: true, data: { type: "whatsapp_custom", to: params.to, original_message: params.original_message } };
 
        // ========== WHATSAPP - GET CONVERSATIONS ==========
-      case "whatsapp_get_conversations":
-        const convResponse = await fetch(`${API_URL}/api/whatsapp/conversations?days=${params.days || 30}`, { 
-          method: "GET", 
-          headers: { "Content-Type": "application/json" } 
-        });
-        const convResult = await convResponse.json();
-        
-        if (convResult.conversations && convResult.conversations.length > 0) {
-          // Construire le message texte
-          let messageText = "📱 Messages WhatsApp du mois\n\n";
-          const allActions: Action[] = [];
-          
-          convResult.conversations.forEach((conv: any) => {
-            const unreadBadge = conv.unread > 0 ? ` (${conv.unread} non lu)` : "";
-            messageText += `👤 ${conv.from_name}${unreadBadge}\n`;
-            
-            const lastMsg = conv.messages[0];
-            if (lastMsg) {
-              messageText += `   💬 ${lastMsg.message}\n`;
-              messageText += `   📅 ${new Date(lastMsg.created_at).toLocaleDateString('fr-FR')}\n`;
-            }
-            messageText += `\n`;
-            
-            // Ajouter l'action à la liste (pas dans le texte)
-            allActions.push({
-              type: "whatsapp_reply",
-              params: { to: conv.from, message: "" },
-              label: `✏️ Répondre à ${conv.from_name}`
-            });
-          });
-          
-          // Retourner le texte et les actions séparément
-          return { 
-            success: true, 
-            data: { 
-              type: "whatsapp_conversations",  // Type spécial
-              text: messageText,
-              actions: allActions
-            } 
-          };
-        } else {
-          toast.info("📱 Aucun message WhatsApp récent");
-          return { success: true };
-        }
-        break;
+     case "whatsapp_get_conversations":
+  const convResponse = await fetch(`${API_URL}/api/whatsapp/conversations?days=${params.days || 30}`, { 
+    method: "GET", 
+    headers: { "Content-Type": "application/json" } 
+  });
+  const convResult = await convResponse.json();
+  
+  if (convResult.conversations && convResult.conversations.length > 0) {
+    let messageText = "📱 Messages WhatsApp du mois\n\n";
+    const allActions: Action[] = [];
+    
+    convResult.conversations.forEach((conv: any) => {
+      const unreadBadge = conv.unread > 0 ? ` (${conv.unread} non lu)` : "";
+      messageText += `👤 ${conv.from_name}${unreadBadge}\n`;
+      
+      const lastMsg = conv.messages[0];
+      if (lastMsg) {
+        messageText += `   💬 ${lastMsg.message}\n`;
+        messageText += `   📅 ${new Date(lastMsg.created_at).toLocaleDateString('fr-FR')}\n`;
+      }
+      messageText += `\n`;
+      
+      allActions.push({
+        type: "whatsapp_reply",
+        params: { to: conv.from, message: "" },
+        label: `✏️ Répondre à ${conv.from_name}`
+      });
+    });
+    
+    console.log("📦 allActions:", allActions);  
+    
+    return { 
+      success: true, 
+      data: { 
+        type: "whatsapp_conversations",
+        text: messageText,
+        actions: allActions
+      } 
+    };
+  } else {
+    toast.info("📱 Aucun message WhatsApp récent");
+    return { success: true };
+  }
+  break;
       // ========== WHATSAPP ENVOI AVEC IMAGE ==========
       case "whatsapp_send_image":
         toast.info("🖼️ Envoi d'image WhatsApp...", { duration: 2000 });
@@ -523,16 +522,15 @@ export function MessageWithActions({ content, actions: providedActions = [], onA
         setShowWhatsAppModal(true);
       }
 
-      if (result.data?.type === "whatsapp_conversations") {
-        // Créer un message avec le texte et les actions
+    if (result.data?.type === "whatsapp_conversations") {
+        console.log("📦 result.data.actions:", result.data.actions);  // ← AJOUTE CE LOG
+        
         setCurrentData({
           title: "WhatsApp",
           content: result.data.text
         });
         setShowDataModal(true);
-        
-        // Stocker les actions pour la modale
-        setCurrentWhatsAppActions(result.data.actions);
+        setCurrentWhatsAppActions(result.data.actions || []);
       }
       if (result.data?.type === "whatsapp_templates") {
         setCurrentTemplates(result.data.templates);
