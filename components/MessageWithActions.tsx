@@ -22,20 +22,14 @@ type MessageWithActionsProps = {
 // FONCTION POUR PARSER LES ACTIONS DANS LE TEXTE
 // ============================================================
 function parseActionsFromText(text: string): { cleanText: string; actions: Action[] } {
+  const actionRegex = /\[ACTION:(\{(?:[^{}]|\{[^{}]*\})*\})\]/g;
   const actions: Action[] = [];
   let cleanText = text;
-  
-  // Regex plus permissive pour capturer le JSON
-  const actionRegex = /\[ACTION:(\{[^}]+\})\]/g;
   let match;
   
   while ((match = actionRegex.exec(text)) !== null) {
     try {
-      // Nettoyer le JSON des guillemets échappés
-      let jsonStr = match[1];
-      jsonStr = jsonStr.replace(/\\"/g, '"');
-      const actionData = JSON.parse(jsonStr);
-      
+      const actionData = JSON.parse(match[1]);
       if (actionData.type && actionData.params !== undefined && actionData.label) {
         actions.push({
           type: actionData.type,
@@ -50,7 +44,7 @@ function parseActionsFromText(text: string): { cleanText: string; actions: Actio
   }
   
   cleanText = cleanText.replace(/\n{3,}/g, '\n\n').trim();
-  console.log("🔍 Actions parsées:", actions.length, actions);
+  console.log("🔍 Actions parsées:", actions.length);
   
   return { cleanText, actions };
 }
