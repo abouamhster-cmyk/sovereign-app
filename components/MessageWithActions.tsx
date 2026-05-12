@@ -498,6 +498,9 @@ export function MessageWithActions({ content, actions: providedActions = [], onA
   const [showWhatsAppModal, setShowWhatsAppModal] = useState(false);
   const [currentWhatsApp, setCurrentWhatsApp] = useState<{ to: string; original_message: string } | null>(null);
   const [customReply, setCustomReply] = useState("");
+  const [showReplyInput, setShowReplyInput] = useState(false);
+  const [currentReplyTo, setCurrentReplyTo] = useState("");
+  const [replyMessage, setReplyMessage] = useState("");
 
   const handleExecuteAction = async (index: number, action: Action) => {
     setExecutingActions(prev => new Set(prev).add(index));
