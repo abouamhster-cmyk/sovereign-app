@@ -98,20 +98,42 @@ function getRandomOpportunity(): string {
   return opportunities[Math.floor(Math.random() * opportunities.length)];
 }
 
-function generateProactiveMorningMessage():
-    hour = datetime.now().hour
-    greeting = "☀️ Bonjour" if hour < 12 else "🌤️ Bon après-midi" if hour < 18 else "🌙 Bonsoir"
-    
-    # Version SANS BOUTONS
-    return f"""{greeting} Rebecca.
+function generateProactiveMorningMessage() {
+  const hour = new Date().getHours();
+  let greeting = "";
+  if (hour < 12) greeting = "☀️ Bonjour";
+  else if (hour < 18) greeting = "🌤️ Bon après-midi";
+  else greeting = "🌙 Bonsoir";
+  
+  const priorities = [
+    "Finaliser le dossier DDA pour Love & Fire Sport",
+    "Vérifier l'avancement de la ferme (Ifè Living Farm)",
+    "Préparer le rapport financier de la semaine",
+    "Contacter l'équipe pour le suivi des grants",
+    "Planifier la prochaine étape de la relocalisation"
+  ];
+  const opportunities = [
+    "Un grant de 10M CFA est disponible sur grants.gov",
+    "Le contrat DDA approche de sa date limite (5 jours)",
+    "Un partenaire potentiel pour la ferme t'a contacté",
+    "La période de soumission pour Love & Fire Sport se termine bientôt",
+    "Une réunion avec l'équipe de Santé Plus serait bénéfique"
+  ];
+  
+  const randomPriority = priorities[Math.floor(Math.random() * priorities.length)];
+  const randomOpportunity = opportunities[Math.floor(Math.random() * opportunities.length)];
+  
+  // Version SANS BOUTONS
+  return `${greeting} Rebecca.
 
 Voici ce que j'ai préparé pour toi aujourd'hui.
 
-Priorité : {getRandomPriority()}
-À ne pas manquer : {getRandomOpportunity()}
-Rappel : prends 5 minutes pour respirer entre deux tâches.
+Priorité recommandée : ${randomPriority}
+À ne pas manquer : ${randomOpportunity}
+Rappel : Prends 5 minutes pour respirer entre deux tâches.
 
-Dis-moi ce que tu veux attaquer en premier."""
+Dis-moi ce que tu veux attaquer en premier.`;
+}
 // =====================================================
 // COMPOSANT PRINCIPAL
 // =====================================================
