@@ -131,6 +131,7 @@ export default function ChatPage() {
   const [editingTitle, setEditingTitle] = useState("");
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
   const [selectedMode, setSelectedMode] = useState<string>("parle-moi");
+  const [currentWhatsAppActions, setCurrentWhatsAppActions] = useState<any[]>([]);
   const [isModeSelectorOpen, setIsModeSelectorOpen] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [isVoiceLocked, setIsVoiceLocked] = useState(false);
@@ -346,6 +347,14 @@ export default function ChatPage() {
       if (result.success) alert(`✅ Réponse envoyée à ${params.to}`);
       else alert("❌ Erreur d'envoi");
     }
+    if (result.data?.type === "whatsapp_conversations") {
+      setCurrentData({
+        title: "WhatsApp",
+        content: result.data.text
+      });
+      setCurrentWhatsAppActions(result.data.actions);
+      setShowDataModal(true);
+    }
   };
 
 
@@ -479,55 +488,54 @@ const executeWhatsAppAction = async (action: any) => {
         </div>
       )}
 
-      {/* MODALE DONNÉES TABLE */}
-        {showDataModal && currentData && (
-          <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4" onClick={() => setShowDataModal(false)}>
-            <div className="bg-midnight border border-gold-500/30 rounded-xl max-w-lg w-full p-6" onClick={(e) => e.stopPropagation()}>
-              <div className="flex justify-between items-center mb-4">
-                <h3 className="text-lg font-serif text-gold-500">📊 {currentData.title}</h3>
-                <button onClick={() => setShowDataModal(false)} className="text-gray-400 hover:text-gold-500"><X className="w-5 h-5" /></button>
-              </div>
-              <div className="bg-black/30 rounded-lg p-4 mb-4 max-h-96 overflow-y-auto whitespace-pre-wrap text-sm text-ivory">
-                {currentData.content}
-              </div>
-              {/* Afficher les boutons d'action */}
-              {currentWhatsAppActions.length > 0 && (
-                <div className="flex flex-wrap gap-2 mt-3 pt-2 border-t border-white/10">
-                  {currentWhatsAppActions.map((action, idx) => (
-                    <button
-                      key={idx}
-                      onClick={async () => {
-                        try {
-                          const response = await fetch(`${API_URL}/api/whatsapp/reply`, {
-                            method: "POST",
-                            headers: { "Content-Type": "application/json" },
-                            body: JSON.stringify({
-                              to: action.params.to,
-                              message: action.params.message || "Message de Sovereign"
-                            })
-                          });
-                          const result = await response.json();
-                          if (result.success) {
-                            toast.success(`📱 Réponse envoyée`);
-                            setShowDataModal(false);
-                          } else {
-                            toast.error("❌ Erreur d'envoi");
-                          }
-                        } catch (error) {
-                          toast.error("❌ Erreur de connexion");
-                        }
-                      }}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-gold-500/20 text-gold-400 hover:bg-gold-500/30"
-                    >
-                      {action.label || "✏️ Répondre"}
-                    </button>
-                  ))}
-                </div>
-              )}
-              <button onClick={() => setShowDataModal(false)} className="w-full mt-3 py-2 bg-gold-500/20 text-gold-500 rounded-lg hover:bg-gold-500/30">Fermer</button>
-            </div>
+    {showDataModal && currentData && (
+      <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4" onClick={() => setShowDataModal(false)}>
+        <div className="bg-midnight border border-gold-500/30 rounded-xl max-w-lg w-full p-6" onClick={(e) => e.stopPropagation()}>
+          <div className="flex justify-between items-center mb-4">
+            <h3 className="text-lg font-serif text-gold-500">📊 {currentData.title}</h3>
+            <button onClick={() => setShowDataModal(false)}><X className="w-5 h-5 text-gray-400 hover:text-gold-500" /></button>
           </div>
-        )}
+          <div className="bg-black/30 rounded-lg p-4 mb-4 max-h-96 overflow-y-auto whitespace-pre-wrap text-sm text-ivory">
+            {currentData.content}
+          </div>
+          {/* ✅ AJOUTE LES BOUTONS ICI */}
+          {currentWhatsAppActions.length > 0 && (
+            <div className="flex flex-wrap gap-2 mt-3 pt-2 border-t border-white/10">
+              {currentWhatsAppActions.map((action, idx) => (
+                <button
+                  key={idx}
+                  onClick={async () => {
+                    try {
+                      const response = await fetch(`${API_URL}/api/whatsapp/reply`, {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                          to: action.params.to,
+                          message: action.params.message || "Message de Sovereign"
+                        })
+                      });
+                      const result = await response.json();
+                      if (result.success) {
+                        toast.success(`📱 Réponse envoyée`);
+                        setShowDataModal(false);
+                      } else {
+                        toast.error("❌ Erreur d'envoi");
+                      }
+                    } catch (error) {
+                      toast.error("❌ Erreur de connexion");
+                    }
+                  }}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-gold-500/20 text-gold-400 hover:bg-gold-500/30"
+                >
+                  {action.label}
+                </button>
+              ))}
+            </div>
+          )}
+          <button onClick={() => setShowDataModal(false)} className="w-full mt-3 py-2 bg-gold-500/20 text-gold-500 rounded-lg hover:bg-gold-500/30">Fermer</button>
+        </div>
+      </div>
+    )}
 
       {/* MODALE WHATSAPP CUSTOM REPLY */}
       {showWhatsAppModal && currentWhatsApp && (
