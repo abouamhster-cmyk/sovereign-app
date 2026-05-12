@@ -134,6 +134,7 @@ export default function ChatPage() {
   const [isRecording, setIsRecording] = useState(false);
   const [isVoiceLocked, setIsVoiceLocked] = useState(false);
   const [pressTimer, setPressTimer] = useState<NodeJS.Timeout | null>(null);
+  const [currentWhatsAppActions, setCurrentWhatsAppActions] = useState<Action[]>([]);
   const [pressStartTime, setPressStartTime] = useState(0);
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
