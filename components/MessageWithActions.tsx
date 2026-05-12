@@ -377,26 +377,44 @@ const executeActionFn = async (action: Action): Promise<{ success: boolean; data
         return { success: true, data: { type: "whatsapp_custom", to: params.to, original_message: params.original_message } };
 
       // ========== WHATSAPP - GET CONVERSATIONS ==========
-      case "whatsapp_get_conversations":
-        const convResponse = await fetch(`${API_URL}/api/whatsapp/conversations?days=${params.days || 7}`, { method: "GET", headers: { "Content-Type": "application/json" } });
-        const convResult = await convResponse.json();
-        if (convResult.conversations && convResult.conversations.length > 0) {
-          let formattedMessages = "📱 **Messages WhatsApp récents**\n\n";
-          convResult.conversations.forEach((conv: any) => {
-            formattedMessages += `👤 **${conv.from_name || conv.from}** (${conv.unread} non lu(s))\n`;
-            conv.messages.slice(0, 3).forEach((msg: any) => {
-              formattedMessages += `   💬 ${msg.message.substring(0, 100)}`;
-              if (msg.status === "pending") formattedMessages += ` ⏳`;
-              formattedMessages += `\n`;
-            });
-            formattedMessages += `   [ACTION:{"type":"whatsapp_reply","params":{"to":"${conv.from}","message":""},"label":"✏️ Répondre"}]\n\n`;
-          });
-          return { success: true, data: { type: "table_data", title: "WhatsApp", content: formattedMessages } };
-        } else {
-          toast.info("📱 Aucun message WhatsApp récent");
-          return { success: true };
-        }
-        break;
+     case "whatsapp_get_conversations":
+  const convResponse = await fetch(`${API_URL}/api/whatsapp/conversations?days=${params.days || 30}`, { 
+    method: "GET", 
+    headers: { "Content-Type": "application/json" } 
+  });
+  const convResult = await convResponse.json();
+  
+  if (convResult.conversations && convResult.conversations.length > 0) {
+    let formattedMessages = "📱 **Messages WhatsApp du mois**\n\n";
+    
+    convResult.conversations.forEach((conv: any) => {
+      const unreadBadge = conv.unread > 0 ? ` **${conv.unread} non lu(s)**` : "";
+      formattedMessages += `👤 **${conv.from_name}**${unreadBadge}\n`;
+      
+      // Afficher uniquement le dernier message
+      const lastMsg = conv.messages[0];
+      if (lastMsg) {
+        formattedMessages += `   💬 ${lastMsg.message}\n`;
+        formattedMessages += `   📅 ${new Date(lastMsg.created_at).toLocaleDateString('fr-FR')}\n`;
+      }
+      
+      // Bouton pour répondre
+      formattedMessages += `   [ACTION:{"type":"whatsapp_reply","params":{"to":"${conv.from}","message":""},"label":"✏️ Répondre"}]\n\n`;
+    });
+    
+    return { 
+      success: true, 
+      data: { 
+        type: "table_data",
+        title: "WhatsApp",
+        content: formattedMessages
+      } 
+    };
+  } else {
+    toast.info("📱 Aucun message WhatsApp récent");
+    return { success: true };
+  }
+  break;
 
       // ========== WHATSAPP ENVOI AVEC IMAGE ==========
       case "whatsapp_send_image":
