@@ -248,7 +248,7 @@ export default function ChatPage() {
         }
       });
       setMessages(parsedMessages);
-    } else if (messages.length === 0) setMessages([{ role: "assistant", content: generateProactiveMorningMessage() }]);
+    } else if (messages.length === 0) setMessages([{ role: "assistant", content: "Salut Rebecca. Besoin de quelque chose ?" }]);
   }
 
   async function createNewConversation() {
