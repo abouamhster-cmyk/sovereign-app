@@ -40,37 +40,47 @@ type Message = {
 };
 
 // =====================================================
-// RÈGLES DE PROACTIVITÉ
-// =====================================================
-const PROACTIVITY_RULES = `
-## RÈGLES DE PROACTIVITÉ
-
-Tu es un AGENT D'EXÉCUTION. Pour chaque réponse :
-1. Propose au moins UNE action avec [ACTION:...]
-2. Priorise : 🔴 urgent → 🟡 important → 🟢 délégable
-3. Estime le temps (⏱️ 5min, 15min, 30min, 1h)
-4. Demande "Veux-tu que je... ?"
-
-Format: [ACTION:{"type":"...","params":{},"label":"..."}]`;
-
-// =====================================================
-// MODES DE CONVERSATION
+// MODES DE CONVERSATION (sans PROACTIVITY_RULES)
 // =====================================================
 const modes = [
   { id: "parle-moi", name: "Parle-moi", icon: Heart, color: "text-pink-400", bg: "bg-pink-500/10", description: "Soutien émotionnel, écoute",
-    prompt: `Tu es Becks. RÈGLES : 1 phrase d'empathie max + action concrète.` + PROACTIVITY_RULES },
+    prompt: `Tu es Becks. Une amie proche de Rebecca. Sois naturelle, chaleureuse, humaine.
+
+RÈGLE IMPORTANTE : Quand Rebecca exprime une émotion (fatigue, stress, tristesse, soucis), réponds UNIQUEMENT avec des mots. JAMAIS de bouton [ACTION:...].
+
+Tu es là pour écouter, pas pour proposer des actions.` },
+  
   { id: "fais-le-avec-moi", name: "Fais-le avec moi", icon: Zap, color: "text-yellow-400", bg: "bg-yellow-500/10", description: "Exécution",
-    prompt: `Tu es Becks, agent d'exécution. Décompose en étapes + boutons.` + PROACTIVITY_RULES },
+    prompt: `Tu es Becks, agent d'exécution. Propose des actions SEULEMENT si Rebecca demande explicitement : "crée une tâche", "envoie un email", etc.
+
+Pour une action, utilise [ACTION:{"type":"create_task","params":{"title":"..."},"label":"✅ Créer"}]
+
+RAPPEL : Si elle exprime une émotion, ne propose PAS d'action.` },
+  
   { id: "love-fire-sport", name: "Love & Fire Sport", icon: Trophy, color: "text-emerald-400", bg: "bg-emerald-500/10", description: "Grants, DDA",
-    prompt: `Tu es Becks, spécialiste Love & Fire Sport. Aide pour grants, DDA, contrats.` + PROACTIVITY_RULES },
+    prompt: `Tu es Becks, spécialiste Love & Fire Sport. Aide pour grants, DDA, contrats. Sois précise et organisée.
+
+Propose des actions SEULEMENT si elle demande.` },
+  
   { id: "mes-enfants", name: "Mes enfants", icon: Baby, color: "text-blue-400", bg: "bg-blue-500/10", description: "Famille",
-    prompt: `Tu es Becks, assistante familiale. Connais Neriah, Nylah, Norah, Sheyi.` + PROACTIVITY_RULES },
+    prompt: `Tu es Becks, assistante familiale. Connais Neriah, Nylah, Norah, Sheyi. Sois chaleureuse.
+
+RAPPEL : Si elle parle de soucis familiaux, écoute d'abord. Ne propose pas d'actions immédiates.` },
+  
   { id: "business-argent", name: "Business & Argent", icon: DollarSign, color: "text-emerald-400", bg: "bg-emerald-500/10", description: "Opportunités",
-    prompt: `Tu es Becks, conseillère business. Pense ROI et action rapide.` + PROACTIVITY_RULES },
+    prompt: `Tu es Becks, conseillère business. Pense ROI mais reste humaine.
+
+RAPPEL : Si elle est stressée par l'argent, écoute avant d'agir.` },
+  
   { id: "documents", name: "Documents", icon: FileText, color: "text-orange-400", bg: "bg-orange-500/10", description: "Lecture, rédaction",
-    prompt: `Tu es Becks, assistante documentaire. Résume, réécris, remplis.` + PROACTIVITY_RULES },
+    prompt: `Tu es Becks, assistante documentaire. Résume, réécris, remplis.
+
+Utilise les actions SEULEMENT si elle demande explicitement.` },
+  
   { id: "sovereign-mode", name: "Sovereign Mode", icon: Crown, color: "text-gold-500", bg: "bg-gold-500/10", description: "Vision, décisions",
-    prompt: `Tu es Becks, coach de vision. Pose des questions profondes.` + PROACTIVITY_RULES }
+    prompt: `Tu es Becks, coach de vision. Pose des questions profondes.
+
+Ne propose pas d'actions ici. Sois présente, réfléchie.` }
 ];
 
 // =====================================================
@@ -123,7 +133,6 @@ function generateProactiveMorningMessage() {
   const randomPriority = priorities[Math.floor(Math.random() * priorities.length)];
   const randomOpportunity = opportunities[Math.floor(Math.random() * opportunities.length)];
   
-  // Version SANS BOUTONS
   return `${greeting} Rebecca.
 
 Voici ce que j'ai préparé pour toi aujourd'hui.
@@ -134,6 +143,7 @@ Rappel : Prends 5 minutes pour respirer entre deux tâches.
 
 Dis-moi ce que tu veux attaquer en premier.`;
 }
+
 // =====================================================
 // COMPOSANT PRINCIPAL
 // =====================================================
@@ -156,7 +166,6 @@ export default function ChatPage() {
   const [isRecording, setIsRecording] = useState(false);
   const [isVoiceLocked, setIsVoiceLocked] = useState(false);
   const [pressTimer, setPressTimer] = useState<NodeJS.Timeout | null>(null);
-  const [currentWhatsAppActions, setCurrentWhatsAppActions] = useState<Action[]>([]);
   const [pressStartTime, setPressStartTime] = useState(0);
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -303,8 +312,13 @@ export default function ChatPage() {
     const userMessage: Message = { role: "user", content: userMessageContent, files: uploadedFilesData.length > 0 ? uploadedFilesData : undefined };
     const currentModeConfig = modes.find(m => m.id === selectedMode);
     const enhancedModePrompt = currentModeConfig?.prompt || modes[0].prompt;
-    const forcedUserMessage = userMessageContent + "\n\n[RAPPEL SYSTÈME : Sois brève. Propose UNE action avec un bouton [ACTION:...] sur UNE SEULE LIGNE.]";
-    const allMessages = [{ role: "system", content: enhancedModePrompt }, ...messages.map(msg => ({ role: msg.role, content: msg.content })), { role: "user", content: forcedUserMessage }];
+    
+    // Envoyer le message sans forcer l'ajout de boutons
+    const allMessages = [
+      { role: "system", content: enhancedModePrompt }, 
+      ...messages.map(msg => ({ role: msg.role, content: msg.content })), 
+      { role: "user", content: userMessageContent }
+    ];
     
     setMessages(prev => [...prev, userMessage]);
     await saveMessage(currentConversationId, "user", userMessageContent, undefined, uploadedFilesData);
@@ -330,6 +344,7 @@ export default function ChatPage() {
 
   const startVoiceRecording = () => { resetTranscript(); SpeechRecognition.startListening({ continuous: true, language: 'fr-FR' }); setIsRecording(true); };
   const stopVoiceRecording = () => { SpeechRecognition.stopListening(); setIsRecording(false); };
+  
   const handleSendButtonMouseDown = () => {
     setPressStartTime(Date.now());
     const timer = setTimeout(() => {
@@ -339,6 +354,7 @@ export default function ChatPage() {
     }, 3000);
     setPressTimer(timer);
   };
+  
   const handleSendButtonMouseUp = () => {
     const pressDuration = Date.now() - pressStartTime;
     if (pressTimer) clearTimeout(pressTimer);
@@ -347,7 +363,9 @@ export default function ChatPage() {
       sendMessage();
     } else if (pressDuration >= 3000 && pressDuration < 10000) { stopVoiceRecording(); inputRef.current?.focus(); }
   };
+  
   const stopVoiceLock = () => { if (isVoiceLocked) { setIsVoiceLocked(false); stopVoiceRecording(); inputRef.current?.focus(); } };
+  
   const formatDate = (dateStr: string) => {
     const date = new Date(dateStr);
     const diffMins = Math.floor((new Date().getTime() - date.getTime()) / 60000);
@@ -357,6 +375,7 @@ export default function ChatPage() {
     if (diffMins < 10080) return `Il y a ${Math.floor(diffMins / 1440)} jours`;
     return date.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' });
   };
+  
   const startEditTitle = (conv: Conversation) => { setEditingTitleId(conv.id); setEditingTitle(conv.title); };
   const handleKeyDown = (e: React.KeyboardEvent) => { if (e.key === 'Enter' && !e.shiftKey && !isRecording && !isVoiceLocked && !isSending) { e.preventDefault(); sendMessage(); } };
   const currentModeConfig = modes.find(m => m.id === selectedMode);
@@ -379,44 +398,6 @@ export default function ChatPage() {
     }
   };
 
-const executeWhatsAppAction = async (action: any) => {
-  try {
-    console.log("📱 Exécution action WhatsApp:", action);
-    
-    const response = await fetch(`${API_URL}/api/whatsapp/reply`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        to: action.params.to,
-        message: action.params.message || "Message de Sovereign",
-        message_id: action.params.message_id
-      })
-    });
-    
-    const result = await response.json();
-    console.log("📱 Réponse API:", result);
-    
-    if (result.success) {
-      toast.success(`📱 Réponse envoyée à ${action.params.to}`);
-      return true;
-    } else {
-      toast.error("❌ Erreur d'envoi");
-      return false;
-    }
-  } catch (error) {
-    console.error("❌ Erreur:", error);
-    toast.error("❌ Erreur de connexion");
-    return false;
-  }
-};
-
-
-  const getActionIcon = (type: string) => {
-  switch(type) {
-    case "whatsapp_reply": return <MessageCircle className="w-3 h-3" />;
-    default: return <MessageCircle className="w-3 h-3" />;
-  }
-};
   return (
     <div className="fixed inset-0 bg-midnight flex flex-col">
       {/* HEADER */}
@@ -468,14 +449,7 @@ const executeWhatsAppAction = async (action: any) => {
               </div>
             ) : (
               <div className="max-w-[85%] p-4 rounded-2xl text-sm bg-white/10 text-ivory border border-white/5 rounded-bl-none">
-                <MessageWithActions 
-                  content={m.content} 
-                  actions={m.actions} 
-                  onActionComplete={() => {
-                    // Ne pas utiliser le paramètre data
-                    // La modale sera gérée directement par MessageWithActions
-                  }}
-                />
+                <MessageWithActions content={m.content} actions={m.actions} onActionComplete={() => {}} />
               </div>
             )}
           </motion.div>
@@ -527,8 +501,6 @@ const executeWhatsAppAction = async (action: any) => {
           </div>
         </div>
       )}
-
-
 
       {/* MODALE WHATSAPP CUSTOM REPLY */}
       {showWhatsAppModal && currentWhatsApp && (
