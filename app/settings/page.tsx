@@ -195,7 +195,7 @@ export default function SettingsPage() {
 async function saveProjects() {
   setIsSaving(true);
   try {
-    // Nettoyer les projets pour n'envoyer que ce qui est nécessaire
+    // Nettoyer les projets
     const cleanProjects = projects.map(project => ({
       name: project.name || "",
       status: project.status || "active",
@@ -204,7 +204,8 @@ async function saveProjects() {
       description: project.description || ""
     }));
     
-    const response = await fetch(`${API_URL}/api/profile`, {
+    // Utiliser le nouvel endpoint spécifique
+    const response = await fetch(`${API_URL}/api/profile/projects`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ projects: cleanProjects })
