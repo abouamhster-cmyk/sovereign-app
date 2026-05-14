@@ -1,5 +1,5 @@
 "use client";
-import "regenerator-runtime/runtime";
+
 import { useEffect, useState, useRef } from "react";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import { supabase } from "@/lib/supabase";
@@ -10,11 +10,13 @@ import {
   Briefcase, FileText, Globe, Sprout, User, X,
   Loader2, Filter, Mic, Paperclip, XCircle, Brain,
   TrendingUp, Smile, Frown, Meh, Zap, Target,
-  ChevronDown, ChevronUp
+  ChevronDown, ChevronUp, Plus
 } from "lucide-react";
 import { toast } from "sonner";
 import { useDropzone } from "react-dropzone";
 import SpeechRecognition, { useSpeechRecognition } from "react-speech-recognition";
+
+const API_URL = "https://sovereign-bridge.onrender.com";
 
 // Types
 type InboxItem = {
@@ -71,6 +73,8 @@ export default function InboxPage() {
   const [analysis, setAnalysis] = useState<BrainAnalysis | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
+  const [isProcessingExisting, setIsProcessingExisting] = useState(false);
+  const [processingItemId, setProcessingItemId] = useState<string | null>(null);
   
   // États pour les fichiers
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
@@ -212,7 +216,7 @@ export default function InboxPage() {
       toast.info("🧠 Analyse en cours...");
       
       try {
-        const response = await fetch("https://sovereign-bridge.onrender.com/api/brain-dump/process", {
+        const response = await fetch(`${API_URL}/api/brain-dump/process`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ content: fullContent })
@@ -245,18 +249,69 @@ export default function InboxPage() {
               processed_at: new Date().toISOString()
             })
             .eq("id", data[0].id);
+            
+          fetchItems();
         }
       } catch (error) {
         console.error("Erreur analyse:", error);
         toast.error("L'analyse a échoué, mais l'idée a été sauvegardée");
       } finally {
         setIsAnalyzing(false);
-        fetchItems();
       }
     } else if (error) {
       toast.error("Erreur: " + error.message);
     }
     setIsSending(false);
+  }
+
+  async function processExistingItem(item: InboxItem) {
+    setProcessingItemId(item.id);
+    setIsProcessingExisting(true);
+    
+    try {
+      const response = await fetch(`${API_URL}/api/brain-dump/process`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ content: item.content })
+      });
+      
+      const result = await response.json();
+      
+      if (result.success && result.analysis) {
+        setAnalysis(result.analysis);
+        toast.success(result.analysis.calming_response || "✨ Analyse terminée !");
+        
+        if (result.analysis.suggested_tasks?.length > 0) {
+          for (const task of result.analysis.suggested_tasks.slice(0, 3)) {
+            await supabase.from("tasks").insert({
+              title: task.title,
+              status: "today",
+              priority: task.priority || "normal",
+              project: task.project || "Général"
+            });
+          }
+          toast.success(`✅ ${result.analysis.suggested_tasks.length} tâche(s) créée(s)`);
+        }
+        
+        await supabase
+          .from("inbox")
+          .update({ 
+            type: result.analysis.urgency_level === "high" ? "task" : "note",
+            urgency: result.analysis.urgency_level,
+            needs_processing: false,
+            processed_at: new Date().toISOString()
+          })
+          .eq("id", item.id);
+          
+        fetchItems();
+      }
+    } catch (error) {
+      console.error("Erreur analyse:", error);
+      toast.error("Erreur lors de l'analyse");
+    } finally {
+      setProcessingItemId(null);
+      setIsProcessingExisting(false);
+    }
   }
 
   async function deleteItem(id: string) {
@@ -345,7 +400,7 @@ export default function InboxPage() {
         </div>
         <div className="bg-white/5 border border-white/10 rounded-xl p-3 text-center">
           <div className="text-2xl font-serif text-yellow-400">{stats.pending}</div>
-          <div className="text-[10px] text-gray-500">En cours</div>
+          <div className="text-[10px] text-gray-500">À traiter</div>
         </div>
         <div className="bg-white/5 border border-white/10 rounded-xl p-3 text-center">
           <div className="text-2xl font-serif text-red-400">{stats.highUrgency}</div>
@@ -353,7 +408,7 @@ export default function InboxPage() {
         </div>
       </div>
 
-      {/* INPUT AREA - STYLISÉE */}
+      {/* INPUT AREA */}
       <div className="mb-6">
         {uploadedFiles.length > 0 && (
           <div className="flex flex-wrap gap-2 mb-2">
@@ -482,6 +537,23 @@ export default function InboxPage() {
               <p className="text-sm text-gray-200">{analysis.summary}</p>
             </div>
             
+            {analysis.priorities && analysis.priorities.length > 0 && (
+              <div className="mb-3">
+                <p className="text-xs text-gold-500 mb-2">🎯 Priorités identifiées</p>
+                <div className="space-y-2">
+                  {analysis.priorities.map((p, i) => (
+                    <div key={i} className="flex items-start gap-2 text-sm">
+                      <span className="text-gold-500">{i + 1}.</span>
+                      <div>
+                        <p className="text-ivory">{p.title}</p>
+                        <p className="text-xs text-gray-500">{p.reason}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            
             {analysis.suggested_tasks?.length > 0 && (
               <div className="mt-3 pt-2 border-t border-white/10">
                 <p className="text-xs text-gold-500 mb-2">✅ Tâches créées :</p>
@@ -495,11 +567,18 @@ export default function InboxPage() {
                 </ul>
               </div>
             )}
+            
+            {analysis.insights && (
+              <div className="mt-3 pt-2 border-t border-white/10">
+                <p className="text-xs text-gold-500 mb-1">💡 Insight</p>
+                <p className="text-xs text-gray-400">{analysis.insights}</p>
+              </div>
+            )}
           </motion.div>
         )}
       </AnimatePresence>
 
-      {/* FILTRES - VERSION COMPACTE */}
+      {/* FILTRES */}
       <div className="flex items-center justify-between mb-4">
         <button
           onClick={() => setShowFilters(!showFilters)}
@@ -588,12 +667,28 @@ export default function InboxPage() {
                       <span className="text-[10px] text-gray-600">{new Date(item.created_at).toLocaleString('fr-FR')}</span>
                     </div>
                   </div>
-                  <button
-                    onClick={() => deleteItem(item.id)}
-                    className="p-1.5 text-gray-500 hover:text-red-400 transition-colors ml-2 flex-shrink-0"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </button>
+                  <div className="flex items-center gap-1 ml-2">
+                    {item.needs_processing && (
+                      <button
+                        onClick={() => processExistingItem(item)}
+                        disabled={processingItemId === item.id}
+                        className="p-1.5 text-gray-500 hover:text-gold-500 transition-colors"
+                        title="Analyser"
+                      >
+                        {processingItemId === item.id ? (
+                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        ) : (
+                          <Brain className="w-3.5 h-3.5" />
+                        )}
+                      </button>
+                    )}
+                    <button
+                      onClick={() => deleteItem(item.id)}
+                      className="p-1.5 text-gray-500 hover:text-red-400 transition-colors"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
                 </div>
                 {item.processed_at && (
                   <div className="mt-1 text-[10px] text-emerald-400">
