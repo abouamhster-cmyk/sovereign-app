@@ -631,10 +631,9 @@ export default function DashboardPage() {
           </div>
           
           <p className="text-sm text-ivory mb-3">{overloadData.message}</p>
-          
           {overloadData.reasons && overloadData.reasons.length > 0 && (
             <div className="flex flex-wrap gap-2 mb-3">
-              {overloadData.reasons.slice(0, 3).map((reason, idx) => (
+              {overloadData.reasons.slice(0, 3).map((reason: string, idx: number) => (
                 <span key={idx} className="text-xs px-2 py-1 bg-white/5 rounded-full text-gray-400">
                   {reason}
                 </span>
