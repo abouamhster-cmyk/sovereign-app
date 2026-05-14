@@ -2,15 +2,16 @@
 
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { 
   Crown, Settings, Bell, User, Sparkles, 
   Target, DollarSign, Heart, Sprout, Brain,
   Calendar, AlertCircle, ArrowRight, Smile, Meh, Frown, Sun, Moon,
   Loader2
 } from "lucide-react";
-import { DashboardCard } from "@/components/DashboardCard";
+import { toast } from "sonner";
 
 const API_URL = "https://sovereign-bridge.onrender.com";
 
@@ -18,8 +19,10 @@ const API_URL = "https://sovereign-bridge.onrender.com";
 type Priority = { id: string; title: string; priority_reason: string; score: number };
 type Task = { id: string; title: string; due_date: string | null; status: string };
 type Mission = { id: string; name: string; status: string };
+type Memory = { id: string; key: string; value: string; category: string };
 
 export default function DashboardPage() {
+  const router = useRouter();
   const [greeting, setGreeting] = useState("");
   const [userName, setUserName] = useState("Rebecca");
   const [isLoading, setIsLoading] = useState(true);
@@ -30,6 +33,7 @@ export default function DashboardPage() {
   const [upcomingDeadlines, setUpcomingDeadlines] = useState<{ title: string; date: string; type: string }[]>([]);
   const [mood, setMood] = useState<string | null>(null);
   const [activeMissions, setActiveMissions] = useState<Mission[]>([]);
+  const [recentMemories, setRecentMemories] = useState<Memory[]>([]);
   
   // Message personnalisé de Becks
   const [becksMessage, setBecksMessage] = useState("");
@@ -40,13 +44,13 @@ export default function DashboardPage() {
     docs_count: number;
   } | null>(null);
   
-  // Stats pour les moves
+  // Stats pour les moves (valeurs par défaut en fallback)
   const [farmStatus, setFarmStatus] = useState("En cours");
-  const [farmNextAction, setFarmNextAction] = useState("Vérifier installation poissons");
-  const [moneyMove, setMoneyMove] = useState("Relancer le client à 350k CFA");
-  const [familyMove, setFamilyMove] = useState("Vaccins Nylah cette semaine");
-  const [businessMove, setBusinessMove] = useState("Avancer sur une mission prioritaire");
-  const [stabilizationMove, setStabilizationMove] = useState("Prends 10 minutes pour toi");
+  const [farmNextAction, setFarmNextAction] = useState("Vérifier l'avancement");
+  const [moneyMove, setMoneyMove] = useState("Vérifier les finances");
+  const [familyMove, setFamilyMove] = useState("Prendre des nouvelles des enfants");
+  const [businessMove, setBusinessMove] = useState("Avancer sur une mission");
+  const [stabilizationMove, setStabilizationMove] = useState("Prendre 5 minutes");
 
   useEffect(() => {
     const hour = new Date().getHours();
@@ -71,6 +75,7 @@ export default function DashboardPage() {
       fetchUserName(),
       fetchDashboardData(),
       fetchFarmStatus(),
+      fetchRecentMemories(),
     ]);
     setIsLoading(false);
   }
@@ -128,10 +133,10 @@ export default function DashboardPage() {
         
         // Suggestions pour les 4 moves
         if (data.suggestions) {
-          setMoneyMove(data.suggestions.money_move);
-          setFamilyMove(data.suggestions.family_move);
-          setBusinessMove(data.suggestions.business_move);
-          setStabilizationMove(data.suggestions.stabilization_move);
+          if (data.suggestions.money_move) setMoneyMove(data.suggestions.money_move);
+          if (data.suggestions.family_move) setFamilyMove(data.suggestions.family_move);
+          if (data.suggestions.business_move) setBusinessMove(data.suggestions.business_move);
+          if (data.suggestions.stabilization_move) setStabilizationMove(data.suggestions.stabilization_move);
         }
         
         // Stats pour le résumé visuel
@@ -140,6 +145,23 @@ export default function DashboardPage() {
             tasks_count: data.stats.tasks_count || 0,
             missions_count: data.stats.missions_count || 0,
             docs_count: data.stats.docs_count || 0
+          });
+        }
+        
+        // ========== DÉTECTION AUTO DU RESCUE MODE ==========
+        if (data.load_analysis?.level === "critical" || data.load_analysis?.score >= 50) {
+          toast.error("⚠️ Charge critique détectée", {
+            description: "Active le Rescue Mode pour recentrer tes priorités.",
+            action: {
+              label: "Activer",
+              onClick: () => router.push("/rescue")
+            },
+            duration: 10000
+          });
+        } else if (data.load_analysis?.level === "high" || data.load_analysis?.score >= 30) {
+          toast.warning("🟡 Charge élevée", {
+            description: "Tu as beaucoup de choses. Une chose à la fois.",
+            duration: 5000
           });
         }
       }
@@ -153,16 +175,43 @@ export default function DashboardPage() {
 
   async function fetchFarmStatus() {
     try {
-      const { data } = await supabase
-        .from("farm_production_units")
-        .select("*")
-        .eq("status", "setup");
+      // Récupérer les infos dynamiques de la ferme
+      const [infraResult, productionResult, spendingResult] = await Promise.all([
+        supabase.from("farm_infrastructure").select("*").in("status", ["in_progress", "setup"]),
+        supabase.from("farm_production_units").select("*").in("status", ["setup", "in_progress"]),
+        supabase.from("farm_spending").select("amount")
+      ]);
       
-      if (data && data.length > 0) {
-        setFarmNextAction(`Finaliser ${data[0].name}`);
+      const infra = infraResult.data || [];
+      const production = productionResult.data || [];
+      
+      const pendingCount = infra.length + production.length;
+      
+      if (pendingCount > 0) {
+        setFarmStatus(`${pendingCount} chantier(s) en cours`);
+        // Trouver la prochaine action
+        const nextItem = production[0] || infra[0];
+        if (nextItem) {
+          setFarmNextAction(`Finaliser ${nextItem.name}`);
+        }
+      } else {
+        setFarmStatus("En bonne voie");
+        setFarmNextAction("Vérifier l'avancement");
       }
     } catch (error) {
       console.error("Erreur farm status:", error);
+    }
+  }
+
+  async function fetchRecentMemories() {
+    try {
+      const response = await fetch(`${API_URL}/api/memory/get?limit=3`);
+      const data = await response.json();
+      if (data.success && data.data) {
+        setRecentMemories(data.data.slice(0, 3));
+      }
+    } catch (error) {
+      console.error("Erreur memories:", error);
     }
   }
 
@@ -181,10 +230,13 @@ export default function DashboardPage() {
     // Message d'encouragement personnalisé
     if (selectedMood === "fatiguée") {
       setStabilizationMove("Repose-toi. Rien n'est plus important que ton énergie.");
+      toast.info("🌿 Prends soin de toi aujourd'hui", { duration: 5000 });
     } else if (selectedMood === "stressée") {
       setStabilizationMove("On respire. Une seule priorité pour commencer.");
+      toast.info("🌬️ Une respiration profonde peut tout changer", { duration: 5000 });
     } else if (selectedMood === "excellent") {
       setStabilizationMove("C'est le moment d'attaquer les gros dossiers !");
+      toast.success("🔥 C'est ton jour !", { duration: 3000 });
     }
   }
 
@@ -197,7 +249,7 @@ export default function DashboardPage() {
   ];
 
   const handleHelpMeMoveForward = () => {
-    window.location.href = "/chat?mode=fais-le-avec-moi";
+    router.push("/chat?mode=fais-le-avec-moi");
   };
 
   const currentMood = moods.find(m => m.value === mood);
@@ -423,6 +475,30 @@ export default function DashboardPage() {
           </div>
         </Link>
       </div>
+
+      {/* CE QUE BECKS SAIT DE TOI */}
+      {recentMemories.length > 0 && (
+        <div className="bg-white/5 border border-white/10 rounded-xl p-4">
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <Brain className="w-4 h-4 text-gold-500" />
+              <h3 className="text-xs font-medium text-ivory">🧠 Becks se souvient de toi</h3>
+            </div>
+            <Link href="/memory" className="text-[10px] text-gold-500 hover:underline">
+              Voir tout →
+            </Link>
+          </div>
+          <div className="space-y-2">
+            {recentMemories.map((mem, idx) => (
+              <div key={idx} className="flex items-center gap-2 text-sm">
+                <span className="text-gold-500 text-xs">✨</span>
+                <span className="text-gray-400 text-xs">{mem.key}:</span>
+                <span className="text-ivory text-xs truncate">{mem.value}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* MISSIONS ACTIVES */}
       {activeMissions.length > 0 && (
