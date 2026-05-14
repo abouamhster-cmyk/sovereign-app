@@ -40,6 +40,7 @@ export default function DashboardPage() {
   const [mood, setMood] = useState<string | null>(null);
   const [activeMissions, setActiveMissions] = useState<Mission[]>([]);
   const [recentMemories, setRecentMemories] = useState<Memory[]>([]);
+  const [overloadData, setOverloadData] = useState<any>(null);
   const [isLoadingMemories, setIsLoadingMemories] = useState(true);
   
   // Message personnalisé de Becks
@@ -76,16 +77,18 @@ export default function DashboardPage() {
     fetchAllData();
   }, []);
 
-  async function fetchAllData() {
-    setIsLoading(true);
-    await Promise.all([
-      fetchUserName(),
-      fetchDashboardData(),
-      fetchFarmStatus(),
-      fetchRecentMemories(),
-    ]);
-    setIsLoading(false);
-  }
+    async function fetchAllData() {
+      setIsLoading(true);
+      await Promise.all([
+        fetchUserName(),
+        fetchDashboardData(),
+        fetchFarmStatus(),
+        fetchRecentMemories(),
+        fetchOverloadDetection(), 
+      ]);
+      setIsLoading(false);
+    }
+
 
   async function fetchUserName() {
     const { data: { user } } = await supabase.auth.getUser();
@@ -209,6 +212,19 @@ export default function DashboardPage() {
     }
   }
 
+
+  async function fetchOverloadDetection() {
+  try {
+    const response = await fetch(`${API_URL}/api/rescue/detect-overload`);
+    const data = await response.json();
+    if (data.success) {
+      setOverloadData(data);
+    }
+  } catch (error) {
+    console.error("Erreur détection surcharge:", error);
+  }
+}
+  
   async function fetchRecentMemories() {
     setIsLoadingMemories(true);
     try {
@@ -585,6 +601,79 @@ export default function DashboardPage() {
         </div>
       )}
 
+            {/* ========== WIDGET RESCUE MODE (SI CHARGE CRITIQUE) ========== */}
+      {overloadData && overloadData.level !== "low" && (
+        <motion.div 
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className={`rounded-xl p-4 border-2 ${
+            overloadData.level === "critical" 
+              ? "bg-red-950/30 border-red-500/50" 
+              : "bg-orange-950/30 border-orange-500/50"
+          }`}
+        >
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <AlertCircle className={`w-5 h-5 ${overloadData.level === "critical" ? "text-red-400" : "text-orange-400"}`} />
+              <h3 className="text-sm font-medium text-ivory">
+                {overloadData.level === "critical" ? "⚠️ RESCUE MODE RECOMMANDÉ" : "🟡 CHARGE ÉLEVÉE"}
+              </h3>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-16 h-1.5 bg-white/10 rounded-full overflow-hidden">
+                <div 
+                  className={`h-full rounded-full ${overloadData.level === "critical" ? "bg-red-500" : "bg-orange-500"}`}
+                  style={{ width: `${overloadData.overload_score}%` }}
+                />
+              </div>
+              <span className="text-xs text-gray-400">{overloadData.overload_score}%</span>
+            </div>
+          </div>
+          
+          <p className="text-sm text-ivory mb-3">{overloadData.message}</p>
+          
+          {overloadData.reasons && overloadData.reasons.length > 0 && (
+            <div className="flex flex-wrap gap-2 mb-3">
+              {overloadData.reasons.slice(0, 3).map((reason, idx) => (
+                <span key={idx} className="text-xs px-2 py-1 bg-white/5 rounded-full text-gray-400">
+                  {reason}
+                </span>
+              ))}
+            </div>
+          )}
+          
+          <div className="flex flex-wrap gap-2">
+            {overloadData.rescue_actions?.map((action, idx) => (
+              <button
+                key={idx}
+                onClick={() => {
+                  if (action.type === "focus_task" && action.task_id) {
+                    router.push(`/tasks?highlight=${action.task_id}`);
+                  } else if (action.type === "breathing") {
+                    toast.info("🌬️ Respire profondément... inspire, expire. 3 fois.", { duration: 10000 });
+                  } else if (action.type === "reset") {
+                    toast.info(`⏰ Pause de ${action.duration} minutes recommandée`, { duration: 5000 });
+                  } else if (action.url) {
+                    router.push(action.url);
+                  } else {
+                    router.push("/rescue");
+                  }
+                }}
+                className="px-3 py-1.5 bg-white/10 rounded-full text-xs text-gray-300 hover:bg-white/20 transition-colors"
+              >
+                {action.title}
+              </button>
+            ))}
+            <Link 
+              href="/rescue"
+              className="px-3 py-1.5 bg-gold-500/20 text-gold-500 rounded-full text-xs hover:bg-gold-500/30 transition-colors"
+            >
+              Voir Rescue Mode →
+            </Link>
+          </div>
+        </motion.div>
+      )}
+      
       {/* BOUTON D'AIDE - MODE EXÉCUTION */}
       <motion.button
         whileHover={{ scale: 1.02 }}
