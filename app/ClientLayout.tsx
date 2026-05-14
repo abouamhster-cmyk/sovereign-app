@@ -5,7 +5,8 @@ import {
   LayoutDashboard, MessageSquare, Inbox, CheckSquare, Calendar,
   Wallet, TrendingUp, FileText, Target, Briefcase, Sprout, Globe,
   Trophy, Heart, Users, Zap, ShieldAlert, Menu, X, LogOut,
-  ChevronDown, ChevronRight, Download, Settings, Mail, Brain, Bell, BellRing, Volume2, VolumeX, Vibrate
+  ChevronDown, ChevronRight, Download, Settings, Mail, Brain, Bell, BellRing, Volume2, VolumeX, Vibrate,
+  Map
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -13,8 +14,17 @@ import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/lib/supabase";
 import { toast } from "sonner";
 
-// Structure du menu
-const menuItems = [
+// Structure du menu - avec typage correct des icônes
+import type { LucideIcon } from "lucide-react";
+
+interface MenuItem {
+  name: string;
+  icon: LucideIcon;
+  href: string;
+  group: string;
+}
+
+const menuItems: MenuItem[] = [
   { name: "Dashboard", icon: LayoutDashboard, href: "/", group: "main" },
   { name: "Chat", icon: MessageSquare, href: "/chat", group: "main" },
   
@@ -547,7 +557,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
       if (!acc[item.group]) acc[item.group] = [];
       acc[item.group].push(item);
       return acc;
-    }, {} as Record<string, typeof menuItems>);
+    }, {} as Record<string, MenuItem[]>);
 
     return (
       <div className="flex flex-col h-full">
@@ -581,6 +591,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
                 <div className="ml-2 space-y-0.5 mt-1">
                   {items.map((item) => {
                     const isActive = pathname === item.href;
+                    const IconComponent = item.icon;
                     return (
                       <Link
                         key={item.href}
@@ -592,7 +603,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
                             : "text-gray-400 hover:bg-white/5 hover:text-white"
                         }`}
                       >
-                        <item.icon className="w-4 h-4" />
+                        <IconComponent className="w-4 h-4" />
                         <span className="font-light">{item.name}</span>
                       </Link>
                     );
@@ -611,6 +622,8 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
             </div>
             <NotificationBell />
           </div>
+          
+          <SettingsMenu />
           
           <button
             onClick={handleSignOut}
