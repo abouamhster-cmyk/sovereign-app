@@ -7,7 +7,7 @@ import {
   User, Users, Briefcase, Target, Calendar, Save, 
   ChevronRight, X, Plus, Heart, Baby, Globe, Sprout, Trophy,
   Bell, Volume2, VolumeX, Vibrate, BellRing, Check, Loader2,
-  Mail, Phone, MapPin, Clock, Shield, Eye, EyeOff
+  Mail, Phone, MapPin, Clock, Shield, Eye, EyeOff, Settings
 } from "lucide-react";
 import { toast } from "sonner";
 
