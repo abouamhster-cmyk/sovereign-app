@@ -169,7 +169,7 @@ export default function DashboardPage() {
           <Link href="/settings" className="p-2 text-gray-400 hover:text-gold-500">
             <Settings className="w-5 h-5" />
           </Link>
-          <Link href="/profile" className="p-2 text-gray-400 hover:text-gold-500">
+          <Link href="/settings" className="p-2 text-gray-400 hover:text-gold-500">
             <User className="w-5 h-5" />
           </Link>
         </div>
