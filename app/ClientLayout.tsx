@@ -5,12 +5,13 @@ import {
   LayoutDashboard, MessageSquare, Inbox, CheckSquare, Calendar,
   Wallet, TrendingUp, FileText, Target, Briefcase, Sprout, Globe,
   Trophy, Heart, Users, Zap, ShieldAlert, Menu, X, LogOut,
-  ChevronDown, ChevronRight, Download, Settings, Mail, Brain
+  ChevronDown, ChevronRight, Download, Settings, Mail, Brain, Bell
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import NotificationBell from "@/components/NotificationBell";
 import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/lib/supabase";
 
 // Structure du menu
 const menuItems = [
@@ -255,6 +256,47 @@ function InstallBanner() {
   );
 }
 
+// Composant pour le badge de notifications
+function NotificationBadge() {
+  const [unreadCount, setUnreadCount] = useState(0);
+
+  useEffect(() => {
+    fetchUnreadCount();
+    
+    const channel = supabase
+      .channel('notifications_unread')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'notifications' }, () => {
+        fetchUnreadCount();
+      })
+      .subscribe();
+    
+    return () => {
+      channel.unsubscribe();
+    };
+  }, []);
+
+  async function fetchUnreadCount() {
+    const { count } = await supabase
+      .from("notifications")
+      .select("*", { count: 'exact', head: true })
+      .eq("read", false)
+      .eq("user_id", "rebecca");
+    
+    setUnreadCount(count || 0);
+  }
+
+  return (
+    <Link href="/notifications" className="relative p-2 rounded-full text-gray-400 hover:text-gold-500 hover:bg-white/5 transition-colors">
+      <Bell className="w-5 h-5" />
+      {unreadCount > 0 && (
+        <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] bg-red-500 text-white text-[10px] rounded-full flex items-center justify-center px-1">
+          {unreadCount > 9 ? '9+' : unreadCount}
+        </span>
+      )}
+    </Link>
+  );
+}
+
 export default function ClientLayout({ children }: { children: React.ReactNode }) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>(DEFAULT_OPEN_GROUPS);
@@ -371,7 +413,10 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
               <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full" />
               <span className="text-[10px] text-gray-500">Connecté</span>
             </div>
-            <NotificationBell />
+            <div className="flex items-center gap-1">
+              <NotificationBadge />
+              <NotificationBell />
+            </div>
           </div>
           
           <button
@@ -407,6 +452,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
             </button>
             
             <div className="flex items-center gap-2">
+              <NotificationBadge />
               <NotificationBell />
               <button
                 onClick={handleSignOut}
