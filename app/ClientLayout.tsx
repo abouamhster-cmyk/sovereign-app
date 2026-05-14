@@ -5,12 +5,13 @@ import {
   LayoutDashboard, MessageSquare, Inbox, CheckSquare, Calendar,
   Wallet, TrendingUp, FileText, Target, Briefcase, Sprout, Globe,
   Trophy, Heart, Users, Zap, ShieldAlert, Menu, X, LogOut,
-  ChevronDown, ChevronRight, Download, Settings, Mail, Brain, Bell, BellRing
+  ChevronDown, ChevronRight, Download, Settings, Mail, Brain, Bell, BellRing, Volume2, VolumeX, Vibrate
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/lib/supabase";
+import { toast } from "sonner";
 
 // Structure du menu
 const menuItems = [
@@ -77,14 +78,12 @@ function urlBase64ToUint8Array(base64String: string) {
   return outputArray;
 }
 
-// Composant unique pour les notifications (fusion du badge et de la cloche)
-function NotificationCenter() {
+// ============================================
+// COMPOSANT NOTIFICATION BELL (POUR AFFICHER LES NOTIFICATIONS)
+// ============================================
+function NotificationBell() {
   const [unreadCount, setUnreadCount] = useState(0);
-  const [isSubscribed, setIsSubscribed] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
-  const [showMenu, setShowMenu] = useState(false);
 
-  // Récupérer le nombre de notifications non lues
   useEffect(() => {
     fetchUnreadCount();
     
@@ -100,11 +99,6 @@ function NotificationCenter() {
     };
   }, []);
 
-  // Vérifier l'abonnement push
-  useEffect(() => {
-    checkSubscription();
-  }, []);
-
   async function fetchUnreadCount() {
     const { count } = await supabase
       .from("notifications")
@@ -114,6 +108,29 @@ function NotificationCenter() {
     
     setUnreadCount(count || 0);
   }
+
+  return (
+    <Link href="/notifications" className="relative p-2 rounded-full text-gray-400 hover:text-gold-500 hover:bg-white/5 transition-colors">
+      <Bell className="w-5 h-5" />
+      {unreadCount > 0 && (
+        <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] bg-red-500 text-white text-[10px] rounded-full flex items-center justify-center px-1">
+          {unreadCount > 9 ? '9+' : unreadCount}
+        </span>
+      )}
+    </Link>
+  );
+}
+
+// ============================================
+// COMPOSANT PUSH NOTIFICATION SETTINGS (POUR LE MENU)
+// ============================================
+function PushNotificationToggle() {
+  const [isSubscribed, setIsSubscribed] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+
+  useEffect(() => {
+    checkSubscription();
+  }, []);
 
   async function checkSubscription() {
     if (!("serviceWorker" in navigator) || !("PushManager" in window)) return;
@@ -127,7 +144,10 @@ function NotificationCenter() {
   }
 
   async function togglePushSubscription() {
-    if (!("serviceWorker" in navigator) || !("PushManager" in window)) return;
+    if (!("serviceWorker" in navigator) || !("PushManager" in window)) {
+      toast.error("Notifications non supportées sur ce navigateur");
+      return;
+    }
     
     setIsLoading(true);
     
@@ -144,6 +164,7 @@ function NotificationCenter() {
             body: JSON.stringify({ endpoint: subscription.endpoint })
           });
           setIsSubscribed(false);
+          toast.info("Notifications push désactivées");
         }
       } else {
         // Activer
@@ -152,7 +173,11 @@ function NotificationCenter() {
           permission = await Notification.requestPermission();
         }
         
-        if (permission !== "granted") return;
+        if (permission !== "granted") {
+          toast.error("Permission refusée pour les notifications");
+          setIsLoading(false);
+          return;
+        }
         
         const swReg = await navigator.serviceWorker.ready;
         const subscription = await swReg.pushManager.subscribe({
@@ -160,88 +185,131 @@ function NotificationCenter() {
           applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
         });
         
-        await fetch(`${API_URL}/api/subscribe`, {
+        const response = await fetch(`${API_URL}/api/subscribe`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(subscription)
         });
         
-        setIsSubscribed(true);
+        const result = await response.json();
+        
+        if (result.success) {
+          setIsSubscribed(true);
+          toast.success("Notifications push activées !");
+        } else {
+          throw new Error(result.error || "Erreur serveur");
+        }
       }
     } catch (error) {
       console.error("Erreur subscription:", error);
+      toast.error("Impossible d'activer les notifications");
     } finally {
       setIsLoading(false);
     }
   }
 
   return (
+    <button
+      onClick={togglePushSubscription}
+      disabled={isLoading}
+      className="flex items-center justify-between w-full px-3 py-2 rounded-lg text-sm text-gray-400 hover:bg-white/5 transition-colors"
+    >
+      <div className="flex items-center gap-3">
+        {isSubscribed ? (
+          <BellRing className="w-4 h-4 text-emerald-400" />
+        ) : (
+          <Bell className="w-4 h-4" />
+        )}
+        <span>Notifications push</span>
+      </div>
+      <span className="text-xs">
+        {isLoading ? (
+          <div className="w-4 h-4 border-2 border-gold-500 border-t-transparent rounded-full animate-spin" />
+        ) : isSubscribed ? (
+          <span className="text-emerald-400">Activées</span>
+        ) : (
+          <span className="text-gray-500">Désactivées</span>
+        )}
+      </span>
+    </button>
+  );
+}
+
+// ============================================
+// COMPOSANT SOUND/VIBRATION SETTINGS
+// ============================================
+function SoundVibrationSettings() {
+  const [soundEnabled, setSoundEnabled] = useState(true);
+  const [vibrationEnabled, setVibrationEnabled] = useState(true);
+
+  useEffect(() => {
+    const savedSound = localStorage.getItem("notif_sound");
+    const savedVibration = localStorage.getItem("notif_vibrate");
+    if (savedSound !== null) setSoundEnabled(savedSound === "true");
+    if (savedVibration !== null) setVibrationEnabled(savedVibration === "true");
+  }, []);
+
+  const savePreferences = (sound: boolean, vibration: boolean) => {
+    localStorage.setItem("notif_sound", String(sound));
+    localStorage.setItem("notif_vibrate", String(vibration));
+    setSoundEnabled(sound);
+    setVibrationEnabled(vibration);
+    toast.success("Préférences sauvegardées");
+  };
+
+  return (
+    <div className="px-3 py-2 space-y-2">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <Volume2 className="w-4 h-4" />
+          <span className="text-sm text-gray-400">Son</span>
+        </div>
+        <button
+          onClick={() => savePreferences(!soundEnabled, vibrationEnabled)}
+          className={`w-8 h-4 rounded-full transition-colors ${soundEnabled ? "bg-gold-500" : "bg-white/20"}`}
+        >
+          <div className={`w-3 h-3 rounded-full bg-white transition-transform ${soundEnabled ? "translate-x-4" : "translate-x-1"}`} />
+        </button>
+      </div>
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <Vibrate className="w-4 h-4" />
+          <span className="text-sm text-gray-400">Vibration</span>
+        </div>
+        <button
+          onClick={() => savePreferences(soundEnabled, !vibrationEnabled)}
+          className={`w-8 h-4 rounded-full transition-colors ${vibrationEnabled ? "bg-gold-500" : "bg-white/20"}`}
+        >
+          <div className={`w-3 h-3 rounded-full bg-white transition-transform ${vibrationEnabled ? "translate-x-4" : "translate-x-1"}`} />
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ============================================
+// COMPOSANT PARAMÈTRES (DANS LE MENU/FOOTER)
+// ============================================
+function SettingsMenu() {
+  const [isOpen, setIsOpen] = useState(false);
+
+  return (
     <div className="relative">
       <button
-        onClick={() => setShowMenu(!showMenu)}
-        className="relative p-2 rounded-full text-gray-400 hover:text-gold-500 hover:bg-white/5 transition-colors"
-        title="Notifications"
+        onClick={() => setIsOpen(!isOpen)}
+        className="flex items-center gap-3 w-full px-3 py-2 rounded-lg text-sm text-gray-400 hover:bg-white/5 transition-colors"
       >
-        {isSubscribed ? (
-          <BellRing className="w-5 h-5" />
-        ) : (
-          <Bell className="w-5 h-5" />
-        )}
-        {unreadCount > 0 && (
-          <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] bg-red-500 text-white text-[10px] rounded-full flex items-center justify-center px-1">
-            {unreadCount > 9 ? '9+' : unreadCount}
-          </span>
-        )}
+        <Settings className="w-4 h-4" />
+        <span>Paramètres</span>
+        <ChevronRight className={`w-3 h-3 ml-auto transition-transform ${isOpen ? "rotate-90" : ""}`} />
       </button>
-
-      {/* Menu déroulant */}
-      {showMenu && (
-        <>
-          <div className="fixed inset-0 z-40" onClick={() => setShowMenu(false)} />
-          <div className="absolute right-0 top-full mt-2 w-64 bg-midnight border border-white/10 rounded-xl shadow-xl z-50 overflow-hidden">
-            <div className="p-3 border-b border-white/10">
-              <p className="text-xs text-gray-400">Notifications</p>
-            </div>
-            
-            <Link
-              href="/notifications"
-              onClick={() => setShowMenu(false)}
-              className="flex items-center gap-3 px-3 py-2.5 text-sm text-gray-300 hover:bg-white/5 transition-colors w-full"
-            >
-              <Bell className="w-4 h-4" />
-              Voir toutes les notifications
-              {unreadCount > 0 && (
-                <span className="ml-auto text-xs bg-gold-500/20 text-gold-500 px-1.5 py-0.5 rounded-full">
-                  {unreadCount}
-                </span>
-              )}
-            </Link>
-            
-            <div className="border-t border-white/10 my-1" />
-            
-            <button
-              onClick={() => {
-                togglePushSubscription();
-                setShowMenu(false);
-              }}
-              disabled={isLoading}
-              className="flex items-center gap-3 px-3 py-2.5 text-sm text-gray-300 hover:bg-white/5 transition-colors w-full"
-            >
-              {isSubscribed ? (
-                <>
-                  <BellRing className="w-4 h-4 text-emerald-400" />
-                  <span>Notifications push activées</span>
-                  <span className="ml-auto text-xs text-gray-500">Désactiver</span>
-                </>
-              ) : (
-                <>
-                  <Bell className="w-4 h-4" />
-                  <span>Activer les notifications</span>
-                </>
-              )}
-            </button>
-          </div>
-        </>
+      
+      {isOpen && (
+        <div className="mt-1 ml-6 space-y-1 border-l border-white/10 pl-3">
+          <PushNotificationToggle />
+          <div className="border-t border-white/10 my-2" />
+          <SoundVibrationSettings />
+        </div>
       )}
     </div>
   );
@@ -334,7 +402,7 @@ function InstallButton() {
       className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-gold-500 bg-gold-500/10 hover:bg-gold-500/20 transition-colors mb-2"
     >
       <Download className="w-4 h-4" />
-      <span className="text-sm">Installer</span>
+      <span className="text-sm">Installer l'app</span>
     </button>
   );
 }
@@ -546,8 +614,10 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
               <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full" />
               <span className="text-[10px] text-gray-500">Connecté</span>
             </div>
-            <NotificationCenter />
+            <NotificationBell />
           </div>
+          
+          <SettingsMenu />
           
           <button
             onClick={handleSignOut}
@@ -580,7 +650,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
             </button>
             
             <div className="flex items-center gap-2">
-              <NotificationCenter />
+              <NotificationBell />
               <button
                 onClick={handleSignOut}
                 className="p-1.5 text-gray-400 hover:text-red-400 hover:bg-white/10 rounded-lg transition-colors"
