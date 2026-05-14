@@ -235,22 +235,35 @@ export default function ChatPage() {
     else if (!currentConversationId) setCurrentConversationId(data[0].id);
   }
 
-  async function fetchMessages(conversationId: string) {
-    const { data, error } = await supabase.from("conversation_messages").select("*").eq("conversation_id", conversationId).order("created_at", { ascending: true });
-    if (error) { console.error("❌ Erreur fetchMessages:", error); return; }
-    if (data && data.length > 0) {
-      const parsedMessages = data.map(msg => {
-        try {
-          const parsed = JSON.parse(msg.content);
-          return { id: msg.id, role: msg.role, content: parsed.content || msg.content, actions: parsed.actions, files: Array.isArray(parsed.files) ? parsed.files : [], created_at: msg.created_at };
-        } catch (e) {
-          return { id: msg.id, role: msg.role, content: msg.content, files: [], created_at: msg.created_at };
-        }
-      });
-      setMessages(parsedMessages);
-    } else if (messages.length === 0) setMessages([{ role: "assistant", content: "Salut Rebecca. Besoin de quelque chose ?" }]);
+async function fetchMessages(conversationId: string) {
+  const { data, error } = await supabase.from("conversation_messages").select("*").eq("conversation_id", conversationId).order("created_at", { ascending: true });
+  if (error) { console.error("❌ Erreur fetchMessages:", error); return; }
+  if (data && data.length > 0) {
+    const parsedMessages = data.map(msg => {
+      try {
+        const parsed = JSON.parse(msg.content);
+        return { id: msg.id, role: msg.role, content: parsed.content || msg.content, actions: parsed.actions, files: Array.isArray(parsed.files) ? parsed.files : [], created_at: msg.created_at };
+      } catch (e) {
+        return { id: msg.id, role: msg.role, content: msg.content, files: [], created_at: msg.created_at };
+      }
+    });
+    setMessages(parsedMessages);
+  } else if (messages.length === 0) {
+    // Appeler l'API pour un message personnalisé basé sur les vraies données
+    try {
+      const response = await fetch(`${API_URL}/api/morning-greeting`);
+      const data = await response.json();
+      if (data.success && data.message) {
+        setMessages([{ role: "assistant", content: data.message }]);
+      } else {
+        setMessages([{ role: "assistant", content: "Salut. Je suis là." }]);
+      }
+    } catch (error) {
+      console.error("Erreur récupération message:", error);
+      setMessages([{ role: "assistant", content: "Salut. Je suis là." }]);
+    }
   }
-
+}
   async function createNewConversation() {
     const title = `Nouvelle conversation ${new Date().toLocaleDateString('fr-FR')}`;
     const { data, error } = await supabase.from("conversations").insert({ title, user_id: "rebecca" }).select().single();
