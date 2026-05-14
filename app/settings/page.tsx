@@ -134,6 +134,7 @@ export default function SettingsPage() {
     if (vibration !== null) setNotifPrefs(prev => ({ ...prev, vibration: vibration === "true" }));
   }
 
+  // ==================== IDENTITY ====================
   async function saveIdentity() {
     setIsSaving(true);
     try {
@@ -163,6 +164,7 @@ export default function SettingsPage() {
     setIsSaving(false);
   }
 
+  // ==================== CHILDREN ====================
   async function saveChildren() {
     setIsSaving(true);
     try {
@@ -187,67 +189,6 @@ export default function SettingsPage() {
       }
     } catch (error) {
       console.error("Erreur saveChildren:", error);
-      toast.error("Erreur de connexion");
-    }
-    setIsSaving(false);
-  }
-
-async function saveProjects() {
-  setIsSaving(true);
-  try {
-    // Nettoyer les projets
-    const cleanProjects = projects.map(project => ({
-      name: project.name || "",
-      status: project.status || "active",
-      priority: project.priority || "normal",
-      deadline: project.deadline || null,
-      description: project.description || ""
-    }));
-    
-    // Utiliser le nouvel endpoint spécifique
-    const response = await fetch(`${API_URL}/api/profile/projects`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ projects: cleanProjects })
-    });
-    const data = await response.json();
-    
-    if (data.success) {
-      setProfile(data.profile);
-      toast.success("Projets mis à jour");
-    } else {
-      toast.error("Erreur: " + (data.error || "Inconnue"));
-    }
-  } catch (error) {
-    console.error("Erreur saveProjects:", error);
-    toast.error("Erreur de connexion");
-  }
-  setIsSaving(false);
-}
-  
-  async function saveGoals() {
-    setIsSaving(true);
-    try {
-      const cleanGoals = goals.map(goal => ({
-        goal: goal.goal || "",
-        priority: goal.priority || "normal",
-        deadline: goal.deadline || null
-      }));
-      
-      const response = await fetch(`${API_URL}/api/profile`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ current_goals: cleanGoals })
-      });
-      const data = await response.json();
-      if (data.success) {
-        setProfile(data.profile);
-        toast.success("Objectifs mis à jour");
-      } else {
-        toast.error("Erreur: " + (data.error || "Inconnue"));
-      }
-    } catch (error) {
-      console.error("Erreur saveGoals:", error);
       toast.error("Erreur de connexion");
     }
     setIsSaving(false);
@@ -287,6 +228,38 @@ async function saveProjects() {
     }
   }
 
+  // ==================== PROJECTS ====================
+  async function saveProjects() {
+    setIsSaving(true);
+    try {
+      const cleanProjects = projects.map(project => ({
+        name: project.name || "",
+        status: project.status || "active",
+        priority: project.priority || "normal",
+        deadline: project.deadline || null,
+        description: project.description || ""
+      }));
+      
+      const response = await fetch(`${API_URL}/api/profile/projects`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ projects: cleanProjects })
+      });
+      const data = await response.json();
+      
+      if (data.success) {
+        setProfile(data.profile);
+        toast.success("Projets mis à jour");
+      } else {
+        toast.error("Erreur: " + (data.error || "Inconnue"));
+      }
+    } catch (error) {
+      console.error("Erreur saveProjects:", error);
+      toast.error("Erreur de connexion");
+    }
+    setIsSaving(false);
+  }
+
   function addProject() {
     if (!newProject.name) {
       toast.error("Le nom du projet est requis");
@@ -314,42 +287,42 @@ async function saveProjects() {
   }
 
   function deleteProject(index: number) {
-  if (confirm("Supprimer ce projet ?")) {
-    const updated = projects.filter((_, i) => i !== index);
-    setProjects(updated);
-    // Attendre que le state soit mis à jour puis sauvegarder
-    setTimeout(() => {
-      const cleanProjects = updated.map(project => ({
-        name: project.name || "",
-        status: project.status || "active",
-        priority: project.priority || "normal",
-        deadline: project.deadline || null,
-        description: project.description || ""
+    if (confirm("Supprimer ce projet ?")) {
+      const updated = projects.filter((_, i) => i !== index);
+      setProjects(updated);
+      saveProjects();
+    }
+  }
+
+  // ==================== GOALS ====================
+  async function saveGoals() {
+    setIsSaving(true);
+    try {
+      const cleanGoals = goals.map(goal => ({
+        goal: goal.goal || "",
+        priority: goal.priority || "normal",
+        deadline: goal.deadline || null
       }));
       
-      fetch(`${API_URL}/api/profile`, {
+      const response = await fetch(`${API_URL}/api/profile`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ projects: cleanProjects })
-      })
-      .then(res => res.json())
-      .then(data => {
-        if (data.success) {
-          setProfile(data.profile);
-          toast.success("Projet supprimé");
-        } else {
-          toast.error("Erreur: " + (data.error || "Inconnue"));
-          fetchProfile(); // Recharger en cas d'erreur
-        }
-      })
-      .catch(err => {
-        console.error("Erreur:", err);
-        toast.error("Erreur de connexion");
-        fetchProfile();
+        body: JSON.stringify({ current_goals: cleanGoals })
       });
-    }, 100);
+      const data = await response.json();
+      if (data.success) {
+        setProfile(data.profile);
+        toast.success("Objectifs mis à jour");
+      } else {
+        toast.error("Erreur: " + (data.error || "Inconnue"));
+      }
+    } catch (error) {
+      console.error("Erreur saveGoals:", error);
+      toast.error("Erreur de connexion");
+    }
+    setIsSaving(false);
   }
-}
+
   function addGoal() {
     if (!newGoal.goal) {
       toast.error("L'objectif est requis");
@@ -384,12 +357,14 @@ async function saveProjects() {
     }
   }
 
+  // ==================== NOTIFICATIONS ====================
   function saveNotificationPreferences() {
     localStorage.setItem("notif_sound", String(notifPrefs.sound));
     localStorage.setItem("notif_vibrate", String(notifPrefs.vibration));
     toast.success("Préférences de notification sauvegardées");
   }
 
+  // ==================== STYLES ====================
   const getPriorityColor = (priority: string) => {
     switch(priority) {
       case "critical": return "bg-red-500/20 text-red-400";
@@ -484,7 +459,7 @@ async function saveProjects() {
           </button>
         </div>
 
-        {/* IDENTITY TAB */}
+        {/* ==================== IDENTITY TAB ==================== */}
         {activeTab === "identity" && (
           <div className="space-y-6">
             <div className="bg-white/5 border border-white/10 rounded-xl p-6">
@@ -557,7 +532,7 @@ async function saveProjects() {
           </div>
         )}
 
-        {/* CHILDREN TAB */}
+        {/* ==================== CHILDREN TAB ==================== */}
         {activeTab === "children" && (
           <div className="space-y-4">
             <div className="flex justify-between items-center mb-4">
@@ -650,7 +625,7 @@ async function saveProjects() {
           </div>
         )}
 
-        {/* PROJECTS TAB */}
+        {/* ==================== PROJECTS TAB ==================== */}
         {activeTab === "projects" && (
           <div className="space-y-4">
             <div className="flex justify-between items-center mb-4">
@@ -767,7 +742,7 @@ async function saveProjects() {
           </div>
         )}
 
-        {/* GOALS TAB */}
+        {/* ==================== GOALS TAB ==================== */}
         {activeTab === "goals" && (
           <div className="space-y-4">
             <div className="flex justify-between items-center mb-4">
@@ -856,7 +831,7 @@ async function saveProjects() {
           </div>
         )}
 
-        {/* NOTIFICATIONS TAB */}
+        {/* ==================== NOTIFICATIONS TAB ==================== */}
         {activeTab === "notifications" && (
           <div className="space-y-6">
             <div className="bg-white/5 border border-white/10 rounded-xl p-6">
