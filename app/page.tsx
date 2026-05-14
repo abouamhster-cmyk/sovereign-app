@@ -1,4 +1,5 @@
 "use client";
+
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { motion, AnimatePresence } from "framer-motion";
@@ -6,7 +7,8 @@ import Link from "next/link";
 import { 
   Crown, Settings, Bell, User, Sparkles, 
   Target, DollarSign, Heart, Sprout, Brain,
-  Calendar, AlertCircle, ArrowRight, Smile, Meh, Frown, Sun, Moon
+  Calendar, AlertCircle, ArrowRight, Smile, Meh, Frown, Sun, Moon,
+  Loader2
 } from "lucide-react";
 import { DashboardCard } from "@/components/DashboardCard";
 
@@ -27,6 +29,16 @@ export default function DashboardPage() {
   const [urgentTasks, setUrgentTasks] = useState<Task[]>([]);
   const [upcomingDeadlines, setUpcomingDeadlines] = useState<{ title: string; date: string; type: string }[]>([]);
   const [mood, setMood] = useState<string | null>(null);
+  const [activeMissions, setActiveMissions] = useState<Mission[]>([]);
+  
+  // Message personnalisé de Becks
+  const [becksMessage, setBecksMessage] = useState("");
+  const [isLoadingMessage, setIsLoadingMessage] = useState(true);
+  const [todaySummary, setTodaySummary] = useState<{
+    tasks_count: number;
+    missions_count: number;
+    docs_count: number;
+  } | null>(null);
   
   // Stats pour les moves
   const [farmStatus, setFarmStatus] = useState("En cours");
@@ -60,6 +72,9 @@ export default function DashboardPage() {
       fetchUrgentTasks(),
       fetchUpcomingDeadlines(),
       fetchFarmStatus(),
+      fetchMorningGreeting(),
+      fetchTodaySummary(),
+      fetchActiveMissions(),
     ]);
     setIsLoading(false);
   }
@@ -119,6 +134,49 @@ export default function DashboardPage() {
     }
   }
 
+  async function fetchMorningGreeting() {
+    try {
+      const response = await fetch(`${API_URL}/api/morning-greeting`);
+      const data = await response.json();
+      if (data.success && data.message) {
+        setBecksMessage(data.message);
+      } else {
+        setBecksMessage("Salut Rebecca. Je suis là si tu as besoin.");
+      }
+    } catch (error) {
+      console.error("Erreur message:", error);
+      setBecksMessage("Salut Rebecca. Je suis là.");
+    }
+    setIsLoadingMessage(false);
+  }
+
+  async function fetchTodaySummary() {
+    try {
+      const [tasksRes, missionsRes, docsRes] = await Promise.all([
+        supabase.from("tasks").select("*", { count: "exact", head: true }).eq("status", "today"),
+        supabase.from("missions").select("*", { count: "exact", head: true }).eq("status", "active"),
+        supabase.from("documents").select("*", { count: "exact", head: true }).neq("status", "approved")
+      ]);
+      
+      setTodaySummary({
+        tasks_count: tasksRes.count || 0,
+        missions_count: missionsRes.count || 0,
+        docs_count: docsRes.count || 0
+      });
+    } catch (error) {
+      console.error("Erreur summary:", error);
+    }
+  }
+
+  async function fetchActiveMissions() {
+    const { data } = await supabase
+      .from("missions")
+      .select("*")
+      .eq("status", "active")
+      .limit(3);
+    setActiveMissions(data || []);
+  }
+
   async function saveMood(selectedMood: string) {
     const today = new Date().toISOString().split('T')[0];
     setMood(selectedMood);
@@ -155,27 +213,70 @@ export default function DashboardPage() {
 
   const currentMood = moods.find(m => m.value === mood);
 
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="w-8 h-8 border-2 border-gold-500 border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
+
   return (
     <div className="max-w-2xl mx-auto space-y-6 pb-24">
-      {/* HEADER */}
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-2xl font-serif text-ivory">
-            {greeting}, {userName}. <Crown className="inline w-5 h-5 text-gold-500" />
-          </h1>
-          <p className="text-gray-500 text-sm">Becks est là pour t'aider</p>
+      {/* ============================================================ */}
+      {/* HEADER avec message personnalisé de Becks */}
+      {/* ============================================================ */}
+      <div className="space-y-4">
+        <div className="flex justify-between items-center">
+          <div>
+            <h1 className="text-2xl font-serif text-ivory">
+              {greeting}, {userName}. <Crown className="inline w-5 h-5 text-gold-500" />
+            </h1>
+          </div>
+          <div className="flex items-center gap-2">
+            <Link href="/settings" className="p-2 text-gray-400 hover:text-gold-500 transition-colors">
+              <Settings className="w-5 h-5" />
+            </Link>
+            <Link href="/profile" className="p-2 text-gray-400 hover:text-gold-500 transition-colors">
+              <User className="w-5 h-5" />
+            </Link>
+          </div>
         </div>
-        <div className="flex items-center gap-2">
-          <Link href="/settings" className="p-2 text-gray-400 hover:text-gold-500">
-            <Settings className="w-5 h-5" />
-          </Link>
-          <Link href="/settings" className="p-2 text-gray-400 hover:text-gold-500">
-            <User className="w-5 h-5" />
-          </Link>
+
+        {/* Message personnalisé de Becks */}
+        <div className="bg-gradient-to-r from-gold-500/10 to-transparent border-l-4 border-gold-500 rounded-xl p-4">
+          {isLoadingMessage ? (
+            <div className="flex items-center gap-2">
+              <Loader2 className="w-4 h-4 text-gold-500 animate-spin" />
+              <span className="text-sm text-gray-400">Becks réfléchit...</span>
+            </div>
+          ) : (
+            <div className="flex items-start gap-3">
+              <Sparkles className="w-5 h-5 text-gold-500 mt-0.5 flex-shrink-0" />
+              <p className="text-ivory text-sm leading-relaxed">{becksMessage}</p>
+            </div>
+          )}
         </div>
+
+        {/* Petit résumé visuel */}
+        {todaySummary && (
+          <div className="flex gap-2 text-xs">
+            <span className="px-2 py-1 bg-white/5 rounded-full">
+              📋 {todaySummary.tasks_count} tâche(s)
+            </span>
+            <span className="px-2 py-1 bg-white/5 rounded-full">
+              🎯 {todaySummary.missions_count} mission(s)
+            </span>
+            <span className="px-2 py-1 bg-white/5 rounded-full">
+              📄 {todaySummary.docs_count} document(s)
+            </span>
+          </div>
+        )}
       </div>
 
+      {/* ============================================================ */}
       {/* HUMEUR DU JOUR */}
+      {/* ============================================================ */}
       <div className="bg-white/5 border border-white/10 rounded-xl p-4">
         {mood ? (
           <div className="flex items-center justify-between">
@@ -188,7 +289,7 @@ export default function DashboardPage() {
             </div>
             <button
               onClick={() => { setMood(null); localStorage.removeItem("todayMood"); }}
-              className="text-xs text-gray-500 hover:text-gold-400"
+              className="text-xs text-gray-500 hover:text-gold-400 transition-colors"
             >
               Modifier
             </button>
@@ -212,50 +313,173 @@ export default function DashboardPage() {
         )}
       </div>
 
-      {/* TOP 3 PRIORITÉS */}
-      <DashboardCard title="🎯 CETTE SEMAINE" icon={<Target className="w-4 h-4 text-gold-500" />}>
-        {priorities.length > 0 ? (
-          <div className="space-y-3">
-            {priorities.slice(0, 3).map((priority, idx) => (
-              <div key={priority.id} className="flex items-start gap-3">
-                <div className="w-5 h-5 rounded-full bg-gold-500/20 text-gold-500 flex items-center justify-center text-xs font-bold">
-                  {idx + 1}
+      {/* ============================================================ */}
+      {/* TOP 3 PRIORITÉS - Version améliorée */}
+      {/* ============================================================ */}
+      <div className="bg-white/5 border border-white/10 rounded-2xl overflow-hidden">
+        <div className="px-5 pt-4 pb-2 flex items-center justify-between">
+          <h2 className="text-sm font-serif text-gold-500 flex items-center gap-2">
+            <Target className="w-4 h-4" />
+            🎯 TES 3 PRIORITÉS
+          </h2>
+          {priorities.length > 0 && (
+            <span className="text-[10px] text-gray-500">Basé sur l'IA</span>
+          )}
+        </div>
+        <div className="p-5 pt-2">
+          {priorities.length > 0 ? (
+            <div className="space-y-4">
+              {priorities.slice(0, 3).map((priority, idx) => (
+                <div key={priority.id} className="group">
+                  <div className="flex items-start gap-3">
+                    <div className={`
+                      w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0
+                      ${idx === 0 ? "bg-red-500/20 text-red-400" : 
+                        idx === 1 ? "bg-orange-500/20 text-orange-400" : 
+                        "bg-gold-500/20 text-gold-500"}
+                    `}>
+                      {idx + 1}
+                    </div>
+                    <div className="flex-1">
+                      <p className="text-ivory text-sm font-medium">{priority.title}</p>
+                      <p className="text-xs text-gray-500 mt-0.5">{priority.priority_reason}</p>
+                    </div>
+                  </div>
+                  {idx < priorities.length - 1 && idx < 2 && (
+                    <div className="ml-9 mt-3 h-px bg-white/10" />
+                  )}
                 </div>
-                <div>
-                  <p className="text-sm text-ivory">{priority.title}</p>
-                  <p className="text-xs text-gray-500">{priority.priority_reason}</p>
-                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-6">
+              <Target className="w-8 h-8 mx-auto mb-2 opacity-30" />
+              <p className="text-sm text-gray-500">Aucune priorité pour le moment</p>
+              <button 
+                onClick={() => window.location.href = "/tasks"}
+                className="text-xs text-gold-500 mt-2 hover:underline"
+              >
+                + Créer une tâche
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* ============================================================ */}
+      {/* TÂCHES URGENTES (optionnel, si existantes) */}
+      {/* ============================================================ */}
+      {urgentTasks.length > 0 && (
+        <div className="bg-red-950/20 border border-red-500/30 rounded-xl p-4">
+          <div className="flex items-center gap-2 mb-3">
+            <AlertCircle className="w-4 h-4 text-red-400" />
+            <h3 className="text-sm font-medium text-ivory">⚠️ TÂCHES DU JOUR</h3>
+          </div>
+          <div className="space-y-2">
+            {urgentTasks.map((task) => (
+              <div key={task.id} className="flex items-center justify-between text-sm">
+                <span className="text-gray-300">{task.title}</span>
+                {task.due_date && (
+                  <span className="text-xs text-red-400">
+                    📅 {new Date(task.due_date).toLocaleDateString('fr-FR')}
+                  </span>
+                )}
               </div>
             ))}
           </div>
-        ) : (
-          <p className="text-sm text-gray-500 text-center py-4">Aucune priorité pour le moment</p>
-        )}
-      </DashboardCard>
+          <Link href="/tasks" className="text-xs text-gold-500 hover:underline block text-center mt-3">
+            Voir toutes les tâches →
+          </Link>
+        </div>
+      )}
 
-      {/* 4 MOVES (Argent, Famille, Ferme, Stabilisation) */}
+      {/* ============================================================ */}
+      {/* 4 MOVES - Version améliorée avec liens */}
+      {/* ============================================================ */}
       <div className="grid grid-cols-2 gap-3">
-        <DashboardCard title="💰 UN MOVE ARGENT" icon={<DollarSign className="w-4 h-4 text-emerald-400" />} accentColor="emerald">
-          <p className="text-sm text-ivory">{moneyMove}</p>
-          <button className="text-xs text-gold-500 mt-2 hover:underline">→ Je prépare l'email</button>
-        </DashboardCard>
+        <Link href="/money" className="block">
+          <div className="bg-gradient-to-br from-emerald-500/5 to-transparent border border-emerald-500/20 rounded-xl p-4 hover:border-emerald-500/40 transition-all group">
+            <div className="flex items-center gap-2 mb-2">
+              <DollarSign className="w-4 h-4 text-emerald-400" />
+              <span className="text-xs text-emerald-400/70 uppercase tracking-wider">Move Argent</span>
+            </div>
+            <p className="text-sm text-ivory">{moneyMove}</p>
+            <span className="text-xs text-gold-500 opacity-0 group-hover:opacity-100 transition-opacity mt-2 inline-block">
+              Voir les finances →
+            </span>
+          </div>
+        </Link>
 
-        <DashboardCard title="👨‍👩‍👧‍👦 UN MOVE FAMILLE" icon={<Heart className="w-4 h-4 text-pink-400" />} accentColor="pink">
-          <p className="text-sm text-ivory">{familyMove}</p>
-          <button className="text-xs text-gold-500 mt-2 hover:underline">→ Je note</button>
-        </DashboardCard>
+        <Link href="/family" className="block">
+          <div className="bg-gradient-to-br from-pink-500/5 to-transparent border border-pink-500/20 rounded-xl p-4 hover:border-pink-500/40 transition-all group">
+            <div className="flex items-center gap-2 mb-2">
+              <Heart className="w-4 h-4 text-pink-400" />
+              <span className="text-xs text-pink-400/70 uppercase tracking-wider">Move Famille</span>
+            </div>
+            <p className="text-sm text-ivory">{familyMove}</p>
+            <span className="text-xs text-gold-500 opacity-0 group-hover:opacity-100 transition-opacity mt-2 inline-block">
+              Voir famille →
+            </span>
+          </div>
+        </Link>
 
-        <DashboardCard title="🌾 UN MOVE FERME" icon={<Sprout className="w-4 h-4 text-green-400" />} accentColor="green">
-          <p className="text-sm text-ivory">{farmNextAction}</p>
-          <button className="text-xs text-gold-500 mt-2 hover:underline">→ Voir détails</button>
-        </DashboardCard>
+        <Link href="/farm" className="block">
+          <div className="bg-gradient-to-br from-green-500/5 to-transparent border border-green-500/20 rounded-xl p-4 hover:border-green-500/40 transition-all group">
+            <div className="flex items-center gap-2 mb-2">
+              <Sprout className="w-4 h-4 text-green-400" />
+              <span className="text-xs text-green-400/70 uppercase tracking-wider">Move Ferme</span>
+            </div>
+            <p className="text-sm text-ivory">{farmNextAction}</p>
+            <span className="text-xs text-gold-500 opacity-0 group-hover:opacity-100 transition-opacity mt-2 inline-block">
+              Voir ferme →
+            </span>
+          </div>
+        </Link>
 
-        <DashboardCard title="🧘 UN MOVE STABILISATION" icon={<Sun className="w-4 h-4 text-yellow-400" />} accentColor="gold">
-          <p className="text-sm text-ivory">{stabilizationMove}</p>
-        </DashboardCard>
+        <Link href="/alignment" className="block">
+          <div className="bg-gradient-to-br from-yellow-500/5 to-transparent border border-yellow-500/20 rounded-xl p-4 hover:border-yellow-500/40 transition-all group">
+            <div className="flex items-center gap-2 mb-2">
+              <Sun className="w-4 h-4 text-yellow-400" />
+              <span className="text-xs text-yellow-400/70 uppercase tracking-wider">Move Stabilisation</span>
+            </div>
+            <p className="text-sm text-ivory">{stabilizationMove}</p>
+            <span className="text-xs text-gold-500 opacity-0 group-hover:opacity-100 transition-opacity mt-2 inline-block">
+              S'aligner →
+            </span>
+          </div>
+        </Link>
       </div>
 
+      {/* ============================================================ */}
+      {/* MISSIONS ACTIVES - Petit aperçu */}
+      {/* ============================================================ */}
+      {activeMissions.length > 0 && (
+        <div className="bg-white/5 border border-white/10 rounded-xl p-4">
+          <div className="flex items-center gap-2 mb-3">
+            <Target className="w-4 h-4 text-gold-500" />
+            <h3 className="text-sm font-medium text-ivory">🎯 Missions actives</h3>
+          </div>
+          <div className="space-y-2">
+            {activeMissions.map((mission) => (
+              <Link 
+                key={mission.id} 
+                href="/missions" 
+                className="flex items-center justify-between p-2 hover:bg-white/5 rounded-lg transition-colors"
+              >
+                <span className="text-sm text-gray-300">{mission.name}</span>
+                <ArrowRight className="w-3 h-3 text-gray-500" />
+              </Link>
+            ))}
+          </div>
+          <Link href="/missions" className="text-xs text-gold-500 hover:underline block text-center mt-3">
+            Voir toutes les missions →
+          </Link>
+        </div>
+      )}
+
+      {/* ============================================================ */}
       {/* RAPPELS IMPORTANTS */}
+      {/* ============================================================ */}
       {upcomingDeadlines.length > 0 && (
         <div className="bg-white/5 border border-white/10 rounded-xl p-4">
           <div className="flex items-center gap-2 mb-3">
@@ -277,7 +501,9 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* BOUTON D'AIDE */}
+      {/* ============================================================ */}
+      {/* BOUTON D'AIDE - MODE EXÉCUTION */}
+      {/* ============================================================ */}
       <motion.button
         whileHover={{ scale: 1.02 }}
         whileTap={{ scale: 0.98 }}
@@ -289,7 +515,9 @@ export default function DashboardPage() {
         <ArrowRight className="w-4 h-4" />
       </motion.button>
 
-      {/* MESSAGE DE BECKS */}
+      {/* ============================================================ */}
+      {/* MESSAGE DE CLÔTURE DE BECKS */}
+      {/* ============================================================ */}
       <div className="text-center text-xs text-gray-500 italic">
         <p>✨ "Une chose à la fois. Tu gères, Rebecca." ✨</p>
       </div>
