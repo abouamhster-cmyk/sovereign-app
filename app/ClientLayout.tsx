@@ -84,30 +84,24 @@ function urlBase64ToUint8Array(base64String: string) {
 function NotificationBell() {
   const [unreadCount, setUnreadCount] = useState(0);
 
+  const fetchUnreadCount = async () => {
+    try {
+      const { count } = await supabase
+        .from("notifications")
+        .select("*", { count: 'exact', head: true })
+        .eq("read", false)
+        .eq("user_id", "rebecca");
+      setUnreadCount(count || 0);
+    } catch (error) {
+      console.error("Erreur fetchUnreadCount:", error);
+    }
+  };
+
   useEffect(() => {
     fetchUnreadCount();
-    
-    const channel = supabase
-      .channel('notifications_unread')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'notifications' }, () => {
-        fetchUnreadCount();
-      })
-      .subscribe();
-    
-    return () => {
-      channel.unsubscribe();
-    };
+    const interval = setInterval(fetchUnreadCount, 30000);
+    return () => clearInterval(interval);
   }, []);
-
-  async function fetchUnreadCount() {
-    const { count } = await supabase
-      .from("notifications")
-      .select("*", { count: 'exact', head: true })
-      .eq("read", false)
-      .eq("user_id", "rebecca");
-    
-    setUnreadCount(count || 0);
-  }
 
   return (
     <Link href="/notifications" className="relative p-2 rounded-full text-gray-400 hover:text-gold-500 hover:bg-white/5 transition-colors">
