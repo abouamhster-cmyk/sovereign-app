@@ -41,7 +41,7 @@ const menuItems = [
   { name: "Rescue Mode", icon: ShieldAlert, href: "/rescue", group: "alignment" },
   { name: "Mémoire", icon: Brain, href: "/memory", group: "alignment" },
 
-  { name: "Settings", icon: Settings, href: "/settings", group: "settings" }
+  { name: "Profile", icon: Settings, href: "/settings", group: "settings" }
 ];
 
 const groupLabels: Record<string, string> = {
