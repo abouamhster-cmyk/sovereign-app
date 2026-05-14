@@ -642,7 +642,7 @@ export default function DashboardPage() {
           )}
           
           <div className="flex flex-wrap gap-2">
-            {overloadData.rescue_actions?.map((action, idx) => (
+            {overloadData.rescue_actions?.map((action: { type: string; title: string; task_id?: string; duration?: number; url?: string }, idx: number) => (
               <button
                 key={idx}
                 onClick={() => {
