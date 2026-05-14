@@ -195,7 +195,7 @@ export default function SettingsPage() {
 async function saveProjects() {
   setIsSaving(true);
   try {
-    // Nettoyer les données avant envoi
+    // Nettoyer les projets pour n'envoyer que ce qui est nécessaire
     const cleanProjects = projects.map(project => ({
       name: project.name || "",
       status: project.status || "active",
@@ -223,7 +223,6 @@ async function saveProjects() {
   }
   setIsSaving(false);
 }
-
   
   async function saveGoals() {
     setIsSaving(true);
