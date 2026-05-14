@@ -220,7 +220,7 @@ function PushNotificationToggle() {
         ) : (
           <Bell className="w-4 h-4" />
         )}
-        <span>Notifications push</span>
+        <span>Notifs</span>
       </div>
       <span className="text-xs">
         {isLoading ? (
