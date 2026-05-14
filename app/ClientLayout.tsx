@@ -22,6 +22,7 @@ const menuItems = [
   { name: "Tasks", icon: CheckSquare, href: "/tasks", group: "operations" },
   { name: "Calendar", icon: Calendar, href: "/calendar", group: "operations" },
   
+  { name: "Life Map", icon: Map, href: "/life-map", group: "strategies" },
   { name: "Money", icon: Wallet, href: "/money", group: "strategies" },
   { name: "Opportunities", icon: TrendingUp, href: "/opportunities", group: "strategies" },
   { name: "Documents", icon: FileText, href: "/documents", group: "strategies" },
