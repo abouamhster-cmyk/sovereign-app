@@ -18,16 +18,18 @@ type Notification = {
 };
 
 const typeConfig: Record<string, { label: string; color: string }> = {
-  task: { label: "Tâche", color: "text-blue-400" },
-  mission: { label: "Mission", color: "text-purple-400" },
-  win: { label: "Victoire", color: "text-yellow-400" },
-  money: { label: "Finance", color: "text-emerald-400" },
-  family: { label: "Famille", color: "text-pink-400" },
-  document: { label: "Document", color: "text-orange-400" },
-  morning: { label: "Brief matinal", color: "text-gold-500" },
-  financial: { label: "Finances", color: "text-emerald-400" },
-  opportunity: { label: "Opportunité", color: "text-cyan-400" },
-  default: { label: "Notification", color: "text-gray-400" }
+  task: { label: "📋 Tâche", color: "text-blue-400" },
+  mission: { label: "🎯 Mission", color: "text-purple-400" },
+  win: { label: "🏆 Victoire", color: "text-yellow-400" },
+  money: { label: "💰 Finance", color: "text-emerald-400" },
+  family: { label: "👨‍👩‍👧‍👦 Famille", color: "text-pink-400" },
+  document: { label: "📄 Document", color: "text-orange-400" },
+  morning: { label: "🌅 Brief matinal", color: "text-gold-500" },
+  financial: { label: "📊 Finances", color: "text-emerald-400" },
+  opportunity: { label: "💡 Opportunité", color: "text-cyan-400" },
+  report: { label: "📈 Rapport", color: "text-indigo-400" },
+  brief: { label: "📋 Brief", color: "text-gold-500" },
+  default: { label: "🔔 Notification", color: "text-gray-400" }
 };
 
 export default function NotificationsPage() {
@@ -37,10 +39,9 @@ export default function NotificationsPage() {
   useEffect(() => {
     fetchNotifications();
     
-    // Écouter les nouvelles notifications
     const channel = supabase
       .channel('notifications_changes')
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notifications' }, () => {
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'notifications' }, () => {
         fetchNotifications();
       })
       .subscribe();
@@ -55,6 +56,7 @@ export default function NotificationsPage() {
     const { data, error } = await supabase
       .from("notifications")
       .select("*")
+      .neq("type", "whatsapp")  // ← EXCLURE LES NOTIFICATIONS WHATSAPP
       .order("created_at", { ascending: false })
       .limit(50);
     
@@ -93,7 +95,7 @@ export default function NotificationsPage() {
       setNotifications(prev =>
         prev.map(n => ({ ...n, read: true }))
       );
-      toast.success("Toutes les notifications ont été marquées comme lues");
+      toast.success("Toutes marquées comme lues");
     }
   }
 
@@ -116,7 +118,7 @@ export default function NotificationsPage() {
       const { error } = await supabase
         .from("notifications")
         .delete()
-        .neq("id", "00000000-0000-0000-0000-000000000000");
+        .neq("type", "whatsapp");
       
       if (!error) {
         setNotifications([]);
@@ -214,7 +216,7 @@ export default function NotificationsPage() {
               <Bell className="w-8 h-8 text-gray-500 opacity-50" />
             </div>
             <p className="text-gray-500">Aucune notification</p>
-            <p className="text-xs text-gray-600 mt-1">Les notifications apparaîtront ici</p>
+            <p className="text-xs text-gray-600 mt-1">Les notifications système apparaîtront ici</p>
           </div>
         ) : (
           <div className="space-y-2">
@@ -260,7 +262,7 @@ export default function NotificationsPage() {
                           </div>
                           
                           <h3 className="text-ivory font-medium mt-1">
-                            {notif.title}
+                            {notif.title.replace(/^[^\s]+\s/, "")}
                           </h3>
                           
                           {notif.body && (
@@ -287,7 +289,7 @@ export default function NotificationsPage() {
                           >
                             <Trash2 className="w-4 h-4" />
                           </button>
-                          {notif.url && notif.url !== "/" && (
+                          {notif.url && notif.url !== "/" && notif.type !== "whatsapp" && (
                             <Link
                               href={notif.url}
                               onClick={() => markAsRead(notif.id)}
