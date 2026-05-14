@@ -1,6 +1,7 @@
 "use client";
 import "regenerator-runtime/runtime";
 import { useState, useRef, useEffect } from "react";
+import { ExecutionGuide } from "@/components/ExecutionGuide";
 import ReactMarkdown from 'react-markdown';
 import { 
   Send, ArrowLeft, Plus, Trash2, ChevronLeft, ChevronRight, 
@@ -40,7 +41,7 @@ type Message = {
 };
 
 // =====================================================
-// MODES DE CONVERSATION (sans PROACTIVITY_RULES)
+// MODES DE CONVERSATION
 // =====================================================
 const modes = [
   { id: "parle-moi", name: "Parle-moi", icon: Heart, color: "text-pink-400", bg: "bg-pink-500/10", description: "Soutien émotionnel, écoute",
@@ -50,12 +51,24 @@ RÈGLE IMPORTANTE : Quand Rebecca exprime une émotion (fatigue, stress, tristes
 
 Tu es là pour écouter, pas pour proposer des actions.` },
   
-  { id: "fais-le-avec-moi", name: "Fais-le avec moi", icon: Zap, color: "text-yellow-400", bg: "bg-yellow-500/10", description: "Exécution",
-    prompt: `Tu es Becks, agent d'exécution. Propose des actions SEULEMENT si Rebecca demande explicitement : "crée une tâche", "envoie un email", etc.
+  { id: "fais-le-avec-moi", name: "Fais-le avec moi", icon: Zap, color: "text-yellow-400", bg: "bg-yellow-500/10", description: "Exécution guidée étape par étape",
+    prompt: `Tu es Becks, agent d'exécution. Ton rôle n'est pas de répondre, mais de GUIDER l'action.
 
-Pour une action, utilise [ACTION:{"type":"create_task","params":{"title":"..."},"label":"✅ Créer"}]
+QUAND L'UTILISATEUR TE PARLE :
+1. Analyse ce qu'il/elle veut accomplir
+2. Propose UNIQUEMENT un plan d'action (pas de longs discours)
+3. Structure en étapes simples (max 6)
+4. Demande confirmation avant de lancer le guide
 
-RAPPEL : Si elle exprime une émotion, ne propose PAS d'action.` },
+EXEMPLE DE RÉPONSE :
+"Ok. Pour t'aider à [objectif], voici un plan simple :
+1. [étape 1]
+2. [étape 2]
+3. [étape 3]
+
+Je peux te guider étape par étape. On commence par la 1 ?"
+
+TON STYLE : Direct, pratique, pas de blabla.` },
   
   { id: "love-fire-sport", name: "Love & Fire Sport", icon: Trophy, color: "text-emerald-400", bg: "bg-emerald-500/10", description: "Grants, DDA",
     prompt: `Tu es Becks, spécialiste Love & Fire Sport. Aide pour grants, DDA, contrats. Sois précise et organisée.
@@ -86,28 +99,6 @@ Ne propose pas d'actions ici. Sois présente, réfléchie.` }
 // =====================================================
 // FONCTIONS UTILITAIRES
 // =====================================================
-function getRandomPriority(): string {
-  const priorities = [
-    "Finaliser le dossier DDA pour Love & Fire Sport",
-    "Vérifier l'avancement de la ferme (Ifè Living Farm)",
-    "Préparer le rapport financier de la semaine",
-    "Contacter l'équipe pour le suivi des grants",
-    "Planifier la prochaine étape de la relocalisation"
-  ];
-  return priorities[Math.floor(Math.random() * priorities.length)];
-}
-
-function getRandomOpportunity(): string {
-  const opportunities = [
-    "Un grant de 10M CFA est disponible sur grants.gov",
-    "Le contrat DDA approche de sa date limite (5 jours)",
-    "Un partenaire potentiel pour la ferme t'a contacté",
-    "La période de soumission pour Love & Fire Sport se termine bientôt",
-    "Une réunion avec l'équipe de Santé Plus serait bénéfique"
-  ];
-  return opportunities[Math.floor(Math.random() * opportunities.length)];
-}
-
 function generateProactiveMorningMessage() {
   const hour = new Date().getHours();
   let greeting = "";
@@ -115,33 +106,7 @@ function generateProactiveMorningMessage() {
   else if (hour < 18) greeting = "🌤️ Bon après-midi";
   else greeting = "🌙 Bonsoir";
   
-  const priorities = [
-    "Finaliser le dossier DDA pour Love & Fire Sport",
-    "Vérifier l'avancement de la ferme (Ifè Living Farm)",
-    "Préparer le rapport financier de la semaine",
-    "Contacter l'équipe pour le suivi des grants",
-    "Planifier la prochaine étape de la relocalisation"
-  ];
-  const opportunities = [
-    "Un grant de 10M CFA est disponible sur grants.gov",
-    "Le contrat DDA approche de sa date limite (5 jours)",
-    "Un partenaire potentiel pour la ferme t'a contacté",
-    "La période de soumission pour Love & Fire Sport se termine bientôt",
-    "Une réunion avec l'équipe de Santé Plus serait bénéfique"
-  ];
-  
-  const randomPriority = priorities[Math.floor(Math.random() * priorities.length)];
-  const randomOpportunity = opportunities[Math.floor(Math.random() * opportunities.length)];
-  
-  return `${greeting} Rebecca.
-
-Voici ce que j'ai préparé pour toi aujourd'hui.
-
-Priorité recommandée : ${randomPriority}
-À ne pas manquer : ${randomOpportunity}
-Rappel : Prends 5 minutes pour respirer entre deux tâches.
-
-Dis-moi ce que tu veux attaquer en premier.`;
+  return `${greeting} Rebecca. Je suis là. Parle-moi de ta journée.`;
 }
 
 // =====================================================
@@ -167,6 +132,10 @@ export default function ChatPage() {
   const [isVoiceLocked, setIsVoiceLocked] = useState(false);
   const [pressTimer, setPressTimer] = useState<NodeJS.Timeout | null>(null);
   const [pressStartTime, setPressStartTime] = useState(0);
+
+  // État pour le mode exécution
+  const [executionPlan, setExecutionPlan] = useState<{ planId: string; plan: any } | null>(null);
+  const [isGeneratingPlan, setIsGeneratingPlan] = useState(false);
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -186,6 +155,7 @@ export default function ChatPage() {
   const [currentReplyTo, setCurrentReplyTo] = useState("");
   const [replyMessage, setReplyMessage] = useState("");
 
+  // ========== EFFETS ==========
   useEffect(() => {
     if (transcript) { setInput(prev => prev + " " + transcript); resetTranscript(); }
   }, [transcript, resetTranscript]);
@@ -207,6 +177,7 @@ export default function ChatPage() {
   useEffect(() => { if (isMobile && currentConversationId) setIsSidebarOpen(false); }, [currentConversationId, isMobile]);
   useEffect(() => { return () => { if (pressTimer) clearTimeout(pressTimer); }; }, [pressTimer]);
 
+  // ========== FONCTIONS DE GESTION DES FICHIERS ==========
   const onDrop = (acceptedFiles: File[]) => setUploadedFiles(prev => [...prev, ...acceptedFiles]);
   const { getInputProps } = useDropzone({ onDrop, accept: { 'image/*': ['.png', '.jpg', '.jpeg', '.gif', '.webp'], 'application/pdf': ['.pdf'], 'text/plain': ['.txt'] }, maxSize: 10 * 1024 * 1024, noClick: true, noKeyboard: true });
   const removeFile = (index: number) => setUploadedFiles(prev => prev.filter((_, i) => i !== index));
@@ -227,6 +198,7 @@ export default function ChatPage() {
     return uploaded;
   }
 
+  // ========== GESTION DES CONVERSATIONS ==========
   async function fetchConversations() {
     const { data } = await supabase.from("conversations").select("*").eq("user_id", "rebecca").order("updated_at", { ascending: false });
     setConversations(data || []);
@@ -235,35 +207,35 @@ export default function ChatPage() {
     else if (!currentConversationId) setCurrentConversationId(data[0].id);
   }
 
-async function fetchMessages(conversationId: string) {
-  const { data, error } = await supabase.from("conversation_messages").select("*").eq("conversation_id", conversationId).order("created_at", { ascending: true });
-  if (error) { console.error("❌ Erreur fetchMessages:", error); return; }
-  if (data && data.length > 0) {
-    const parsedMessages = data.map(msg => {
+  async function fetchMessages(conversationId: string) {
+    const { data, error } = await supabase.from("conversation_messages").select("*").eq("conversation_id", conversationId).order("created_at", { ascending: true });
+    if (error) { console.error("❌ Erreur fetchMessages:", error); return; }
+    if (data && data.length > 0) {
+      const parsedMessages = data.map(msg => {
+        try {
+          const parsed = JSON.parse(msg.content);
+          return { id: msg.id, role: msg.role, content: parsed.content || msg.content, actions: parsed.actions, files: Array.isArray(parsed.files) ? parsed.files : [], created_at: msg.created_at };
+        } catch (e) {
+          return { id: msg.id, role: msg.role, content: msg.content, files: [], created_at: msg.created_at };
+        }
+      });
+      setMessages(parsedMessages);
+    } else if (messages.length === 0) {
       try {
-        const parsed = JSON.parse(msg.content);
-        return { id: msg.id, role: msg.role, content: parsed.content || msg.content, actions: parsed.actions, files: Array.isArray(parsed.files) ? parsed.files : [], created_at: msg.created_at };
-      } catch (e) {
-        return { id: msg.id, role: msg.role, content: msg.content, files: [], created_at: msg.created_at };
-      }
-    });
-    setMessages(parsedMessages);
-  } else if (messages.length === 0) {
-    // Appeler l'API pour un message personnalisé basé sur les vraies données
-    try {
-      const response = await fetch(`${API_URL}/api/morning-greeting`);
-      const data = await response.json();
-      if (data.success && data.message) {
-        setMessages([{ role: "assistant", content: data.message }]);
-      } else {
+        const response = await fetch(`${API_URL}/api/morning-greeting`);
+        const data = await response.json();
+        if (data.success && data.message) {
+          setMessages([{ role: "assistant", content: data.message }]);
+        } else {
+          setMessages([{ role: "assistant", content: "Salut. Je suis là." }]);
+        }
+      } catch (error) {
+        console.error("Erreur récupération message:", error);
         setMessages([{ role: "assistant", content: "Salut. Je suis là." }]);
       }
-    } catch (error) {
-      console.error("Erreur récupération message:", error);
-      setMessages([{ role: "assistant", content: "Salut. Je suis là." }]);
     }
   }
-}
+
   async function createNewConversation() {
     const title = `Nouvelle conversation ${new Date().toLocaleDateString('fr-FR')}`;
     const { data, error } = await supabase.from("conversations").insert({ title, user_id: "rebecca" }).select().single();
@@ -304,6 +276,48 @@ async function fetchMessages(conversationId: string) {
     await supabase.from("conversations").update({ updated_at: new Date().toISOString() }).eq("id", conversationId);
   }
 
+  // ========== GÉNÉRATION DU PLAN D'EXÉCUTION ==========
+  async function generateExecutionPlan(query: string) {
+    setIsGeneratingPlan(true);
+    try {
+      const response = await fetch(`${API_URL}/api/execute/step-by-step`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ query })
+      });
+      const data = await response.json();
+      
+      if (data.success && data.plan) {
+        setExecutionPlan({ planId: data.plan_id, plan: data.plan });
+        return true;
+      } else if (data.fallback) {
+        // Fallback: générer un plan simple
+        setExecutionPlan({
+          planId: "fallback-" + Date.now(),
+          plan: {
+            title: "Plan simple",
+            estimated_duration: "15 minutes",
+            steps: [
+              { description: "Identifier l'action la plus importante", action_type: "decision", estimated_minutes: 2 },
+              { description: "La faire maintenant", action_type: "task", estimated_minutes: 10 },
+              { description: "Célébrer cette petite victoire", action_type: "celebrate", estimated_minutes: 1 }
+            ],
+            success_criteria: "Avoir avancé sur une chose importante",
+            next_steps_hint: "Continue sur cette lancée"
+          }
+        });
+        return true;
+      }
+      return false;
+    } catch (error) {
+      console.error("Erreur génération plan:", error);
+      return false;
+    } finally {
+      setIsGeneratingPlan(false);
+    }
+  }
+
+  // ========== ENVOI DE MESSAGE ==========
   const sendRegularMessage = async (allMessages: any[]) => {
     const response = await fetch(`${API_URL}/chat`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ messages: allMessages }) });
     if (!response.ok) throw new Error(`Erreur ${response.status}`);
@@ -315,6 +329,7 @@ async function fetchMessages(conversationId: string) {
     if (isSending || (!input.trim() && uploadedFiles.length === 0) || isLoading || !currentConversationId) return;
     setIsSending(true);
     setIsLoading(true);
+    
     const uploadedFilesData = await uploadFilesToStorage();
     let userMessageContent = input.trim() || "📎 Fichier(s) joint(s)";
     const imageFiles = uploadedFilesData.filter(f => f.type.startsWith('image/'));
@@ -326,7 +341,6 @@ async function fetchMessages(conversationId: string) {
     const currentModeConfig = modes.find(m => m.id === selectedMode);
     const enhancedModePrompt = currentModeConfig?.prompt || modes[0].prompt;
     
-    // Envoyer le message sans forcer l'ajout de boutons
     const allMessages = [
       { role: "system", content: enhancedModePrompt }, 
       ...messages.map(msg => ({ role: msg.role, content: msg.content })), 
@@ -344,6 +358,25 @@ async function fetchMessages(conversationId: string) {
       const assistantMessage: Message = { role: "assistant", content: assistantContent };
       setMessages(prev => [...prev, assistantMessage]);
       await saveMessage(currentConversationId, "assistant", assistantContent);
+      
+      // Détection du mode "fais-le-avec-moi" pour générer un plan
+      if (selectedMode === "fais-le-avec-moi" && userMessageContent.length > 10 && userMessageContent.length < 500) {
+        const hasPlan = await generateExecutionPlan(userMessageContent);
+        if (hasPlan && executionPlan) {
+          // Ajouter un message assistant avec le guide
+          const guideMessageContent = `🎯 Je vais t'aider à avancer étape par étape.
+
+**Plan : ${executionPlan.plan.title}**
+*Durée estimée : ${executionPlan.plan.estimated_duration}*
+
+Coche les étapes au fur et à mesure. Une chose à la fois. ✨`;
+          
+          const guideMessage: Message = { role: "assistant", content: guideMessageContent };
+          setMessages(prev => [...prev, guideMessage]);
+          await saveMessage(currentConversationId, "assistant", guideMessageContent);
+        }
+      }
+      
       await fetchConversations();
       inputRef.current?.focus();
     } catch (error) {
@@ -355,6 +388,7 @@ async function fetchMessages(conversationId: string) {
     }
   };
 
+  // ========== FONCTIONS VOCALES ==========
   const startVoiceRecording = () => { resetTranscript(); SpeechRecognition.startListening({ continuous: true, language: 'fr-FR' }); setIsRecording(true); };
   const stopVoiceRecording = () => { SpeechRecognition.stopListening(); setIsRecording(false); };
   
@@ -379,6 +413,7 @@ async function fetchMessages(conversationId: string) {
   
   const stopVoiceLock = () => { if (isVoiceLocked) { setIsVoiceLocked(false); stopVoiceRecording(); inputRef.current?.focus(); } };
   
+  // ========== UTILITAIRES ==========
   const formatDate = (dateStr: string) => {
     const date = new Date(dateStr);
     const diffMins = Math.floor((new Date().getTime() - date.getTime()) / 60000);
@@ -411,6 +446,16 @@ async function fetchMessages(conversationId: string) {
     }
   };
 
+  const handlePlanComplete = () => {
+    toast.success("🎉 Félicitations ! Plan accompli !");
+    setExecutionPlan(null);
+  };
+
+  const handleClosePlan = () => {
+    setExecutionPlan(null);
+  };
+
+  // ========== RENDU ==========
   return (
     <div className="fixed inset-0 bg-midnight flex flex-col">
       {/* HEADER */}
@@ -451,7 +496,7 @@ async function fetchMessages(conversationId: string) {
         )}
       </AnimatePresence>
 
-      {/* MESSAGES */}
+      {/* ZONE DES MESSAGES */}
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
         {messages.map((m, i) => (
           <motion.div key={i} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
@@ -467,6 +512,21 @@ async function fetchMessages(conversationId: string) {
             )}
           </motion.div>
         ))}
+        
+        {/* AFFICHAGE DU GUIDE D'EXÉCUTION */}
+        {executionPlan && (
+          <div className="flex justify-start">
+            <div className="max-w-[85%] w-full">
+              <ExecutionGuide 
+                planId={executionPlan.planId}
+                plan={executionPlan.plan}
+                onComplete={handlePlanComplete}
+                onClose={handleClosePlan}
+              />
+            </div>
+          </div>
+        )}
+        
         {isLoading && (<div className="flex justify-start"><div className="bg-white/10 p-4 rounded-2xl"><Loader2 className="w-4 h-4 text-gold-500 animate-spin" /></div></div>)}
         <div ref={messagesEndRef} />
       </div>
@@ -482,18 +542,22 @@ async function fetchMessages(conversationId: string) {
           </button>
           {isModeSelectorOpen && (<><div className="fixed inset-0 z-40" onClick={() => setIsModeSelectorOpen(false)} /><div className="absolute bottom-full left-0 mb-2 w-64 bg-midnight border border-white/10 rounded-xl shadow-xl z-50 py-2 max-h-80 overflow-y-auto">{modes.map((mode) => { const Icon = mode.icon; return (<button key={mode.id} onClick={() => { setSelectedMode(mode.id); setIsModeSelectorOpen(false); }} className={`w-full flex items-center gap-3 px-4 py-2.5 text-sm hover:bg-white/5 transition-colors ${selectedMode === mode.id ? mode.bg : ""}`}><Icon className={`w-4 h-4 ${mode.color}`} /><div className="flex-1 text-left"><p className="text-gray-300 text-sm">{mode.name}</p><p className="text-[10px] text-gray-500">{mode.description}</p></div>{selectedMode === mode.id && <Check className="w-3.5 h-3.5 text-gold-500" />}</button>); })}</div></>)}
         </div>
+        
         {uploadedFiles.length > 0 && (<div className="flex flex-wrap gap-2 mb-2">{uploadedFiles.map((file, idx) => (<div key={idx} className="flex items-center gap-2 bg-white/10 rounded-full px-3 py-1 text-xs">{file.type.startsWith('image/') ? '🖼️' : '📄'}<span className="truncate max-w-[100px]">{file.name}</span><button onClick={() => removeFile(idx)} className="text-gray-400 hover:text-red-400"><XCircle className="w-3 h-3" /></button></div>))}</div>)}
+        
         {(isRecording || isVoiceLocked) && (<div className="text-center text-xs text-red-400 animate-pulse mb-2">{isVoiceLocked ? "🔒 Enregistrement vocal en cours..." : "🎤 Parlez... relâchez pour arrêter"}</div>)}
+        
         <div className="flex items-center gap-2">
           <button onClick={() => document.getElementById('file-upload-input')?.click()} className="p-2 rounded-full bg-white/10 text-gray-400 hover:bg-white/20 transition-colors flex-shrink-0"><Paperclip className="w-5 h-5" /></button>
           <input id="file-upload-input" type="file" {...getInputProps()} className="hidden" onChange={(e) => { if (e.target.files) onDrop(Array.from(e.target.files)); }} />
           <input ref={inputRef} type="text" value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={handleKeyDown} placeholder={isRecording || isVoiceLocked ? "🎤 Enregistrement vocal..." : `Mode ${currentModeConfig?.name} : écris ton message...`} className="flex-1 bg-white/10 border border-white/20 rounded-full py-3 px-4 text-sm focus:outline-none focus:border-gold-500 text-ivory placeholder:text-gray-500" />
           <button onMouseDown={handleSendButtonMouseDown} onMouseUp={handleSendButtonMouseUp} onMouseLeave={() => { if (isRecording && !isVoiceLocked) stopVoiceRecording(); }} onTouchStart={handleSendButtonMouseDown} onTouchEnd={handleSendButtonMouseUp} onClick={() => { if (isVoiceLocked) stopVoiceLock(); }} disabled={(!input.trim() && uploadedFiles.length === 0 && !isRecording && !isVoiceLocked) || isLoading || isSending} className={`p-2 rounded-full transition-all flex-shrink-0 ${isRecording || isVoiceLocked ? "bg-red-500 text-white animate-pulse" : "bg-gold-500 text-midnight hover:scale-105"} disabled:opacity-50 disabled:hover:scale-100`}>{isSending ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}</button>
         </div>
+        
         {selectedMode === "fais-le-avec-moi" && (<div className="mt-2 text-center"><span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] bg-gold-500/20 text-gold-400"><Sparkles className="w-3 h-3" />Mode Exécution activé</span></div>)}
       </div>
 
-      {/* MODALE CHECKLIST */}
+      {/* MODALES */}
       {showChecklistModal && currentChecklist && (
         <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4" onClick={() => setShowChecklistModal(false)}>
           <div className="bg-midnight border border-gold-500/30 rounded-xl max-w-md w-full p-6" onClick={(e) => e.stopPropagation()}>
@@ -504,7 +568,6 @@ async function fetchMessages(conversationId: string) {
         </div>
       )}
 
-      {/* MODALE BROUILLON */}
       {showDraftModal && currentDraft && (
         <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4" onClick={() => setShowDraftModal(false)}>
           <div className="bg-midnight border border-gold-500/30 rounded-xl max-w-2xl w-full p-6" onClick={(e) => e.stopPropagation()}>
@@ -515,7 +578,6 @@ async function fetchMessages(conversationId: string) {
         </div>
       )}
 
-      {/* MODALE WHATSAPP CUSTOM REPLY */}
       {showWhatsAppModal && currentWhatsApp && (
         <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
           <div className="bg-midnight border border-gold-500/30 rounded-xl max-w-md w-full p-6">
