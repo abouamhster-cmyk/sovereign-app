@@ -45,6 +45,7 @@ export default function DashboardPage() {
   const [farmNextAction, setFarmNextAction] = useState("Vérifier installation poissons");
   const [moneyMove, setMoneyMove] = useState("Relancer le client à 350k CFA");
   const [familyMove, setFamilyMove] = useState("Vaccins Nylah cette semaine");
+  const [businessMove, setBusinessMove] = useState("Avancer sur une mission prioritaire");
   const [stabilizationMove, setStabilizationMove] = useState("Prends 10 minutes pour toi");
 
   useEffect(() => {
@@ -68,13 +69,8 @@ export default function DashboardPage() {
     setIsLoading(true);
     await Promise.all([
       fetchUserName(),
-      fetchPriorities(),
-      fetchUrgentTasks(),
-      fetchUpcomingDeadlines(),
+      fetchDashboardData(),
       fetchFarmStatus(),
-      fetchMorningGreeting(),
-      fetchTodaySummary(),
-      fetchActiveMissions(),
     ]);
     setIsLoading(false);
   }
@@ -87,94 +83,87 @@ export default function DashboardPage() {
     }
   }
 
-  async function fetchPriorities() {
+  async function fetchDashboardData() {
     try {
-      const response = await fetch(`${API_URL}/api/ai-priorities`);
+      const response = await fetch(`${API_URL}/api/dashboard/today`);
       const data = await response.json();
-      setPriorities(data.priorities || []);
+      
+      if (data.success) {
+        // Message personnalisé de Becks
+        setBecksMessage(data.greeting);
+        setIsLoadingMessage(false);
+        
+        // Top 3 priorités
+        const formattedPriorities = data.top_priorities.map((p: any) => ({
+          id: p.id,
+          title: p.title,
+          priority_reason: p.reason,
+          score: p.score
+        }));
+        setPriorities(formattedPriorities);
+        
+        // Tâches (urgentes + du jour)
+        const allTasks = [...(data.overdue_tasks || []), ...(data.tasks_today || [])];
+        setUrgentTasks(allTasks.slice(0, 5));
+        
+        // Deadlines à venir
+        if (data.overdue_tasks?.length > 0 || data.tasks_today?.length > 0) {
+          const deadlines = [
+            ...(data.overdue_tasks || []).map((t: any) => ({ 
+              title: t.title, 
+              date: t.due_date, 
+              type: "task" 
+            })),
+            ...(data.tasks_today || []).map((t: any) => ({ 
+              title: t.title, 
+              date: t.due_date, 
+              type: "task" 
+            }))
+          ];
+          setUpcomingDeadlines(deadlines.slice(0, 3));
+        }
+        
+        // Missions actives
+        setActiveMissions(data.active_missions || []);
+        
+        // Suggestions pour les 4 moves
+        if (data.suggestions) {
+          setMoneyMove(data.suggestions.money_move);
+          setFamilyMove(data.suggestions.family_move);
+          setBusinessMove(data.suggestions.business_move);
+          setStabilizationMove(data.suggestions.stabilization_move);
+        }
+        
+        // Stats pour le résumé visuel
+        if (data.stats) {
+          setTodaySummary({
+            tasks_count: data.stats.tasks_count || 0,
+            missions_count: data.stats.missions_count || 0,
+            docs_count: data.stats.docs_count || 0
+          });
+        }
+      }
     } catch (error) {
-      console.error("Erreur priorités:", error);
+      console.error("Erreur dashboard:", error);
+      // Fallback: message par défaut
+      setBecksMessage("Salut Rebecca. Je suis là si tu as besoin.");
+      setIsLoadingMessage(false);
     }
-  }
-
-  async function fetchUrgentTasks() {
-    const today = new Date().toISOString().split('T')[0];
-    const { data } = await supabase
-      .from("tasks")
-      .select("*")
-      .in("status", ["today", "in_progress"])
-      .limit(3);
-    setUrgentTasks(data || []);
-  }
-
-  async function fetchUpcomingDeadlines() {
-    const today = new Date().toISOString().split('T')[0];
-    const nextWeek = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
-    
-    const [tasksRes, docsRes] = await Promise.all([
-      supabase.from("tasks").select("*").gte("due_date", today).lte("due_date", nextWeek).neq("status", "done"),
-      supabase.from("documents").select("*").gte("due_date", today).lte("due_date", nextWeek).neq("status", "approved")
-    ]);
-    
-    const deadlines = [
-      ...(tasksRes.data || []).map(t => ({ title: t.title, date: t.due_date!, type: "task" })),
-      ...(docsRes.data || []).map(d => ({ title: d.name, date: d.due_date!, type: "document" }))
-    ];
-    setUpcomingDeadlines(deadlines.slice(0, 3));
   }
 
   async function fetchFarmStatus() {
-    const { data } = await supabase
-      .from("farm_production_units")
-      .select("*")
-      .eq("status", "setup");
-    
-    if (data && data.length > 0) {
-      setFarmNextAction(`Finaliser ${data[0].name}`);
-    }
-  }
-
-  async function fetchMorningGreeting() {
     try {
-      const response = await fetch(`${API_URL}/api/morning-greeting`);
-      const data = await response.json();
-      if (data.success && data.message) {
-        setBecksMessage(data.message);
-      } else {
-        setBecksMessage("Salut Rebecca. Je suis là si tu as besoin.");
+      const { data } = await supabase
+        .from("farm_production_units")
+        .select("*")
+        .eq("status", "setup");
+      
+      if (data && data.length > 0) {
+        setFarmNextAction(`Finaliser ${data[0].name}`);
       }
     } catch (error) {
-      console.error("Erreur message:", error);
-      setBecksMessage("Salut Rebecca. Je suis là.");
+      console.error("Erreur farm status:", error);
     }
-    setIsLoadingMessage(false);
-  }
-
-  async function fetchTodaySummary() {
-    try {
-      const [tasksRes, missionsRes, docsRes] = await Promise.all([
-        supabase.from("tasks").select("*", { count: "exact", head: true }).eq("status", "today"),
-        supabase.from("missions").select("*", { count: "exact", head: true }).eq("status", "active"),
-        supabase.from("documents").select("*", { count: "exact", head: true }).neq("status", "approved")
-      ]);
-      
-      setTodaySummary({
-        tasks_count: tasksRes.count || 0,
-        missions_count: missionsRes.count || 0,
-        docs_count: docsRes.count || 0
-      });
-    } catch (error) {
-      console.error("Erreur summary:", error);
-    }
-  }
-
-  async function fetchActiveMissions() {
-    const { data } = await supabase
-      .from("missions")
-      .select("*")
-      .eq("status", "active")
-      .limit(3);
-    setActiveMissions(data || []);
   }
 
   async function saveMood(selectedMood: string) {
@@ -223,53 +212,51 @@ export default function DashboardPage() {
 
   return (
     <div className="max-w-2xl mx-auto space-y-6 pb-24">
-     {/* HEADER avec message personnalisé de Becks */}
-          <div className="space-y-4">
-            <div className="flex justify-between items-center">
-              <div>
-                <h1 className="text-2xl font-serif text-ivory">
-                  {greeting}, {userName}. <Crown className="inline w-5 h-5 text-gold-500" />
-                </h1>
-              </div>
-              <Link href="/settings" className="p-2 text-gray-400 hover:text-gold-500 transition-colors">
-                <Settings className="w-5 h-5" />
-              </Link>
-            </div>
-          
-            {/* Message personnalisé de Becks */}
-            <div className="bg-gradient-to-r from-gold-500/10 to-transparent border-l-4 border-gold-500 rounded-xl p-4">
-              {isLoadingMessage ? (
-                <div className="flex items-center gap-2">
-                  <Loader2 className="w-4 h-4 text-gold-500 animate-spin" />
-                  <span className="text-sm text-gray-400">Becks réfléchit...</span>
-                </div>
-              ) : (
-                <div className="flex items-start gap-3">
-                  <Sparkles className="w-5 h-5 text-gold-500 mt-0.5 flex-shrink-0" />
-                  <p className="text-ivory text-sm leading-relaxed">{becksMessage}</p>
-                </div>
-              )}
-            </div>
-          
-            {/* Petit résumé visuel */}
-            {todaySummary && (
-              <div className="flex gap-2 text-xs">
-                <span className="px-2 py-1 bg-white/5 rounded-full">
-                  📋 {todaySummary.tasks_count} tâche(s)
-                </span>
-                <span className="px-2 py-1 bg-white/5 rounded-full">
-                  🎯 {todaySummary.missions_count} mission(s)
-                </span>
-                <span className="px-2 py-1 bg-white/5 rounded-full">
-                  📄 {todaySummary.docs_count} document(s)
-                </span>
-              </div>
-            )}
+      {/* HEADER avec message personnalisé de Becks */}
+      <div className="space-y-4">
+        <div className="flex justify-between items-center">
+          <div>
+            <h1 className="text-2xl font-serif text-ivory">
+              {greeting}, {userName}. <Crown className="inline w-5 h-5 text-gold-500" />
+            </h1>
           </div>
+          <Link href="/settings" className="p-2 text-gray-400 hover:text-gold-500 transition-colors">
+            <Settings className="w-5 h-5" />
+          </Link>
+        </div>
+      
+        {/* Message personnalisé de Becks */}
+        <div className="bg-gradient-to-r from-gold-500/10 to-transparent border-l-4 border-gold-500 rounded-xl p-4">
+          {isLoadingMessage ? (
+            <div className="flex items-center gap-2">
+              <Loader2 className="w-4 h-4 text-gold-500 animate-spin" />
+              <span className="text-sm text-gray-400">Becks réfléchit...</span>
+            </div>
+          ) : (
+            <div className="flex items-start gap-3">
+              <Sparkles className="w-5 h-5 text-gold-500 mt-0.5 flex-shrink-0" />
+              <p className="text-ivory text-sm leading-relaxed">{becksMessage}</p>
+            </div>
+          )}
+        </div>
+      
+        {/* Petit résumé visuel */}
+        {todaySummary && (
+          <div className="flex gap-2 text-xs">
+            <span className="px-2 py-1 bg-white/5 rounded-full">
+              📋 {todaySummary.tasks_count} tâche(s)
+            </span>
+            <span className="px-2 py-1 bg-white/5 rounded-full">
+              🎯 {todaySummary.missions_count} mission(s)
+            </span>
+            <span className="px-2 py-1 bg-white/5 rounded-full">
+              📄 {todaySummary.docs_count} document(s)
+            </span>
+          </div>
+        )}
+      </div>
 
-      {/* ============================================================ */}
       {/* HUMEUR DU JOUR */}
-      {/* ============================================================ */}
       <div className="bg-white/5 border border-white/10 rounded-xl p-4">
         {mood ? (
           <div className="flex items-center justify-between">
@@ -306,9 +293,7 @@ export default function DashboardPage() {
         )}
       </div>
 
-      {/* ============================================================ */}
-      {/* TOP 3 PRIORITÉS - Version améliorée */}
-      {/* ============================================================ */}
+      {/* TOP 3 PRIORITÉS */}
       <div className="bg-white/5 border border-white/10 rounded-2xl overflow-hidden">
         <div className="px-5 pt-4 pb-2 flex items-center justify-between">
           <h2 className="text-sm font-serif text-gold-500 flex items-center gap-2">
@@ -359,14 +344,12 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* ============================================================ */}
-      {/* TÂCHES URGENTES (optionnel, si existantes) */}
-      {/* ============================================================ */}
+      {/* TÂCHES URGENTES */}
       {urgentTasks.length > 0 && (
         <div className="bg-red-950/20 border border-red-500/30 rounded-xl p-4">
           <div className="flex items-center gap-2 mb-3">
             <AlertCircle className="w-4 h-4 text-red-400" />
-            <h3 className="text-sm font-medium text-ivory">⚠️ TÂCHES DU JOUR</h3>
+            <h3 className="text-sm font-medium text-ivory">⚠️ TÂCHES URGENTES</h3>
           </div>
           <div className="space-y-2">
             {urgentTasks.map((task) => (
@@ -386,9 +369,7 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* ============================================================ */}
-      {/* 4 MOVES - Version améliorée avec liens */}
-      {/* ============================================================ */}
+      {/* 4 MOVES */}
       <div className="grid grid-cols-2 gap-3">
         <Link href="/money" className="block">
           <div className="bg-gradient-to-br from-emerald-500/5 to-transparent border border-emerald-500/20 rounded-xl p-4 hover:border-emerald-500/40 transition-all group">
@@ -443,9 +424,7 @@ export default function DashboardPage() {
         </Link>
       </div>
 
-      {/* ============================================================ */}
-      {/* MISSIONS ACTIVES - Petit aperçu */}
-      {/* ============================================================ */}
+      {/* MISSIONS ACTIVES */}
       {activeMissions.length > 0 && (
         <div className="bg-white/5 border border-white/10 rounded-xl p-4">
           <div className="flex items-center gap-2 mb-3">
@@ -470,9 +449,7 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* ============================================================ */}
       {/* RAPPELS IMPORTANTS */}
-      {/* ============================================================ */}
       {upcomingDeadlines.length > 0 && (
         <div className="bg-white/5 border border-white/10 rounded-xl p-4">
           <div className="flex items-center gap-2 mb-3">
@@ -494,9 +471,7 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* ============================================================ */}
       {/* BOUTON D'AIDE - MODE EXÉCUTION */}
-      {/* ============================================================ */}
       <motion.button
         whileHover={{ scale: 1.02 }}
         whileTap={{ scale: 0.98 }}
@@ -508,9 +483,7 @@ export default function DashboardPage() {
         <ArrowRight className="w-4 h-4" />
       </motion.button>
 
-      {/* ============================================================ */}
       {/* MESSAGE DE CLÔTURE DE BECKS */}
-      {/* ============================================================ */}
       <div className="text-center text-xs text-gray-500 italic">
         <p>✨ "Une chose à la fois. Tu gères, Rebecca." ✨</p>
       </div>
