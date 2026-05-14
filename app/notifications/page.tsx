@@ -2,9 +2,10 @@
 
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
-import { Bell, CheckCircle, Circle, ExternalLink, Trash2, CheckCheck, Calendar, Target, FileText, Trophy, Users, DollarSign, Sparkles, X } from "lucide-react";
+import { Bell, CheckCircle, Circle, ExternalLink, Trash2, CheckCheck, Loader2 } from "lucide-react";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
+import { toast } from "sonner";
 
 type Notification = {
   id: string;
@@ -16,28 +17,27 @@ type Notification = {
   read: boolean;
 };
 
-const typeConfig: Record<string, { icon: any; label: string; color: string; bgColor: string }> = {
-  task: { icon: CheckCircle, label: "Tâche", color: "text-blue-400", bgColor: "bg-blue-500/10" },
-  mission: { icon: Target, label: "Mission", color: "text-purple-400", bgColor: "bg-purple-500/10" },
-  win: { icon: Trophy, label: "Victoire", color: "text-yellow-400", bgColor: "bg-yellow-500/10" },
-  money: { icon: DollarSign, label: "Finance", color: "text-emerald-400", bgColor: "bg-emerald-500/10" },
-  family: { icon: Users, label: "Famille", color: "text-pink-400", bgColor: "bg-pink-500/10" },
-  document: { icon: FileText, label: "Document", color: "text-orange-400", bgColor: "bg-orange-500/10" },
-  morning: { icon: Bell, label: "Brief matinal", color: "text-gold-500", bgColor: "bg-gold-500/10" },
-  financial: { icon: DollarSign, label: "Finances", color: "text-emerald-400", bgColor: "bg-emerald-500/10" },
-  opportunity: { icon: Sparkles, label: "Opportunité", color: "text-cyan-400", bgColor: "bg-cyan-500/10" },
-  default: { icon: Bell, label: "Notification", color: "text-gray-400", bgColor: "bg-gray-500/10" }
+const typeConfig: Record<string, { label: string; color: string }> = {
+  task: { label: "Tâche", color: "text-blue-400" },
+  mission: { label: "Mission", color: "text-purple-400" },
+  win: { label: "Victoire", color: "text-yellow-400" },
+  money: { label: "Finance", color: "text-emerald-400" },
+  family: { label: "Famille", color: "text-pink-400" },
+  document: { label: "Document", color: "text-orange-400" },
+  morning: { label: "Brief matinal", color: "text-gold-500" },
+  financial: { label: "Finances", color: "text-emerald-400" },
+  opportunity: { label: "Opportunité", color: "text-cyan-400" },
+  default: { label: "Notification", color: "text-gray-400" }
 };
 
 export default function NotificationsPage() {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [selectedNotif, setSelectedNotif] = useState<Notification | null>(null);
 
   useEffect(() => {
     fetchNotifications();
     
-    // Écouter les nouvelles notifications en temps réel
+    // Écouter les nouvelles notifications
     const channel = supabase
       .channel('notifications_changes')
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notifications' }, () => {
@@ -52,12 +52,18 @@ export default function NotificationsPage() {
 
   async function fetchNotifications() {
     setIsLoading(true);
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("notifications")
       .select("*")
-      .order("created_at", { ascending: false });
+      .order("created_at", { ascending: false })
+      .limit(50);
     
-    setNotifications(data || []);
+    if (error) {
+      console.error("Erreur fetch notifications:", error);
+      toast.error("Erreur de chargement");
+    } else {
+      setNotifications(data || []);
+    }
     setIsLoading(false);
   }
 
@@ -87,6 +93,7 @@ export default function NotificationsPage() {
       setNotifications(prev =>
         prev.map(n => ({ ...n, read: true }))
       );
+      toast.success("Toutes les notifications ont été marquées comme lues");
     }
   }
 
@@ -98,6 +105,9 @@ export default function NotificationsPage() {
     
     if (!error) {
       setNotifications(prev => prev.filter(n => n.id !== id));
+      toast.success("Notification supprimée");
+    } else {
+      toast.error("Erreur lors de la suppression");
     }
   }
 
@@ -110,6 +120,7 @@ export default function NotificationsPage() {
       
       if (!error) {
         setNotifications([]);
+        toast.success("Toutes les notifications ont été supprimées");
       }
     }
   }
@@ -131,9 +142,13 @@ export default function NotificationsPage() {
 
   const unreadCount = notifications.filter(n => !n.read).length;
 
-  const getTypeInfo = (type: string) => {
-    return typeConfig[type] || typeConfig.default;
-  };
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <Loader2 className="w-8 h-8 text-gold-500 animate-spin" />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-midnight">
@@ -147,7 +162,7 @@ export default function NotificationsPage() {
             <div>
               <h1 className="text-2xl font-serif text-gold-500">Notifications</h1>
               {unreadCount > 0 && (
-                <p className="text-xs text-gray-500 mt-0.5">{unreadCount} non lue(s)</p>
+                <p className="text-xs text-gray-500">{unreadCount} non lue(s)</p>
               )}
             </div>
           </div>
@@ -174,7 +189,7 @@ export default function NotificationsPage() {
           </div>
         </div>
 
-        {/* STATS RAPIDES */}
+        {/* STATS */}
         {notifications.length > 0 && (
           <div className="grid grid-cols-3 gap-3 mb-6">
             <div className="bg-white/5 rounded-xl p-3 text-center">
@@ -193,11 +208,7 @@ export default function NotificationsPage() {
         )}
 
         {/* LISTE DES NOTIFICATIONS */}
-        {isLoading ? (
-          <div className="flex justify-center py-20">
-            <div className="w-8 h-8 border-3 border-gold-500/30 border-t-gold-500 rounded-full animate-spin" />
-          </div>
-        ) : notifications.length === 0 ? (
+        {notifications.length === 0 ? (
           <div className="text-center py-20">
             <div className="w-16 h-16 mx-auto mb-4 bg-white/5 rounded-full flex items-center justify-center">
               <Bell className="w-8 h-8 text-gray-500 opacity-50" />
@@ -208,31 +219,31 @@ export default function NotificationsPage() {
         ) : (
           <div className="space-y-2">
             <AnimatePresence>
-              {notifications.map((notif, index) => {
-                const typeInfo = getTypeInfo(notif.type);
-                const Icon = typeInfo.icon;
+              {notifications.map((notif) => {
+                const typeInfo = typeConfig[notif.type] || typeConfig.default;
                 
                 return (
                   <motion.div
                     key={notif.id}
-                    initial={{ opacity: 0, y: 20 }}
+                    initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, x: -100 }}
-                    transition={{ delay: index * 0.03 }}
                     className={`group rounded-xl transition-all ${
                       notif.read
                         ? "bg-white/5 border border-white/10"
-                        : `bg-gradient-to-r ${typeInfo.bgColor} border-l-4 border-l-gold-500`
+                        : "bg-gold-500/5 border-l-4 border-l-gold-500"
                     } hover:bg-white/10`}
                   >
                     <div className="p-4">
                       <div className="flex items-start gap-3">
-                        {/* Icône */}
-                        <div className={`p-2 rounded-full ${typeInfo.bgColor} flex-shrink-0`}>
-                          <Icon className={`w-4 h-4 ${typeInfo.color}`} />
+                        <div className="flex-shrink-0 mt-0.5">
+                          {notif.read ? (
+                            <CheckCircle className="w-4 h-4 text-gray-500" />
+                          ) : (
+                            <Circle className="w-4 h-4 text-gold-500" />
+                          )}
                         </div>
                         
-                        {/* Contenu */}
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 flex-wrap">
                             <span className={`text-xs font-medium ${typeInfo.color}`}>
@@ -253,13 +264,12 @@ export default function NotificationsPage() {
                           </h3>
                           
                           {notif.body && (
-                            <p className="text-sm text-gray-400 mt-1 line-clamp-2">
+                            <p className="text-sm text-gray-400 mt-1">
                               {notif.body}
                             </p>
                           )}
                         </div>
                         
-                        {/* Actions */}
                         <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                           {!notif.read && (
                             <button
@@ -296,8 +306,6 @@ export default function NotificationsPage() {
             </AnimatePresence>
           </div>
         )}
-
-        {/* BADGE DANS LE HEADER (optionnel) - à ajouter dans ClientLayout si besoin */}
       </div>
     </div>
   );
