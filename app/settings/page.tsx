@@ -138,19 +138,19 @@ export default function SettingsPage() {
   async function saveIdentity() {
     setIsSaving(true);
     try {
-      const response = await fetch(`${API_URL}/api/profile`, {
+      const payload: any = {
+        preferred_name: identityForm.preferred_name,
+        full_name: identityForm.full_name,
+        birthday: identityForm.birthday
+      };
+      
+      const response = await fetch(`${API_URL}/api/profile/identity`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          preferred_name: identityForm.preferred_name,
-          full_name: identityForm.full_name,
-          birthday: identityForm.birthday,
-          email: identityForm.email,
-          phone: identityForm.phone,
-          location: identityForm.location
-        })
+        body: JSON.stringify(payload)
       });
       const data = await response.json();
+      
       if (data.success) {
         setProfile(data.profile);
         toast.success("Profil mis à jour");
@@ -175,12 +175,13 @@ export default function SettingsPage() {
         notes: child.notes || ""
       }));
       
-      const response = await fetch(`${API_URL}/api/profile`, {
+      const response = await fetch(`${API_URL}/api/profile/children`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ children: cleanChildren })
       });
       const data = await response.json();
+      
       if (data.success) {
         setProfile(data.profile);
         toast.success("Enfants mis à jour");
@@ -304,12 +305,13 @@ export default function SettingsPage() {
         deadline: goal.deadline || null
       }));
       
-      const response = await fetch(`${API_URL}/api/profile`, {
+      const response = await fetch(`${API_URL}/api/profile/goals`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ current_goals: cleanGoals })
       });
       const data = await response.json();
+      
       if (data.success) {
         setProfile(data.profile);
         toast.success("Objectifs mis à jour");
