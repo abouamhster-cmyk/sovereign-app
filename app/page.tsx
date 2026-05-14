@@ -8,7 +8,7 @@ import { useRouter } from "next/navigation";
 import { 
   Crown, Settings, Bell, User, Sparkles, 
   Target, DollarSign, Heart, Sprout, Brain,
-  Calendar, AlertCircle, ArrowRight, Smile, Meh, Frown, Sun, Moon,
+  Calendar, AlertCircle, ArrowRight, Smile, Meh, Frown, Sun, Moon, Brain,
   Loader2
 } from "lucide-react";
 import { toast } from "sonner";
@@ -563,6 +563,15 @@ export default function DashboardPage() {
       <div className="text-center text-xs text-gray-500 italic">
         <p>✨ "Une chose à la fois. Tu gères, Rebecca." ✨</p>
       </div>
+
+          {/* ========== BOUTON BRAIN DUMP RAPIDE ========== */}
+    <button
+      onClick={() => router.push("/inbox")}
+      className="fixed bottom-6 right-6 z-40 bg-gold-500 text-midnight p-4 rounded-full shadow-lg hover:scale-105 transition-transform"
+    >
+      <Brain className="w-6 h-6" />
+    </button>
+      
     </div>
   );
 }
