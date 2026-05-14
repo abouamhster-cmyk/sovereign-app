@@ -6,9 +6,10 @@ import {
   Brain, Plus, Trash2, Edit2, X, Check, 
   Heart, Briefcase, DollarSign, User, Baby, 
   FolderOpen, Sparkles, Loader2, AlertCircle,
-  ChevronDown, ChevronRight
+  ChevronDown, ChevronRight, Search, Filter
 } from "lucide-react";
 import { toast } from "sonner";
+import { useRouter, useSearchParams } from "next/navigation";
 
 type Memory = {
   id: string;
@@ -31,12 +32,17 @@ const categoryConfig: Record<string, { label: string; icon: any; color: string }
 };
 
 export default function MemoryPage() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const editId = searchParams.get("edit");
+  
   const [memories, setMemories] = useState<Memory[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
   const [searchTerm, setSearchTerm] = useState("");
+  const [showMobileFilters, setShowMobileFilters] = useState(false);
   
   const [formData, setFormData] = useState({
     category: "identity",
@@ -47,6 +53,16 @@ export default function MemoryPage() {
   useEffect(() => {
     fetchMemories();
   }, []);
+
+  // Ouvrir le formulaire d'édition si un ID est passé dans l'URL
+  useEffect(() => {
+    if (editId && memories.length > 0) {
+      const memoryToEdit = memories.find(m => m.id === editId);
+      if (memoryToEdit) {
+        editMemory(memoryToEdit);
+      }
+    }
+  }, [editId, memories]);
 
   async function fetchMemories() {
     setIsLoading(true);
@@ -89,6 +105,8 @@ export default function MemoryPage() {
       toast.success(editingId ? "Souvenir modifié" : "Nouveau souvenir ajouté");
       resetForm();
       fetchMemories();
+      // Nettoyer l'URL si on venait d'un edit
+      router.push("/memory");
     } else {
       toast.error("Erreur: " + error.message);
     }
@@ -115,6 +133,10 @@ export default function MemoryPage() {
     });
     setEditingId(memory.id);
     setShowForm(true);
+    // Scroll vers le formulaire
+    setTimeout(() => {
+      document.getElementById("form-container")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 100);
   }
 
   function resetForm() {
@@ -140,8 +162,11 @@ export default function MemoryPage() {
     return acc;
   }, {} as Record<string, Memory[]>);
 
+  const totalCount = filteredMemories.length;
+  const categoryKeys = Object.keys(memoriesByCategory);
+
   return (
-    <div className="h-full flex flex-col overflow-y-auto bg-midnight p-6">
+    <div className="h-full flex flex-col overflow-y-auto bg-midnight p-4 md:p-6 lg:p-8">
       {/* HEADER */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
         <div>
@@ -152,7 +177,7 @@ export default function MemoryPage() {
             </h1>
           </div>
           <p className="text-gray-500 text-sm">
-            Ce que Becks sait de toi. Modifie ou supprime les souvenirs.
+            Ce que Becks sait de toi. {totalCount > 0 && `${totalCount} souvenir(s) en mémoire.`}
           </p>
         </div>
         <button
@@ -167,6 +192,7 @@ export default function MemoryPage() {
       <AnimatePresence>
         {showForm && (
           <motion.div
+            id="form-container"
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -20 }}
@@ -221,39 +247,116 @@ export default function MemoryPage() {
         )}
       </AnimatePresence>
 
-      {/* Barre de recherche et filtre */}
-      <div className="flex flex-col sm:flex-row justify-between gap-4 mb-6">
+      {/* Barre de recherche et filtre - Version Desktop */}
+      <div className="hidden md:flex flex-row justify-between gap-4 mb-6">
         <div className="relative flex-1 max-w-md">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-500" />
           <input
             type="text"
             placeholder="Rechercher un souvenir..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-4 pr-4 py-2 bg-white/5 border border-white/10 rounded-xl text-ivory placeholder:text-gray-500 focus:outline-none focus:border-gold-500"
+            className="w-full pl-10 pr-4 py-2 bg-white/5 border border-white/10 rounded-xl text-ivory placeholder:text-gray-500 focus:outline-none focus:border-gold-500"
           />
         </div>
-        <select
-          value={selectedCategory}
-          onChange={(e) => setSelectedCategory(e.target.value)}
-          className="bg-white/5 border border-white/10 rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-gold-500 text-ivory"
-        >
-          <option value="all">📁 Toutes les catégories</option>
+        <div className="flex flex-wrap gap-2">
+          <button
+            onClick={() => setSelectedCategory("all")}
+            className={`px-3 py-1.5 rounded-full text-xs transition-all ${
+              selectedCategory === "all" 
+                ? "bg-gold-500 text-midnight" 
+                : "bg-white/5 text-gray-400 hover:bg-white/10"
+            }`}
+          >
+            📁 Toutes
+          </button>
           {Object.entries(categoryConfig).map(([key, conf]) => (
-            <option key={key} value={key}>{conf.label}</option>
+            <button
+              key={key}
+              onClick={() => setSelectedCategory(key)}
+              className={`px-3 py-1.5 rounded-full text-xs transition-all flex items-center gap-1 ${
+                selectedCategory === key 
+                  ? "bg-gold-500 text-midnight" 
+                  : "bg-white/5 text-gray-400 hover:bg-white/10"
+              }`}
+            >
+              {conf.label}
+            </button>
           ))}
-        </select>
+        </div>
       </div>
+
+      {/* Barre de recherche et filtre - Version Mobile */}
+      <div className="md:hidden flex flex-col gap-3 mb-6">
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-500" />
+          <input
+            type="text"
+            placeholder="Rechercher un souvenir..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="w-full pl-10 pr-4 py-2 bg-white/5 border border-white/10 rounded-xl text-ivory placeholder:text-gray-500 focus:outline-none focus:border-gold-500"
+          />
+        </div>
+        <button
+          onClick={() => setShowMobileFilters(!showMobileFilters)}
+          className="flex items-center justify-center gap-2 py-2 bg-white/5 rounded-xl text-sm text-gray-400"
+        >
+          <Filter className="w-4 h-4" />
+          {showMobileFilters ? "Masquer les filtres" : "Afficher les filtres"}
+        </button>
+        {showMobileFilters && (
+          <div className="flex flex-wrap gap-2 p-3 bg-white/5 rounded-xl">
+            <button
+              onClick={() => setSelectedCategory("all")}
+              className={`px-3 py-1.5 rounded-full text-xs ${
+                selectedCategory === "all" 
+                  ? "bg-gold-500 text-midnight" 
+                  : "bg-white/10 text-gray-400"
+              }`}
+            >
+              Toutes
+            </button>
+            {Object.entries(categoryConfig).map(([key, conf]) => (
+              <button
+                key={key}
+                onClick={() => setSelectedCategory(key)}
+                className={`px-3 py-1.5 rounded-full text-xs ${
+                  selectedCategory === key 
+                    ? "bg-gold-500 text-midnight" 
+                    : "bg-white/10 text-gray-400"
+                }`}
+              >
+                {conf.label}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Résultat de recherche */}
+      {searchTerm && totalCount > 0 && (
+        <div className="mb-4 text-sm text-gray-500">
+          🔍 {totalCount} résultat(s) pour "{searchTerm}"
+        </div>
+      )}
 
       {/* Liste des souvenirs par catégorie */}
       {isLoading ? (
         <div className="flex justify-center py-12">
           <Loader2 className="w-8 h-8 text-gold-500 animate-spin" />
         </div>
-      ) : Object.keys(memoriesByCategory).length === 0 ? (
+      ) : categoryKeys.length === 0 ? (
         <div className="text-center py-12 text-gray-500">
           <Brain className="w-12 h-12 mx-auto mb-4 opacity-30" />
-          <p>Aucun souvenir en mémoire</p>
-          <p className="text-sm mt-2">Clique sur "Ajouter un souvenir" pour commencer</p>
+          <p>
+            {searchTerm 
+              ? `Aucun souvenir trouvé pour "${searchTerm}"`
+              : "Aucun souvenir en mémoire"}
+          </p>
+          {!searchTerm && (
+            <p className="text-sm mt-2">Clique sur "Ajouter un souvenir" pour commencer</p>
+          )}
         </div>
       ) : (
         <div className="space-y-6">
@@ -262,7 +365,12 @@ export default function MemoryPage() {
             const Icon = config.icon;
             
             return (
-              <div key={category} className="bg-white/5 border border-white/10 rounded-2xl overflow-hidden">
+              <motion.div 
+                key={category} 
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="bg-white/5 border border-white/10 rounded-2xl overflow-hidden"
+              >
                 <div className="bg-white/5 px-4 py-3 border-b border-white/10">
                   <div className="flex items-center gap-2">
                     <Icon className="w-4 h-4" />
@@ -271,17 +379,23 @@ export default function MemoryPage() {
                   </div>
                 </div>
                 <div className="divide-y divide-white/5">
-                  {categoryMemories.map((memory) => (
-                    <div key={memory.id} className="p-4 hover:bg-white/5 transition-colors">
+                  {categoryMemories.map((memory, idx) => (
+                    <motion.div 
+                      key={memory.id} 
+                      initial={{ opacity: 0, x: -20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: idx * 0.03 }}
+                      className="p-4 hover:bg-white/5 transition-colors group"
+                    >
                       <div className="flex justify-between items-start">
                         <div className="flex-1">
                           <p className="text-ivory font-medium">{memory.key}</p>
                           <p className="text-sm text-gray-400 mt-1">{memory.value}</p>
                           <p className="text-xs text-gray-600 mt-2">
-                            Ajouté le {new Date(memory.created_at).toLocaleDateString('fr-FR')}
+                            📅 {new Date(memory.created_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}
                           </p>
                         </div>
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                           <button
                             onClick={() => editMemory(memory)}
                             className="p-1.5 text-gray-500 hover:text-gold-500 transition-colors"
@@ -296,10 +410,10 @@ export default function MemoryPage() {
                           </button>
                         </div>
                       </div>
-                    </div>
+                    </motion.div>
                   ))}
                 </div>
-              </div>
+              </motion.div>
             );
           })}
         </div>
@@ -318,6 +432,14 @@ export default function MemoryPage() {
           </div>
         </div>
       </div>
+
+      {/* Bouton flottant pour ajout rapide (mobile) */}
+      <button
+        onClick={() => { setShowForm(true); setEditingId(null); setFormData({ category: "identity", key: "", value: "" }); }}
+        className="md:hidden fixed bottom-6 right-6 z-40 bg-gold-500 text-midnight p-4 rounded-full shadow-lg hover:scale-105 transition-transform"
+      >
+        <Plus className="w-6 h-6" />
+      </button>
     </div>
   );
 }
