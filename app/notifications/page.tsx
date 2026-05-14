@@ -1,10 +1,10 @@
-// app/notifications/page.tsx - Version avec table notifications
 "use client";
 
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
-import { Bell, CheckCircle, Circle, ExternalLink } from "lucide-react";
+import { Bell, CheckCircle, Circle, ExternalLink, Trash2, CheckCheck, Calendar, Target, FileText, Trophy, Users, DollarSign, Sparkles, X } from "lucide-react";
 import Link from "next/link";
+import { motion, AnimatePresence } from "framer-motion";
 
 type Notification = {
   id: string;
@@ -16,12 +16,38 @@ type Notification = {
   read: boolean;
 };
 
+const typeConfig: Record<string, { icon: any; label: string; color: string; bgColor: string }> = {
+  task: { icon: CheckCircle, label: "Tâche", color: "text-blue-400", bgColor: "bg-blue-500/10" },
+  mission: { icon: Target, label: "Mission", color: "text-purple-400", bgColor: "bg-purple-500/10" },
+  win: { icon: Trophy, label: "Victoire", color: "text-yellow-400", bgColor: "bg-yellow-500/10" },
+  money: { icon: DollarSign, label: "Finance", color: "text-emerald-400", bgColor: "bg-emerald-500/10" },
+  family: { icon: Users, label: "Famille", color: "text-pink-400", bgColor: "bg-pink-500/10" },
+  document: { icon: FileText, label: "Document", color: "text-orange-400", bgColor: "bg-orange-500/10" },
+  morning: { icon: Bell, label: "Brief matinal", color: "text-gold-500", bgColor: "bg-gold-500/10" },
+  financial: { icon: DollarSign, label: "Finances", color: "text-emerald-400", bgColor: "bg-emerald-500/10" },
+  opportunity: { icon: Sparkles, label: "Opportunité", color: "text-cyan-400", bgColor: "bg-cyan-500/10" },
+  default: { icon: Bell, label: "Notification", color: "text-gray-400", bgColor: "bg-gray-500/10" }
+};
+
 export default function NotificationsPage() {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [selectedNotif, setSelectedNotif] = useState<Notification | null>(null);
 
   useEffect(() => {
     fetchNotifications();
+    
+    // Écouter les nouvelles notifications en temps réel
+    const channel = supabase
+      .channel('notifications_changes')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notifications' }, () => {
+        fetchNotifications();
+      })
+      .subscribe();
+    
+    return () => {
+      channel.unsubscribe();
+    };
   }, []);
 
   async function fetchNotifications() {
@@ -36,14 +62,56 @@ export default function NotificationsPage() {
   }
 
   async function markAsRead(id: string) {
-    await supabase
+    const { error } = await supabase
       .from("notifications")
       .update({ read: true })
       .eq("id", id);
     
-    setNotifications(prev =>
-      prev.map(n => n.id === id ? { ...n, read: true } : n)
-    );
+    if (!error) {
+      setNotifications(prev =>
+        prev.map(n => n.id === id ? { ...n, read: true } : n)
+      );
+    }
+  }
+
+  async function markAllAsRead() {
+    const unreadIds = notifications.filter(n => !n.read).map(n => n.id);
+    if (unreadIds.length === 0) return;
+    
+    const { error } = await supabase
+      .from("notifications")
+      .update({ read: true })
+      .in("id", unreadIds);
+    
+    if (!error) {
+      setNotifications(prev =>
+        prev.map(n => ({ ...n, read: true }))
+      );
+    }
+  }
+
+  async function deleteNotification(id: string) {
+    const { error } = await supabase
+      .from("notifications")
+      .delete()
+      .eq("id", id);
+    
+    if (!error) {
+      setNotifications(prev => prev.filter(n => n.id !== id));
+    }
+  }
+
+  async function deleteAllNotifications() {
+    if (confirm("Supprimer toutes les notifications ?")) {
+      const { error } = await supabase
+        .from("notifications")
+        .delete()
+        .neq("id", "00000000-0000-0000-0000-000000000000");
+      
+      if (!error) {
+        setNotifications([]);
+      }
+    }
   }
 
   const formatDate = (dateStr: string) => {
@@ -57,75 +125,180 @@ export default function NotificationsPage() {
     if (diffMins < 1) return "À l'instant";
     if (diffMins < 60) return `Il y a ${diffMins} min`;
     if (diffHours < 24) return `Il y a ${diffHours} h`;
-    return `Il y a ${diffDays} jour(s)`;
+    if (diffDays < 7) return `Il y a ${diffDays} jour(s)`;
+    return date.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' });
   };
 
   const unreadCount = notifications.filter(n => !n.read).length;
 
+  const getTypeInfo = (type: string) => {
+    return typeConfig[type] || typeConfig.default;
+  };
+
   return (
-    <div className="p-4 max-w-2xl mx-auto">
-      <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center gap-3">
-          <Bell className="w-6 h-6 text-gold-500" />
-          <h1 className="text-2xl font-serif text-gold-500">Notifications</h1>
+    <div className="min-h-screen bg-midnight">
+      <div className="max-w-3xl mx-auto p-4 md:p-6">
+        {/* HEADER */}
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-gold-500/10 rounded-full">
+              <Bell className="w-6 h-6 text-gold-500" />
+            </div>
+            <div>
+              <h1 className="text-2xl font-serif text-gold-500">Notifications</h1>
+              {unreadCount > 0 && (
+                <p className="text-xs text-gray-500 mt-0.5">{unreadCount} non lue(s)</p>
+              )}
+            </div>
+          </div>
+          
+          <div className="flex items-center gap-2">
+            {unreadCount > 0 && (
+              <button
+                onClick={markAllAsRead}
+                className="p-2 rounded-full bg-white/5 text-gray-400 hover:text-gold-500 hover:bg-white/10 transition-colors"
+                title="Tout marquer comme lu"
+              >
+                <CheckCheck className="w-5 h-5" />
+              </button>
+            )}
+            {notifications.length > 0 && (
+              <button
+                onClick={deleteAllNotifications}
+                className="p-2 rounded-full bg-white/5 text-gray-400 hover:text-red-400 hover:bg-red-500/10 transition-colors"
+                title="Supprimer toutes"
+              >
+                <Trash2 className="w-5 h-5" />
+              </button>
+            )}
+          </div>
         </div>
-        {unreadCount > 0 && (
-          <span className="text-xs bg-gold-500/20 text-gold-500 px-2 py-1 rounded-full">
-            {unreadCount} non lue(s)
-          </span>
+
+        {/* STATS RAPIDES */}
+        {notifications.length > 0 && (
+          <div className="grid grid-cols-3 gap-3 mb-6">
+            <div className="bg-white/5 rounded-xl p-3 text-center">
+              <div className="text-xl font-serif text-ivory">{notifications.length}</div>
+              <div className="text-[10px] text-gray-500">Total</div>
+            </div>
+            <div className="bg-white/5 rounded-xl p-3 text-center">
+              <div className="text-xl font-serif text-gold-500">{unreadCount}</div>
+              <div className="text-[10px] text-gray-500">Non lues</div>
+            </div>
+            <div className="bg-white/5 rounded-xl p-3 text-center">
+              <div className="text-xl font-serif text-emerald-400">{notifications.length - unreadCount}</div>
+              <div className="text-[10px] text-gray-500">Lues</div>
+            </div>
+          </div>
         )}
+
+        {/* LISTE DES NOTIFICATIONS */}
+        {isLoading ? (
+          <div className="flex justify-center py-20">
+            <div className="w-8 h-8 border-3 border-gold-500/30 border-t-gold-500 rounded-full animate-spin" />
+          </div>
+        ) : notifications.length === 0 ? (
+          <div className="text-center py-20">
+            <div className="w-16 h-16 mx-auto mb-4 bg-white/5 rounded-full flex items-center justify-center">
+              <Bell className="w-8 h-8 text-gray-500 opacity-50" />
+            </div>
+            <p className="text-gray-500">Aucune notification</p>
+            <p className="text-xs text-gray-600 mt-1">Les notifications apparaîtront ici</p>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            <AnimatePresence>
+              {notifications.map((notif, index) => {
+                const typeInfo = getTypeInfo(notif.type);
+                const Icon = typeInfo.icon;
+                
+                return (
+                  <motion.div
+                    key={notif.id}
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, x: -100 }}
+                    transition={{ delay: index * 0.03 }}
+                    className={`group rounded-xl transition-all ${
+                      notif.read
+                        ? "bg-white/5 border border-white/10"
+                        : `bg-gradient-to-r ${typeInfo.bgColor} border-l-4 border-l-gold-500`
+                    } hover:bg-white/10`}
+                  >
+                    <div className="p-4">
+                      <div className="flex items-start gap-3">
+                        {/* Icône */}
+                        <div className={`p-2 rounded-full ${typeInfo.bgColor} flex-shrink-0`}>
+                          <Icon className={`w-4 h-4 ${typeInfo.color}`} />
+                        </div>
+                        
+                        {/* Contenu */}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className={`text-xs font-medium ${typeInfo.color}`}>
+                              {typeInfo.label}
+                            </span>
+                            <span className="text-xs text-gray-500">
+                              {formatDate(notif.created_at)}
+                            </span>
+                            {!notif.read && (
+                              <span className="text-[10px] text-gold-500 bg-gold-500/20 px-1.5 py-0.5 rounded-full">
+                                Nouveau
+                              </span>
+                            )}
+                          </div>
+                          
+                          <h3 className="text-ivory font-medium mt-1">
+                            {notif.title}
+                          </h3>
+                          
+                          {notif.body && (
+                            <p className="text-sm text-gray-400 mt-1 line-clamp-2">
+                              {notif.body}
+                            </p>
+                          )}
+                        </div>
+                        
+                        {/* Actions */}
+                        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                          {!notif.read && (
+                            <button
+                              onClick={() => markAsRead(notif.id)}
+                              className="p-1.5 rounded-full text-gray-500 hover:text-gold-500 hover:bg-white/10"
+                              title="Marquer comme lu"
+                            >
+                              <CheckCircle className="w-4 h-4" />
+                            </button>
+                          )}
+                          <button
+                            onClick={() => deleteNotification(notif.id)}
+                            className="p-1.5 rounded-full text-gray-500 hover:text-red-400 hover:bg-white/10"
+                            title="Supprimer"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                          {notif.url && notif.url !== "/" && (
+                            <Link
+                              href={notif.url}
+                              onClick={() => markAsRead(notif.id)}
+                              className="p-1.5 rounded-full text-gray-500 hover:text-gold-500 hover:bg-white/10"
+                              title="Voir"
+                            >
+                              <ExternalLink className="w-4 h-4" />
+                            </Link>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </motion.div>
+                );
+              })}
+            </AnimatePresence>
+          </div>
+        )}
+
+        {/* BADGE DANS LE HEADER (optionnel) - à ajouter dans ClientLayout si besoin */}
       </div>
-      
-      {isLoading ? (
-        <div className="flex justify-center py-12">
-          <div className="w-6 h-6 border-2 border-gold-500 border-t-transparent rounded-full animate-spin" />
-        </div>
-      ) : notifications.length === 0 ? (
-        <div className="text-center py-12 text-gray-500">
-          <Bell className="w-12 h-12 mx-auto mb-3 opacity-30" />
-          <p>Aucune notification</p>
-        </div>
-      ) : (
-        <div className="space-y-2">
-          {notifications.map((notif) => (
-            <Link
-              key={notif.id}
-              href={notif.url || "#"}
-              onClick={() => markAsRead(notif.id)}
-              className={`block p-4 rounded-xl transition-all ${
-                notif.read
-                  ? "bg-white/5 border border-white/10"
-                  : "bg-gold-500/10 border-l-4 border-l-gold-500"
-              } hover:bg-white/10`}
-            >
-              <div className="flex items-start gap-3">
-                <div className="mt-0.5">
-                  {notif.read ? (
-                    <CheckCircle className="w-4 h-4 text-gray-500" />
-                  ) : (
-                    <Circle className="w-4 h-4 text-gold-500" />
-                  )}
-                </div>
-                <div className="flex-1">
-                  <p className="text-ivory font-medium">{notif.title}</p>
-                  {notif.body && (
-                    <p className="text-sm text-gray-400 mt-1">{notif.body}</p>
-                  )}
-                  <div className="flex items-center gap-2 mt-2">
-                    <span className="text-xs text-gray-500">
-                      {formatDate(notif.created_at)}
-                    </span>
-                    {!notif.read && (
-                      <span className="text-xs text-gold-500">● Nouveau</span>
-                    )}
-                  </div>
-                </div>
-                <ExternalLink className="w-4 h-4 text-gray-500 opacity-0 group-hover:opacity-100 transition-opacity" />
-              </div>
-            </Link>
-          ))}
-        </div>
-      )}
     </div>
   );
 }
