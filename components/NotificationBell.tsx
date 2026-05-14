@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Bell, BellRing, Loader2, Trash2 } from "lucide-react";
+import { Bell, BellRing, Loader2, Trash2, Volume2, VolumeX, Vibrate } from "lucide-react";
 import { toast } from "sonner";
 
 const VAPID_PUBLIC_KEY = "BBBlTgNIZqh8TWsKy73wptSd69jogrECwImktCKW3YbWeQgDkSwhvmsbhxr2mo57fJt_rhrgddIwQfgj3p9_0C0";
@@ -24,10 +24,29 @@ export default function NotificationBell() {
   const [isCleaning, setIsCleaning] = useState(false);
   const [isSupported, setIsSupported] = useState(true);
   const [hasRequestedPermission, setHasRequestedPermission] = useState(false);
+  const [soundEnabled, setSoundEnabled] = useState(true);
+  const [vibrationEnabled, setVibrationEnabled] = useState(true);
+  const [showSettings, setShowSettings] = useState(false);
+
+  // Charger les préférences au démarrage
+  useEffect(() => {
+    const savedSound = localStorage.getItem("notif_sound");
+    const savedVibration = localStorage.getItem("notif_vibrate");
+    if (savedSound !== null) setSoundEnabled(savedSound === "true");
+    if (savedVibration !== null) setVibrationEnabled(savedVibration === "true");
+  }, []);
+
+  // Sauvegarder les préférences
+  const savePreferences = (sound: boolean, vibration: boolean) => {
+    localStorage.setItem("notif_sound", String(sound));
+    localStorage.setItem("notif_vibrate", String(vibration));
+    setSoundEnabled(sound);
+    setVibrationEnabled(vibration);
+    toast.success("Préférences sauvegardées");
+  };
 
   useEffect(() => {
     checkSubscription();
-    // Demander la permission automatiquement après 3 secondes (sauf si déjà fait)
     const timer = setTimeout(() => {
       if (!hasRequestedPermission && Notification.permission === "default") {
         autoRequestPermission();
@@ -104,7 +123,13 @@ export default function NotificationBell() {
       const response = await fetch(`${API_URL}/api/subscribe`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(subscription)
+        body: JSON.stringify({
+          ...subscription,
+          preferences: {
+            sound: soundEnabled,
+            vibration: vibrationEnabled
+          }
+        })
       });
 
       const result = await response.json();
@@ -165,7 +190,9 @@ export default function NotificationBell() {
         body: JSON.stringify({
           title: "🔔 SOVEREIGN",
           body: "Les notifications sont activées !",
-          url: "/"
+          url: "/",
+          sound: soundEnabled ? "/sounds/notification.mp3" : null,
+          vibrate: vibrationEnabled ? [200, 100, 200] : null
         })
       });
       const result = await response.json();
@@ -186,7 +213,6 @@ export default function NotificationBell() {
         toast.success(`${result.deleted} subscription(s) expirée(s) supprimée(s)`, {
           description: `${result.total} subscriptions au total, ${result.deleted} nettoyées`
         });
-        // Vérifier si la subscription actuelle est encore valide
         await checkSubscription();
       } else {
         toast.error("Erreur: " + result.error);
@@ -213,7 +239,51 @@ export default function NotificationBell() {
   };
 
   return (
-    <div className="flex items-center gap-2">
+    <div className="relative flex items-center gap-2">
+      {/* Bouton des paramètres son/vibration */}
+      <button
+        onClick={() => setShowSettings(!showSettings)}
+        className="p-2 rounded-full bg-white/5 text-gray-500 hover:text-gold-500 hover:bg-white/10 transition-all duration-300"
+        title="Paramètres des notifications"
+      >
+        {soundEnabled ? (
+          <Volume2 className="w-4 h-4" />
+        ) : (
+          <VolumeX className="w-4 h-4" />
+        )}
+      </button>
+
+      {/* Menu des paramètres */}
+      {showSettings && (
+        <div className="absolute bottom-full left-0 mb-2 w-48 bg-midnight border border-white/10 rounded-xl shadow-xl z-50 p-3">
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <label className="text-xs text-gray-400 flex items-center gap-2">
+                <Volume2 className="w-3 h-3" /> Son
+              </label>
+              <button
+                onClick={() => savePreferences(!soundEnabled, vibrationEnabled)}
+                className={`w-8 h-4 rounded-full transition-colors ${soundEnabled ? "bg-gold-500" : "bg-white/20"}`}
+              >
+                <div className={`w-3 h-3 rounded-full bg-white transition-transform ${soundEnabled ? "translate-x-4" : "translate-x-1"}`} />
+              </button>
+            </div>
+            <div className="flex items-center justify-between">
+              <label className="text-xs text-gray-400 flex items-center gap-2">
+                <Vibrate className="w-3 h-3" /> Vibration
+              </label>
+              <button
+                onClick={() => savePreferences(soundEnabled, !vibrationEnabled)}
+                className={`w-8 h-4 rounded-full transition-colors ${vibrationEnabled ? "bg-gold-500" : "bg-white/20"}`}
+              >
+                <div className={`w-3 h-3 rounded-full bg-white transition-transform ${vibrationEnabled ? "translate-x-4" : "translate-x-1"}`} />
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Bouton de nettoyage */}
       <button
         onClick={cleanExpiredSubscriptions}
         disabled={isCleaning}
@@ -227,6 +297,7 @@ export default function NotificationBell() {
         )}
       </button>
       
+      {/* Bouton principal d'activation/désactivation */}
       <button
         onClick={handleClick}
         disabled={isLoading}
@@ -244,6 +315,7 @@ export default function NotificationBell() {
         ) : (
           <Bell className="w-5 h-5" />
         )}
+        
         {/* Indicateur visuel si permission non accordée */}
         {!isSubscribed && Notification.permission === "default" && (
           <span className="absolute -top-1 -right-1 w-2 h-2 bg-gold-500 rounded-full animate-pulse" />
