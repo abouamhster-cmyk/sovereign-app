@@ -8,7 +8,7 @@ import {
   ShieldAlert, Heart, CheckCircle, Clock, 
   Target, Sparkles, RefreshCw, Loader2,
   Moon, Sun, AlertCircle, TrendingUp, Calendar,
-  Briefcase, DollarSign, Users, Sprout, FileText,
+  Briefcase, DollarSign, Users, Sprout, FileText, Brain,
   ArrowRight, X
 } from "lucide-react";
 import Link from "next/link";
