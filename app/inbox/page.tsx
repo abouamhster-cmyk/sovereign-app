@@ -10,11 +10,12 @@ import {
   Briefcase, FileText, Globe, Sprout, User, X,
   Loader2, Filter, Mic, Paperclip, XCircle, Brain,
   TrendingUp, Smile, Frown, Meh, Zap, Target,
-  ChevronDown, ChevronUp, Plus
+  ChevronDown, ChevronUp, Plus, ListTodo
 } from "lucide-react";
 import { toast } from "sonner";
 import { useDropzone } from "react-dropzone";
 import SpeechRecognition, { useSpeechRecognition } from "react-speech-recognition";
+import { useRouter } from "next/navigation";
 
 const API_URL = "https://sovereign-bridge.onrender.com";
 
@@ -37,6 +38,8 @@ type BrainAnalysis = {
   urgency_level: string;
   priorities: { title: string; reason: string }[];
   suggested_tasks: { title: string; project: string; priority: string }[];
+  suggested_checklist?: { title: string; steps: string[] };
+  quick_action?: string;
   insights: string;
   calming_response: string;
 };
@@ -65,6 +68,7 @@ const areaConfig = {
 };
 
 export default function InboxPage() {
+  const router = useRouter();
   const [items, setItems] = useState<InboxItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [input, setInput] = useState("");
@@ -75,6 +79,7 @@ export default function InboxPage() {
   const [showFilters, setShowFilters] = useState(false);
   const [isProcessingExisting, setIsProcessingExisting] = useState(false);
   const [processingItemId, setProcessingItemId] = useState<string | null>(null);
+  const [isCreatingTasks, setIsCreatingTasks] = useState(false);
   
   // États pour les fichiers
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
@@ -175,6 +180,68 @@ export default function InboxPage() {
       .order("created_at", { ascending: false });
     setItems(data || []);
     setIsLoading(false);
+  }
+
+  // ========== ACTIONS RAPIDES APRÈS ANALYSE ==========
+  async function createTasksFromPriorities(tasks: { title: string; project: string; priority: string }[]) {
+    setIsCreatingTasks(true);
+    let created = 0;
+    
+    for (const task of tasks) {
+      const { error } = await supabase.from("tasks").insert({
+        title: task.title,
+        status: "today",
+        priority: task.priority || "normal",
+        project: task.project || "Général",
+        created_at: new Date().toISOString()
+      });
+      if (!error) created++;
+    }
+    
+    if (created > 0) {
+      toast.success(`✅ ${created} tâche(s) créée(s)`);
+      router.push("/tasks");
+    } else {
+      toast.error("❌ Erreur lors de la création des tâches");
+    }
+    setIsCreatingTasks(false);
+  }
+
+  async function createChecklistFromAnalysis(checklist: { title: string; steps: string[] }) {
+    if (!checklist || !checklist.steps || checklist.steps.length === 0) {
+      toast.error("❌ Checklist invalide");
+      return;
+    }
+    
+    const { error } = await supabase.from("checklists").insert({
+      title: checklist.title,
+      steps: checklist.steps,
+      completed_steps: [],
+      progress: 0,
+      user_id: "rebecca",
+      created_at: new Date().toISOString()
+    });
+    
+    if (!error) {
+      toast.success(`📋 Checklist "${checklist.title}" créée`);
+    } else {
+      toast.error("❌ Erreur lors de la création de la checklist");
+    }
+  }
+
+  async function executeQuickAction(action: string) {
+    toast.info(`🔧 ${action}`, { duration: 5000 });
+    // Optionnel : créer une tâche immédiate
+    const { error } = await supabase.from("tasks").insert({
+      title: action,
+      status: "today",
+      priority: "high",
+      project: "Général",
+      created_at: new Date().toISOString()
+    });
+    if (!error) {
+      toast.success("✅ Tâche créée pour cette action");
+    }
   }
 
   async function analyzeAndAddItem() {
@@ -493,7 +560,7 @@ export default function InboxPage() {
         </div>
       </div>
 
-      {/* RÉSULTAT DE L'ANALYSE */}
+      {/* RÉSULTAT DE L'ANALYSE AVEC ACTIONS RAPIDES */}
       <AnimatePresence>
         {analysis && (
           <motion.div
@@ -554,9 +621,50 @@ export default function InboxPage() {
               </div>
             )}
             
+            {/* ========== ACTIONS RAPIDES ========== */}
+            <div className="mt-3 pt-3 border-t border-gold-500/20">
+              <p className="text-xs text-gold-500 mb-2">⚡ Agir maintenant</p>
+              <div className="flex flex-wrap gap-2">
+                {analysis.suggested_tasks && analysis.suggested_tasks.length > 0 && (
+                  <button
+                    onClick={() => createTasksFromPriorities(analysis.suggested_tasks)}
+                    disabled={isCreatingTasks}
+                    className="px-3 py-1.5 bg-emerald-500/20 text-emerald-400 rounded-full text-xs flex items-center gap-1 hover:bg-emerald-500/30 transition-colors"
+                  >
+                    {isCreatingTasks ? (
+                      <Loader2 className="w-3 h-3 animate-spin" />
+                    ) : (
+                      <CheckCircle className="w-3 h-3" />
+                    )}
+                    Créer {analysis.suggested_tasks.length} tâche(s)
+                  </button>
+                )}
+                
+                {analysis.suggested_checklist && analysis.suggested_checklist.steps && analysis.suggested_checklist.steps.length > 0 && (
+                  <button
+                    onClick={() => createChecklistFromAnalysis(analysis.suggested_checklist!)}
+                    className="px-3 py-1.5 bg-blue-500/20 text-blue-400 rounded-full text-xs flex items-center gap-1 hover:bg-blue-500/30 transition-colors"
+                  >
+                    <ListTodo className="w-3 h-3" />
+                    Créer checklist
+                  </button>
+                )}
+                
+                {analysis.quick_action && (
+                  <button
+                    onClick={() => executeQuickAction(analysis.quick_action!)}
+                    className="px-3 py-1.5 bg-gold-500/20 text-gold-500 rounded-full text-xs flex items-center gap-1 hover:bg-gold-500/30 transition-colors"
+                  >
+                    <Zap className="w-3 h-3" />
+                    {analysis.quick_action.length > 30 ? analysis.quick_action.substring(0, 30) + "..." : analysis.quick_action}
+                  </button>
+                )}
+              </div>
+            </div>
+            
             {analysis.suggested_tasks?.length > 0 && (
-              <div className="mt-3 pt-2 border-t border-white/10">
-                <p className="text-xs text-gold-500 mb-2">✅ Tâches créées :</p>
+              <div className="mt-3 pt-2">
+                <p className="text-xs text-gold-500 mb-2">✅ Tâches suggérées :</p>
                 <ul className="text-xs text-gray-300 space-y-1">
                   {analysis.suggested_tasks.map((task, i) => (
                     <li key={i} className="flex items-center gap-2">
