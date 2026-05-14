@@ -8,8 +8,8 @@ import { useRouter } from "next/navigation";
 import { 
   Crown, Settings, Bell, User, Sparkles, 
   Target, DollarSign, Heart, Sprout, Brain,
-  Calendar, AlertCircle, ArrowRight, Smile, Meh, Frown, Sun, Moon, Brain,
-  Loader2
+  Calendar, AlertCircle, ArrowRight, Smile, Meh, Frown, Sun, Moon,
+  Loader2, Edit2
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -19,7 +19,13 @@ const API_URL = "https://sovereign-bridge.onrender.com";
 type Priority = { id: string; title: string; priority_reason: string; score: number };
 type Task = { id: string; title: string; due_date: string | null; status: string };
 type Mission = { id: string; name: string; status: string };
-type Memory = { id: string; key: string; value: string; category: string };
+type Memory = {
+  id: string;
+  key: string;
+  value: string;
+  category: string;
+  created_at: string;
+};
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -34,6 +40,7 @@ export default function DashboardPage() {
   const [mood, setMood] = useState<string | null>(null);
   const [activeMissions, setActiveMissions] = useState<Mission[]>([]);
   const [recentMemories, setRecentMemories] = useState<Memory[]>([]);
+  const [isLoadingMemories, setIsLoadingMemories] = useState(true);
   
   // Message personnalisé de Becks
   const [becksMessage, setBecksMessage] = useState("");
@@ -176,10 +183,9 @@ export default function DashboardPage() {
   async function fetchFarmStatus() {
     try {
       // Récupérer les infos dynamiques de la ferme
-      const [infraResult, productionResult, spendingResult] = await Promise.all([
+      const [infraResult, productionResult] = await Promise.all([
         supabase.from("farm_infrastructure").select("*").in("status", ["in_progress", "setup"]),
-        supabase.from("farm_production_units").select("*").in("status", ["setup", "in_progress"]),
-        supabase.from("farm_spending").select("amount")
+        supabase.from("farm_production_units").select("*").in("status", ["setup", "in_progress"])
       ]);
       
       const infra = infraResult.data || [];
@@ -204,14 +210,17 @@ export default function DashboardPage() {
   }
 
   async function fetchRecentMemories() {
+    setIsLoadingMemories(true);
     try {
-      const response = await fetch(`${API_URL}/api/memory/get?limit=3`);
+      const response = await fetch(`${API_URL}/api/memory/get?limit=5`);
       const data = await response.json();
       if (data.success && data.data) {
-        setRecentMemories(data.data.slice(0, 3));
+        setRecentMemories(data.data.slice(0, 5));
       }
     } catch (error) {
-      console.error("Erreur memories:", error);
+      console.error("Erreur fetch memories:", error);
+    } finally {
+      setIsLoadingMemories(false);
     }
   }
 
@@ -477,28 +486,57 @@ export default function DashboardPage() {
       </div>
 
       {/* CE QUE BECKS SAIT DE TOI */}
-      {recentMemories.length > 0 && (
-        <div className="bg-white/5 border border-white/10 rounded-xl p-4">
-          <div className="flex items-center justify-between mb-3">
-            <div className="flex items-center gap-2">
-              <Brain className="w-4 h-4 text-gold-500" />
-              <h3 className="text-xs font-medium text-ivory">🧠 Becks se souvient de toi</h3>
-            </div>
+      <div className="bg-white/5 border border-white/10 rounded-xl p-4">
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-2">
+            <Brain className="w-4 h-4 text-gold-500" />
+            <h3 className="text-xs font-medium text-ivory">🧠 Becks se souvient de toi</h3>
+          </div>
+          <div className="flex gap-2">
             <Link href="/memory" className="text-[10px] text-gold-500 hover:underline">
               Voir tout →
             </Link>
           </div>
+        </div>
+        
+        {isLoadingMemories ? (
+          <div className="flex justify-center py-4">
+            <Loader2 className="w-4 h-4 text-gold-500 animate-spin" />
+          </div>
+        ) : recentMemories.length > 0 ? (
           <div className="space-y-2">
             {recentMemories.map((mem, idx) => (
-              <div key={idx} className="flex items-center gap-2 text-sm">
-                <span className="text-gold-500 text-xs">✨</span>
-                <span className="text-gray-400 text-xs">{mem.key}:</span>
-                <span className="text-ivory text-xs truncate">{mem.value}</span>
+              <div key={idx} className="flex items-center justify-between group">
+                <div className="flex items-center gap-2 flex-1 min-w-0">
+                  <span className="text-gold-500 text-xs">✨</span>
+                  <div className="flex-1 min-w-0">
+                    <span className="text-gray-400 text-xs">{mem.key}:</span>
+                    <span className="text-ivory text-xs ml-1 truncate block sm:inline">
+                      {mem.value.length > 40 ? mem.value.substring(0, 40) + "..." : mem.value}
+                    </span>
+                  </div>
+                </div>
+                <button
+                  onClick={() => router.push(`/memory?edit=${mem.id}`)}
+                  className="opacity-0 group-hover:opacity-100 transition-opacity text-gray-500 hover:text-gold-500"
+                >
+                  <Edit2 className="w-3 h-3" />
+                </button>
               </div>
             ))}
           </div>
-        </div>
-      )}
+        ) : (
+          <div className="text-center py-4">
+            <p className="text-xs text-gray-500">Aucun souvenir pour l'instant</p>
+            <button
+              onClick={() => router.push("/memory")}
+              className="text-xs text-gold-500 mt-2 hover:underline"
+            >
+              + Ajouter un souvenir
+            </button>
+          </div>
+        )}
+      </div>
 
       {/* MISSIONS ACTIVES */}
       {activeMissions.length > 0 && (
@@ -564,14 +602,13 @@ export default function DashboardPage() {
         <p>✨ "Une chose à la fois. Tu gères, Rebecca." ✨</p>
       </div>
 
-          {/* ========== BOUTON BRAIN DUMP RAPIDE ========== */}
-    <button
-      onClick={() => router.push("/inbox")}
-      className="fixed bottom-6 right-6 z-40 bg-gold-500 text-midnight p-4 rounded-full shadow-lg hover:scale-105 transition-transform"
-    >
-      <Brain className="w-6 h-6" />
-    </button>
-      
+      {/* BOUTON BRAIN DUMP RAPIDE */}
+      <button
+        onClick={() => router.push("/inbox")}
+        className="fixed bottom-6 right-6 z-40 bg-gold-500 text-midnight p-4 rounded-full shadow-lg hover:scale-105 transition-transform"
+      >
+        <Brain className="w-6 h-6" />
+      </button>
     </div>
   );
 }
