@@ -192,36 +192,39 @@ export default function SettingsPage() {
     setIsSaving(false);
   }
 
-  async function saveProjects() {
-    setIsSaving(true);
-    try {
-      const cleanProjects = projects.map(project => ({
-        name: project.name || "",
-        status: project.status || "active",
-        priority: project.priority || "normal",
-        deadline: project.deadline || null,
-        description: project.description || ""
-      }));
-      
-      const response = await fetch(`${API_URL}/api/profile`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ projects: cleanProjects })
-      });
-      const data = await response.json();
-      if (data.success) {
-        setProfile(data.profile);
-        toast.success("Projets mis à jour");
-      } else {
-        toast.error("Erreur: " + (data.error || "Inconnue"));
-      }
-    } catch (error) {
-      console.error("Erreur saveProjects:", error);
-      toast.error("Erreur de connexion");
+async function saveProjects() {
+  setIsSaving(true);
+  try {
+    // Nettoyer les données avant envoi
+    const cleanProjects = projects.map(project => ({
+      name: project.name || "",
+      status: project.status || "active",
+      priority: project.priority || "normal",
+      deadline: project.deadline || null,
+      description: project.description || ""
+    }));
+    
+    const response = await fetch(`${API_URL}/api/profile`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ projects: cleanProjects })
+    });
+    const data = await response.json();
+    
+    if (data.success) {
+      setProfile(data.profile);
+      toast.success("Projets mis à jour");
+    } else {
+      toast.error("Erreur: " + (data.error || "Inconnue"));
     }
-    setIsSaving(false);
+  } catch (error) {
+    console.error("Erreur saveProjects:", error);
+    toast.error("Erreur de connexion");
   }
+  setIsSaving(false);
+}
 
+  
   async function saveGoals() {
     setIsSaving(true);
     try {
@@ -311,13 +314,42 @@ export default function SettingsPage() {
   }
 
   function deleteProject(index: number) {
-    if (confirm("Supprimer ce projet ?")) {
-      const updated = projects.filter((_, i) => i !== index);
-      setProjects(updated);
-      saveProjects();
-    }
+  if (confirm("Supprimer ce projet ?")) {
+    const updated = projects.filter((_, i) => i !== index);
+    setProjects(updated);
+    // Attendre que le state soit mis à jour puis sauvegarder
+    setTimeout(() => {
+      const cleanProjects = updated.map(project => ({
+        name: project.name || "",
+        status: project.status || "active",
+        priority: project.priority || "normal",
+        deadline: project.deadline || null,
+        description: project.description || ""
+      }));
+      
+      fetch(`${API_URL}/api/profile`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ projects: cleanProjects })
+      })
+      .then(res => res.json())
+      .then(data => {
+        if (data.success) {
+          setProfile(data.profile);
+          toast.success("Projet supprimé");
+        } else {
+          toast.error("Erreur: " + (data.error || "Inconnue"));
+          fetchProfile(); // Recharger en cas d'erreur
+        }
+      })
+      .catch(err => {
+        console.error("Erreur:", err);
+        toast.error("Erreur de connexion");
+        fetchProfile();
+      });
+    }, 100);
   }
-
+}
   function addGoal() {
     if (!newGoal.goal) {
       toast.error("L'objectif est requis");
