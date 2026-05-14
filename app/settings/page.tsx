@@ -49,10 +49,8 @@ export default function SettingsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   
-  // Profil
   const [profile, setProfile] = useState<any>(null);
   
-  // Formulaire identité
   const [identityForm, setIdentityForm] = useState({
     preferred_name: "Rebecca",
     full_name: "",
@@ -62,25 +60,21 @@ export default function SettingsPage() {
     location: ""
   });
   
-  // Enfants
   const [children, setChildren] = useState<Child[]>([]);
   const [showChildForm, setShowChildForm] = useState(false);
   const [editingChildIndex, setEditingChildIndex] = useState<number | null>(null);
   const [newChild, setNewChild] = useState<Child>({ name: "", nickname: "", birthday: null, notes: "" });
   
-  // Projets
   const [projects, setProjects] = useState<Project[]>([]);
   const [showProjectForm, setShowProjectForm] = useState(false);
   const [editingProjectIndex, setEditingProjectIndex] = useState<number | null>(null);
   const [newProject, setNewProject] = useState<Project>({ name: "", status: "active", priority: "normal", deadline: null, description: "" });
   
-  // Objectifs
   const [goals, setGoals] = useState<Goal[]>([]);
   const [showGoalForm, setShowGoalForm] = useState(false);
   const [editingGoalIndex, setEditingGoalIndex] = useState<number | null>(null);
   const [newGoal, setNewGoal] = useState<Goal>({ goal: "", priority: "normal", deadline: null });
   
-  // Préférences notifications
   const [notifPrefs, setNotifPrefs] = useState<NotificationPreferences>({
     sound: true,
     vibration: true,
@@ -91,7 +85,6 @@ export default function SettingsPage() {
     celebration_reminders: true
   });
 
-  // Projets disponibles pour sélection
   const availableProjects = [
     "Ifè Living Farm",
     "Love & Fire Sport", 
@@ -114,7 +107,6 @@ export default function SettingsPage() {
       if (data.success && data.profile) {
         setProfile(data.profile);
         
-        // Remplir le formulaire d'identité
         setIdentityForm({
           preferred_name: data.profile.preferred_name || "Rebecca",
           full_name: data.profile.full_name || "",
@@ -124,13 +116,8 @@ export default function SettingsPage() {
           location: data.profile.location || ""
         });
         
-        // Remplir les enfants
         setChildren(data.profile.children || []);
-        
-        // Remplir les projets
         setProjects(data.profile.projects || []);
-        
-        // Remplir les objectifs
         setGoals(data.profile.current_goals || []);
       }
     } catch (error) {
@@ -166,9 +153,10 @@ export default function SettingsPage() {
         setProfile(data.profile);
         toast.success("Profil mis à jour");
       } else {
-        toast.error("Erreur: " + data.error);
+        toast.error("Erreur: " + (data.error || "Inconnue"));
       }
     } catch (error) {
+      console.error("Erreur saveIdentity:", error);
       toast.error("Erreur de connexion");
     }
     setIsSaving(false);
@@ -177,19 +165,27 @@ export default function SettingsPage() {
   async function saveChildren() {
     setIsSaving(true);
     try {
+      const cleanChildren = children.map(child => ({
+        name: child.name || "",
+        nickname: child.nickname || "",
+        birthday: child.birthday || null,
+        notes: child.notes || ""
+      }));
+      
       const response = await fetch(`${API_URL}/api/profile`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ children })
+        body: JSON.stringify({ children: cleanChildren })
       });
       const data = await response.json();
       if (data.success) {
         setProfile(data.profile);
         toast.success("Enfants mis à jour");
       } else {
-        toast.error("Erreur: " + data.error);
+        toast.error("Erreur: " + (data.error || "Inconnue"));
       }
     } catch (error) {
+      console.error("Erreur saveChildren:", error);
       toast.error("Erreur de connexion");
     }
     setIsSaving(false);
@@ -198,19 +194,28 @@ export default function SettingsPage() {
   async function saveProjects() {
     setIsSaving(true);
     try {
+      const cleanProjects = projects.map(project => ({
+        name: project.name || "",
+        status: project.status || "active",
+        priority: project.priority || "normal",
+        deadline: project.deadline || null,
+        description: project.description || ""
+      }));
+      
       const response = await fetch(`${API_URL}/api/profile`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ projects })
+        body: JSON.stringify({ projects: cleanProjects })
       });
       const data = await response.json();
       if (data.success) {
         setProfile(data.profile);
         toast.success("Projets mis à jour");
       } else {
-        toast.error("Erreur: " + data.error);
+        toast.error("Erreur: " + (data.error || "Inconnue"));
       }
     } catch (error) {
+      console.error("Erreur saveProjects:", error);
       toast.error("Erreur de connexion");
     }
     setIsSaving(false);
@@ -219,19 +224,26 @@ export default function SettingsPage() {
   async function saveGoals() {
     setIsSaving(true);
     try {
+      const cleanGoals = goals.map(goal => ({
+        goal: goal.goal || "",
+        priority: goal.priority || "normal",
+        deadline: goal.deadline || null
+      }));
+      
       const response = await fetch(`${API_URL}/api/profile`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ current_goals: goals })
+        body: JSON.stringify({ current_goals: cleanGoals })
       });
       const data = await response.json();
       if (data.success) {
         setProfile(data.profile);
         toast.success("Objectifs mis à jour");
       } else {
-        toast.error("Erreur: " + data.error);
+        toast.error("Erreur: " + (data.error || "Inconnue"));
       }
     } catch (error) {
+      console.error("Erreur saveGoals:", error);
       toast.error("Erreur de connexion");
     }
     setIsSaving(false);
@@ -540,10 +552,10 @@ export default function SettingsPage() {
                     </div>
                     <div className="flex gap-2">
                       <button onClick={() => editChild(idx)} className="text-gray-500 hover:text-gold-500">
-                        <Save className="w-4 h-4" />
+                        <Edit2 className="w-4 h-4" />
                       </button>
                       <button onClick={() => deleteChild(idx)} className="text-gray-500 hover:text-red-400">
-                        <X className="w-4 h-4" />
+                        <Trash2 className="w-4 h-4" />
                       </button>
                     </div>
                   </div>
@@ -557,7 +569,6 @@ export default function SettingsPage() {
               )}
             </div>
 
-            {/* Formulaire ajout enfant */}
             <AnimatePresence>
               {showChildForm && (
                 <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} className="bg-white/10 rounded-xl p-4 mt-4">
@@ -644,10 +655,10 @@ export default function SettingsPage() {
                     </div>
                     <div className="flex gap-2">
                       <button onClick={() => editProject(idx)} className="text-gray-500 hover:text-gold-500">
-                        <Save className="w-4 h-4" />
+                        <Edit2 className="w-4 h-4" />
                       </button>
                       <button onClick={() => deleteProject(idx)} className="text-gray-500 hover:text-red-400">
-                        <X className="w-4 h-4" />
+                        <Trash2 className="w-4 h-4" />
                       </button>
                     </div>
                   </div>
@@ -661,7 +672,6 @@ export default function SettingsPage() {
               )}
             </div>
 
-            {/* Formulaire ajout projet */}
             <AnimatePresence>
               {showProjectForm && (
                 <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} className="bg-white/10 rounded-xl p-4 mt-4">
@@ -752,10 +762,10 @@ export default function SettingsPage() {
                     </div>
                     <div className="flex gap-2">
                       <button onClick={() => editGoal(idx)} className="text-gray-500 hover:text-gold-500">
-                        <Save className="w-4 h-4" />
+                        <Edit2 className="w-4 h-4" />
                       </button>
                       <button onClick={() => deleteGoal(idx)} className="text-gray-500 hover:text-red-400">
-                        <X className="w-4 h-4" />
+                        <Trash2 className="w-4 h-4" />
                       </button>
                     </div>
                   </div>
@@ -769,7 +779,6 @@ export default function SettingsPage() {
               )}
             </div>
 
-            {/* Formulaire ajout objectif */}
             <AnimatePresence>
               {showGoalForm && (
                 <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} className="bg-white/10 rounded-xl p-4 mt-4">
