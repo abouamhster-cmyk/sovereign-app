@@ -42,11 +42,10 @@ const menuItems: MenuItem[] = [
   { name: "Santé Plus & Bénin", icon: Heart, href: "/sante-plus-benin", group: "projects" },
   { name: "Relocation", icon: Globe, href: "/relocation", group: "projects" },
   
-  { name: "Wins", icon: Trophy, href: "/wins", group: "vie" },
-  { name: "Family", icon: Heart, href: "/family", group: "vie" },
+   { name: "Family", icon: Heart, href: "/family", group: "vie" },
   
+  { name: "Rescue & Wins", icon: ShieldAlert, href: "/rescue-wins", group: "alignment" },
   { name: "Alignment", icon: Zap, href: "/alignment", group: "alignment" },
-  { name: "Rescue Mode", icon: ShieldAlert, href: "/rescue", group: "alignment" },
   { name: "Mémoire", icon: Brain, href: "/memory", group: "alignment" },
 
   { name: "Profile", icon: Settings, href: "/settings", group: "settings" }
