@@ -86,6 +86,25 @@ const getStatusDisplay = (status: string, urgency: string) => {
 };
 
 // =====================================================
+// FONCTION UTILITAIRE POUR SÉCURISER LES AFFICHAGES
+// =====================================================
+
+function safeString(value: any, fallback: string = ""): string {
+  if (value === null || value === undefined) return fallback;
+  if (typeof value === 'string') return value;
+  if (typeof value === 'number') return value.toString();
+  if (typeof value === 'object') {
+    // Si l'objet a une propriété 'message' (comme dans l'erreur)
+    if (value.message) return value.message;
+    // Si l'objet a une propriété 'name'
+    if (value.name) return value.name;
+    // Sinon, retourner une représentation JSON
+    return JSON.stringify(value);
+  }
+  return fallback;
+}
+
+// =====================================================
 // COMPOSANT PRINCIPAL
 // =====================================================
 
@@ -368,11 +387,13 @@ export default function VisionStrategyPage() {
             </p>
           </div>
 
-          {/* INSIGHT PRINCIPAL */}
+          {/* INSIGHT PRINCIPAL - VERSION SÉCURISÉE */}
           <div className="bg-gradient-to-r from-gold-500/10 to-transparent border-l-4 border-gold-500 rounded-xl p-4 mb-6">
             <div className="flex items-start gap-3">
               <Sparkles className="w-5 h-5 text-gold-500 mt-0.5" />
-              <p className="text-ivory text-sm leading-relaxed">{weeklyData.insights}</p>
+              <p className="text-ivory text-sm leading-relaxed">
+                {safeString(weeklyData.insights, "Analyse en cours...")}
+              </p>
             </div>
           </div>
 
@@ -485,17 +506,19 @@ export default function VisionStrategyPage() {
             )}
             
             <p className="text-xs text-gray-500 mt-3 pt-2 border-t border-red-500/20">
-              {weeklyData.pending_documents_summary}
+              {safeString(weeklyData.pending_documents_summary, "Aucun document en attente")}
             </p>
           </div>
 
-          {/* PLUS PROCHE DU CASH */}
+          {/* PLUS PROCHE DU CASH - VERSION SÉCURISÉE */}
           <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-xl p-5 mb-6">
             <div className="flex items-center gap-2 mb-2">
               <DollarSign className="w-4 h-4 text-emerald-400" />
               <h2 className="text-sm font-serif text-emerald-400">PLUS PROCHE DU CASH</h2>
             </div>
-            <p className="text-ivory text-lg font-medium">{weeklyData.closest_to_cash}</p>
+            <p className="text-ivory text-lg font-medium">
+              {safeString(weeklyData.closest_to_cash, "Aucune mission identifiée")}
+            </p>
             <p className="text-xs text-gray-500 mt-1">Mission avec le plus fort potentiel de revenu immédiat</p>
           </div>
 
