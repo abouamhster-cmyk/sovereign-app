@@ -6,7 +6,7 @@ import {
   Wallet, TrendingUp, FileText, Target, Briefcase, Sprout, Globe,
   Trophy, Heart, Users, Zap, ShieldAlert, Menu, X, LogOut,
   ChevronDown, ChevronRight, Download, Settings, Mail, Brain, Bell, BellRing, Volume2, VolumeX, Vibrate,
-  Map
+  Map, Crown, DollarSign, Megaphone
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
