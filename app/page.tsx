@@ -10,7 +10,9 @@ import {
   Crown, Settings, Bell, User, Sparkles, 
   Target, DollarSign, Heart, Sprout, Brain,
   Calendar, AlertCircle, ArrowRight, Smile, Meh, Frown, Sun, Moon,
-  Loader2, Edit2
+  Loader2, Edit2, Inbox, CheckSquare, Briefcase, Globe, Trophy,
+  Users, Zap, ShieldAlert, Map, Mail, FileText, TrendingUp,
+  CalendarDays, FolderOpen, MessageCircle, Star
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -78,18 +80,17 @@ export default function DashboardPage() {
     fetchAllData();
   }, []);
 
-    async function fetchAllData() {
-      setIsLoading(true);
-      await Promise.all([
-        fetchUserName(),
-        fetchDashboardData(),
-        fetchFarmStatus(),
-        fetchRecentMemories(),
-        fetchOverloadDetection(), 
-      ]);
-      setIsLoading(false);
-    }
-
+  async function fetchAllData() {
+    setIsLoading(true);
+    await Promise.all([
+      fetchUserName(),
+      fetchDashboardData(),
+      fetchFarmStatus(),
+      fetchRecentMemories(),
+      fetchOverloadDetection(), 
+    ]);
+    setIsLoading(false);
+  }
 
   async function fetchUserName() {
     const { data: { user } } = await supabase.auth.getUser();
@@ -105,11 +106,9 @@ export default function DashboardPage() {
       const data = await response.json();
       
       if (data.success) {
-        // Message personnalisé de Becks
         setBecksMessage(data.greeting);
         setIsLoadingMessage(false);
         
-        // Top 3 priorités
         const formattedPriorities = data.top_priorities.map((p: any) => ({
           id: p.id,
           title: p.title,
@@ -118,11 +117,9 @@ export default function DashboardPage() {
         }));
         setPriorities(formattedPriorities);
         
-        // Tâches (urgentes + du jour)
         const allTasks = [...(data.overdue_tasks || []), ...(data.tasks_today || [])];
         setUrgentTasks(allTasks.slice(0, 5));
         
-        // Deadlines à venir
         if (data.overdue_tasks?.length > 0 || data.tasks_today?.length > 0) {
           const deadlines = [
             ...(data.overdue_tasks || []).map((t: any) => ({ 
@@ -139,10 +136,8 @@ export default function DashboardPage() {
           setUpcomingDeadlines(deadlines.slice(0, 3));
         }
         
-        // Missions actives
         setActiveMissions(data.active_missions || []);
         
-        // Suggestions pour les 4 moves
         if (data.suggestions) {
           if (data.suggestions.money_move) setMoneyMove(data.suggestions.money_move);
           if (data.suggestions.family_move) setFamilyMove(data.suggestions.family_move);
@@ -150,7 +145,6 @@ export default function DashboardPage() {
           if (data.suggestions.stabilization_move) setStabilizationMove(data.suggestions.stabilization_move);
         }
         
-        // Stats pour le résumé visuel
         if (data.stats) {
           setTodaySummary({
             tasks_count: data.stats.tasks_count || 0,
@@ -159,7 +153,6 @@ export default function DashboardPage() {
           });
         }
         
-        // ========== DÉTECTION AUTO DU RESCUE MODE ==========
         if (data.load_analysis?.level === "critical" || data.load_analysis?.score >= 50) {
           toast.error("⚠️ Charge critique détectée", {
             description: "Active le Rescue Mode pour recentrer tes priorités.",
@@ -178,7 +171,6 @@ export default function DashboardPage() {
       }
     } catch (error) {
       console.error("Erreur dashboard:", error);
-      // Fallback: message par défaut
       setBecksMessage("Salut Rebecca. Je suis là si tu as besoin.");
       setIsLoadingMessage(false);
     }
@@ -186,7 +178,6 @@ export default function DashboardPage() {
 
   async function fetchFarmStatus() {
     try {
-      // Récupérer les infos dynamiques de la ferme
       const [infraResult, productionResult] = await Promise.all([
         supabase.from("farm_infrastructure").select("*").in("status", ["in_progress", "setup"]),
         supabase.from("farm_production_units").select("*").in("status", ["setup", "in_progress"])
@@ -194,12 +185,10 @@ export default function DashboardPage() {
       
       const infra = infraResult.data || [];
       const production = productionResult.data || [];
-      
       const pendingCount = infra.length + production.length;
       
       if (pendingCount > 0) {
         setFarmStatus(`${pendingCount} chantier(s) en cours`);
-        // Trouver la prochaine action
         const nextItem = production[0] || infra[0];
         if (nextItem) {
           setFarmNextAction(`Finaliser ${nextItem.name}`);
@@ -213,18 +202,17 @@ export default function DashboardPage() {
     }
   }
 
-
   async function fetchOverloadDetection() {
-  try {
-    const response = await fetch(`${API_URL}/api/rescue/detect-overload`);
-    const data = await response.json();
-    if (data.success) {
-      setOverloadData(data);
+    try {
+      const response = await fetch(`${API_URL}/api/rescue/detect-overload`);
+      const data = await response.json();
+      if (data.success) {
+        setOverloadData(data);
+      }
+    } catch (error) {
+      console.error("Erreur détection surcharge:", error);
     }
-  } catch (error) {
-    console.error("Erreur détection surcharge:", error);
   }
-}
   
   async function fetchRecentMemories() {
     setIsLoadingMemories(true);
@@ -253,7 +241,6 @@ export default function DashboardPage() {
       body: JSON.stringify({ mood: selectedMood })
     });
     
-    // Message d'encouragement personnalisé
     if (selectedMood === "fatiguée") {
       setStabilizationMove("Repose-toi. Rien n'est plus important que ton énergie.");
       toast.info("🌿 Prends soin de toi aujourd'hui", { duration: 5000 });
@@ -291,58 +278,52 @@ export default function DashboardPage() {
   return (
     <div className="max-w-2xl mx-auto space-y-6 pb-24">
       {/* HEADER avec message personnalisé de Becks */}
-         <div className="space-y-4">
-          <div className="flex justify-between items-center">
-            <div>
-              <h1 className="text-2xl font-serif text-ivory">
-                {greeting}, {userName}. <Crown className="inline w-5 h-5 text-gold-500" />
-              </h1>
-            </div>
-            <Link href="/settings" className="p-2 text-gray-400 hover:text-gold-500 transition-colors">
-              <Settings className="w-5 h-5" />
-            </Link>
+      <div className="space-y-4">
+        <div className="flex justify-between items-center">
+          <div>
+            <h1 className="text-2xl font-serif text-ivory">
+              {greeting}, {userName}. <Crown className="inline w-5 h-5 text-gold-500" />
+            </h1>
           </div>
-        
-          {/* Message Becks + Avatar */}
-          <div className="flex items-start gap-3">
-            <div className="flex-1">
-              <div className="bg-gradient-to-r from-gold-500/10 to-transparent border-l-4 border-gold-500 rounded-xl p-4">
-                {isLoadingMessage ? (
-                  <div className="flex items-center gap-2">
-                    <Loader2 className="w-4 h-4 text-gold-500 animate-spin" />
-                    <span className="text-sm text-gray-400">Becks réfléchit...</span>
-                  </div>
-                ) : (
-                  <div className="flex items-start gap-3">
-                    <Sparkles className="w-5 h-5 text-gold-500 mt-0.5 flex-shrink-0" />
-                    <p className="text-ivory text-sm leading-relaxed">{becksMessage}</p>
-                  </div>
-                )}
-              </div>
-            </div>
-            <SovereignAvatar 
-              size="sm" 
-              mood={mood}
-              state={isLoadingMessage ? "thinking" : "idle"}
-              lastMessage={becksMessage}
-            />
-          </div>
-        
-          {/* Petit résumé visuel */}
-          {todaySummary && (
-            <div className="flex gap-2 text-xs">
-              <span className="px-2 py-1 bg-white/5 rounded-full">
-                📋 {todaySummary.tasks_count} tâche(s)
-              </span>
-              <span className="px-2 py-1 bg-white/5 rounded-full">
-                🎯 {todaySummary.missions_count} mission(s)
-              </span>
-              <span className="px-2 py-1 bg-white/5 rounded-full">
-                📄 {todaySummary.docs_count} document(s)
-              </span>
-            </div>
-          )}
+          <Link href="/settings" className="p-2 text-gray-400 hover:text-gold-500 transition-colors">
+            <Settings className="w-5 h-5" />
+          </Link>
         </div>
+      
+        {/* Message Becks + Avatar */}
+        <div className="flex items-start gap-3">
+          <div className="flex-1">
+            <div className="bg-gradient-to-r from-gold-500/10 to-transparent border-l-4 border-gold-500 rounded-xl p-4">
+              {isLoadingMessage ? (
+                <div className="flex items-center gap-2">
+                  <Loader2 className="w-4 h-4 text-gold-500 animate-spin" />
+                  <span className="text-sm text-gray-400">Becks réfléchit...</span>
+                </div>
+              ) : (
+                <div className="flex items-start gap-3">
+                  <Sparkles className="w-5 h-5 text-gold-500 mt-0.5 flex-shrink-0" />
+                  <p className="text-ivory text-sm leading-relaxed">{becksMessage}</p>
+                </div>
+              )}
+            </div>
+          </div>
+          <SovereignAvatar 
+            size="sm" 
+            mood={mood}
+            state={isLoadingMessage ? "thinking" : "idle"}
+            lastMessage={becksMessage}
+          />
+        </div>
+      
+        {/* Petit résumé visuel */}
+        {todaySummary && (
+          <div className="flex gap-2 text-xs">
+            <span className="px-2 py-1 bg-white/5 rounded-full">📋 {todaySummary.tasks_count} tâche(s)</span>
+            <span className="px-2 py-1 bg-white/5 rounded-full">🎯 {todaySummary.missions_count} mission(s)</span>
+            <span className="px-2 py-1 bg-white/5 rounded-full">📄 {todaySummary.docs_count} document(s)</span>
+          </div>
+        )}
+      </div>
 
       {/* HUMEUR DU JOUR */}
       <div className="bg-white/5 border border-white/10 rounded-xl p-4">
@@ -355,10 +336,7 @@ export default function DashboardPage() {
                 <p className={`text-sm ${currentMood?.color}`}>{currentMood?.label}</p>
               </div>
             </div>
-            <button
-              onClick={() => { setMood(null); localStorage.removeItem("todayMood"); }}
-              className="text-xs text-gray-500 hover:text-gold-400 transition-colors"
-            >
+            <button onClick={() => { setMood(null); localStorage.removeItem("todayMood"); }} className="text-xs text-gray-500 hover:text-gold-400 transition-colors">
               Modifier
             </button>
           </div>
@@ -367,11 +345,7 @@ export default function DashboardPage() {
             <p className="text-sm text-gray-400 mb-3">😊 Comment te sens-tu aujourd'hui ?</p>
             <div className="flex justify-between">
               {moods.map((m) => (
-                <button
-                  key={m.value}
-                  onClick={() => saveMood(m.value)}
-                  className="flex flex-col items-center gap-1 p-2 rounded-lg hover:bg-white/10 transition-colors"
-                >
+                <button key={m.value} onClick={() => saveMood(m.value)} className="flex flex-col items-center gap-1 p-2 rounded-lg hover:bg-white/10 transition-colors">
                   <span className="text-xl">{m.emoji}</span>
                   <span className="text-[10px] text-gray-500">{m.label}</span>
                 </button>
@@ -385,12 +359,9 @@ export default function DashboardPage() {
       <div className="bg-white/5 border border-white/10 rounded-2xl overflow-hidden">
         <div className="px-5 pt-4 pb-2 flex items-center justify-between">
           <h2 className="text-sm font-serif text-gold-500 flex items-center gap-2">
-            <Target className="w-4 h-4" />
-            🎯 TES 3 PRIORITÉS
+            <Target className="w-4 h-4" /> 🎯 TES 3 PRIORITÉS
           </h2>
-          {priorities.length > 0 && (
-            <span className="text-[10px] text-gray-500">Basé sur l'IA</span>
-          )}
+          {priorities.length > 0 && <span className="text-[10px] text-gray-500">Basé sur l'IA</span>}
         </div>
         <div className="p-5 pt-2">
           {priorities.length > 0 ? (
@@ -398,12 +369,11 @@ export default function DashboardPage() {
               {priorities.slice(0, 3).map((priority, idx) => (
                 <div key={priority.id} className="group">
                   <div className="flex items-start gap-3">
-                    <div className={`
-                      w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0
-                      ${idx === 0 ? "bg-red-500/20 text-red-400" : 
-                        idx === 1 ? "bg-orange-500/20 text-orange-400" : 
-                        "bg-gold-500/20 text-gold-500"}
-                    `}>
+                    <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 ${
+                      idx === 0 ? "bg-red-500/20 text-red-400" : 
+                      idx === 1 ? "bg-orange-500/20 text-orange-400" : 
+                      "bg-gold-500/20 text-gold-500"
+                    }`}>
                       {idx + 1}
                     </div>
                     <div className="flex-1">
@@ -411,9 +381,7 @@ export default function DashboardPage() {
                       <p className="text-xs text-gray-500 mt-0.5">{priority.priority_reason}</p>
                     </div>
                   </div>
-                  {idx < priorities.length - 1 && idx < 2 && (
-                    <div className="ml-9 mt-3 h-px bg-white/10" />
-                  )}
+                  {idx < priorities.length - 1 && idx < 2 && <div className="ml-9 mt-3 h-px bg-white/10" />}
                 </div>
               ))}
             </div>
@@ -421,10 +389,7 @@ export default function DashboardPage() {
             <div className="text-center py-6">
               <Target className="w-8 h-8 mx-auto mb-2 opacity-30" />
               <p className="text-sm text-gray-500">Aucune priorité pour le moment</p>
-              <button 
-                onClick={() => window.location.href = "/tasks"}
-                className="text-xs text-gold-500 mt-2 hover:underline"
-              >
+              <button onClick={() => window.location.href = "/tasks"} className="text-xs text-gold-500 mt-2 hover:underline">
                 + Créer une tâche
               </button>
             </div>
@@ -443,17 +408,11 @@ export default function DashboardPage() {
             {urgentTasks.map((task) => (
               <div key={task.id} className="flex items-center justify-between text-sm">
                 <span className="text-gray-300">{task.title}</span>
-                {task.due_date && (
-                  <span className="text-xs text-red-400">
-                    📅 {new Date(task.due_date).toLocaleDateString('fr-FR')}
-                  </span>
-                )}
+                {task.due_date && <span className="text-xs text-red-400">📅 {new Date(task.due_date).toLocaleDateString('fr-FR')}</span>}
               </div>
             ))}
           </div>
-          <Link href="/tasks" className="text-xs text-gold-500 hover:underline block text-center mt-3">
-            Voir toutes les tâches →
-          </Link>
+          <Link href="/tasks" className="text-xs text-gold-500 hover:underline block text-center mt-3">Voir toutes les tâches →</Link>
         </div>
       )}
 
@@ -466,9 +425,7 @@ export default function DashboardPage() {
               <span className="text-xs text-emerald-400/70 uppercase tracking-wider">Move Argent</span>
             </div>
             <p className="text-sm text-ivory">{moneyMove}</p>
-            <span className="text-xs text-gold-500 opacity-0 group-hover:opacity-100 transition-opacity mt-2 inline-block">
-              Voir les finances →
-            </span>
+            <span className="text-xs text-gold-500 opacity-0 group-hover:opacity-100 transition-opacity mt-2 inline-block">Voir les finances →</span>
           </div>
         </Link>
 
@@ -479,9 +436,7 @@ export default function DashboardPage() {
               <span className="text-xs text-pink-400/70 uppercase tracking-wider">Move Famille</span>
             </div>
             <p className="text-sm text-ivory">{familyMove}</p>
-            <span className="text-xs text-gold-500 opacity-0 group-hover:opacity-100 transition-opacity mt-2 inline-block">
-              Voir famille →
-            </span>
+            <span className="text-xs text-gold-500 opacity-0 group-hover:opacity-100 transition-opacity mt-2 inline-block">Voir famille →</span>
           </div>
         </Link>
 
@@ -492,9 +447,7 @@ export default function DashboardPage() {
               <span className="text-xs text-green-400/70 uppercase tracking-wider">Move Ferme</span>
             </div>
             <p className="text-sm text-ivory">{farmNextAction}</p>
-            <span className="text-xs text-gold-500 opacity-0 group-hover:opacity-100 transition-opacity mt-2 inline-block">
-              Voir ferme →
-            </span>
+            <span className="text-xs text-gold-500 opacity-0 group-hover:opacity-100 transition-opacity mt-2 inline-block">Voir ferme →</span>
           </div>
         </Link>
 
@@ -505,9 +458,7 @@ export default function DashboardPage() {
               <span className="text-xs text-yellow-400/70 uppercase tracking-wider">Move Stabilisation</span>
             </div>
             <p className="text-sm text-ivory">{stabilizationMove}</p>
-            <span className="text-xs text-gold-500 opacity-0 group-hover:opacity-100 transition-opacity mt-2 inline-block">
-              S'aligner →
-            </span>
+            <span className="text-xs text-gold-500 opacity-0 group-hover:opacity-100 transition-opacity mt-2 inline-block">S'aligner →</span>
           </div>
         </Link>
       </div>
@@ -519,17 +470,11 @@ export default function DashboardPage() {
             <Brain className="w-4 h-4 text-gold-500" />
             <h3 className="text-xs font-medium text-ivory">🧠 Becks se souvient de toi</h3>
           </div>
-          <div className="flex gap-2">
-            <Link href="/memory" className="text-[10px] text-gold-500 hover:underline">
-              Voir tout →
-            </Link>
-          </div>
+          <Link href="/memory" className="text-[10px] text-gold-500 hover:underline">Voir tout →</Link>
         </div>
         
         {isLoadingMemories ? (
-          <div className="flex justify-center py-4">
-            <Loader2 className="w-4 h-4 text-gold-500 animate-spin" />
-          </div>
+          <div className="flex justify-center py-4"><Loader2 className="w-4 h-4 text-gold-500 animate-spin" /></div>
         ) : recentMemories.length > 0 ? (
           <div className="space-y-2">
             {recentMemories.map((mem, idx) => (
@@ -543,10 +488,7 @@ export default function DashboardPage() {
                     </span>
                   </div>
                 </div>
-                <button
-                  onClick={() => router.push(`/memory?edit=${mem.id}`)}
-                  className="opacity-0 group-hover:opacity-100 transition-opacity text-gray-500 hover:text-gold-500"
-                >
+                <button onClick={() => router.push(`/memory?edit=${mem.id}`)} className="opacity-0 group-hover:opacity-100 transition-opacity text-gray-500 hover:text-gold-500">
                   <Edit2 className="w-3 h-3" />
                 </button>
               </div>
@@ -555,12 +497,7 @@ export default function DashboardPage() {
         ) : (
           <div className="text-center py-4">
             <p className="text-xs text-gray-500">Aucun souvenir pour l'instant</p>
-            <button
-              onClick={() => router.push("/memory")}
-              className="text-xs text-gold-500 mt-2 hover:underline"
-            >
-              + Ajouter un souvenir
-            </button>
+            <button onClick={() => router.push("/memory")} className="text-xs text-gold-500 mt-2 hover:underline">+ Ajouter un souvenir</button>
           </div>
         )}
       </div>
@@ -574,19 +511,13 @@ export default function DashboardPage() {
           </div>
           <div className="space-y-2">
             {activeMissions.map((mission) => (
-              <Link 
-                key={mission.id} 
-                href="/missions" 
-                className="flex items-center justify-between p-2 hover:bg-white/5 rounded-lg transition-colors"
-              >
+              <Link key={mission.id} href="/missions" className="flex items-center justify-between p-2 hover:bg-white/5 rounded-lg transition-colors">
                 <span className="text-sm text-gray-300">{mission.name}</span>
                 <ArrowRight className="w-3 h-3 text-gray-500" />
               </Link>
             ))}
           </div>
-          <Link href="/missions" className="text-xs text-gold-500 hover:underline block text-center mt-3">
-            Voir toutes les missions →
-          </Link>
+          <Link href="/missions" className="text-xs text-gold-500 hover:underline block text-center mt-3">Voir toutes les missions →</Link>
         </div>
       )}
 
@@ -612,17 +543,11 @@ export default function DashboardPage() {
         </div>
       )}
 
-            {/* ========== WIDGET RESCUE MODE (SI CHARGE CRITIQUE) ========== */}
+      {/* WIDGET RESCUE MODE */}
       {overloadData && overloadData.level !== "low" && (
-        <motion.div 
-          initial={{ opacity: 0, scale: 0.95 }}
-          animate={{ opacity: 1, scale: 1 }}
-          className={`rounded-xl p-4 border-2 ${
-            overloadData.level === "critical" 
-              ? "bg-red-950/30 border-red-500/50" 
-              : "bg-orange-950/30 border-orange-500/50"
-          }`}
-        >
+        <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className={`rounded-xl p-4 border-2 ${
+          overloadData.level === "critical" ? "bg-red-950/30 border-red-500/50" : "bg-orange-950/30 border-orange-500/50"
+        }`}>
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">
               <AlertCircle className={`w-5 h-5 ${overloadData.level === "critical" ? "text-red-400" : "text-orange-400"}`} />
@@ -632,54 +557,32 @@ export default function DashboardPage() {
             </div>
             <div className="flex items-center gap-2">
               <div className="w-16 h-1.5 bg-white/10 rounded-full overflow-hidden">
-                <div 
-                  className={`h-full rounded-full ${overloadData.level === "critical" ? "bg-red-500" : "bg-orange-500"}`}
-                  style={{ width: `${overloadData.overload_score}%` }}
-                />
+                <div className={`h-full rounded-full ${overloadData.level === "critical" ? "bg-red-500" : "bg-orange-500"}`} style={{ width: `${overloadData.overload_score}%` }} />
               </div>
               <span className="text-xs text-gray-400">{overloadData.overload_score}%</span>
             </div>
           </div>
-          
           <p className="text-sm text-ivory mb-3">{overloadData.message}</p>
           {overloadData.reasons && overloadData.reasons.length > 0 && (
             <div className="flex flex-wrap gap-2 mb-3">
               {overloadData.reasons.slice(0, 3).map((reason: string, idx: number) => (
-                <span key={idx} className="text-xs px-2 py-1 bg-white/5 rounded-full text-gray-400">
-                  {reason}
-                </span>
+                <span key={idx} className="text-xs px-2 py-1 bg-white/5 rounded-full text-gray-400">{reason}</span>
               ))}
             </div>
           )}
-          
           <div className="flex flex-wrap gap-2">
             {overloadData.rescue_actions?.map((action: { type: string; title: string; task_id?: string; duration?: number; url?: string }, idx: number) => (
-              <button
-                key={idx}
-                onClick={() => {
-                  if (action.type === "focus_task" && action.task_id) {
-                    router.push(`/tasks?highlight=${action.task_id}`);
-                  } else if (action.type === "breathing") {
-                    toast.info("🌬️ Respire profondément... inspire, expire. 3 fois.", { duration: 10000 });
-                  } else if (action.type === "reset") {
-                    toast.info(`⏰ Pause de ${action.duration} minutes recommandée`, { duration: 5000 });
-                  } else if (action.url) {
-                    router.push(action.url);
-                  } else {
-                    router.push("/rescue");
-                  }
-                }}
-                className="px-3 py-1.5 bg-white/10 rounded-full text-xs text-gray-300 hover:bg-white/20 transition-colors"
-              >
+              <button key={idx} onClick={() => {
+                if (action.type === "focus_task" && action.task_id) router.push(`/tasks?highlight=${action.task_id}`);
+                else if (action.type === "breathing") toast.info("🌬️ Respire profondément... inspire, expire. 3 fois.", { duration: 10000 });
+                else if (action.type === "reset") toast.info(`⏰ Pause de ${action.duration} minutes recommandée`, { duration: 5000 });
+                else if (action.url) router.push(action.url);
+                else router.push("/rescue");
+              }} className="px-3 py-1.5 bg-white/10 rounded-full text-xs text-gray-300 hover:bg-white/20 transition-colors">
                 {action.title}
               </button>
             ))}
-            <Link 
-              href="/rescue"
-              className="px-3 py-1.5 bg-gold-500/20 text-gold-500 rounded-full text-xs hover:bg-gold-500/30 transition-colors"
-            >
-              Voir Rescue Mode →
-            </Link>
+            <Link href="/rescue" className="px-3 py-1.5 bg-gold-500/20 text-gold-500 rounded-full text-xs hover:bg-gold-500/30 transition-colors">Voir Rescue Mode →</Link>
           </div>
         </motion.div>
       )}
@@ -699,6 +602,120 @@ export default function DashboardPage() {
       {/* MESSAGE DE CLÔTURE DE BECKS */}
       <div className="text-center text-xs text-gray-500 italic">
         <p>✨ "Une chose à la fois. Tu gères, Rebecca." ✨</p>
+      </div>
+
+      {/* ========== SECTION ACCÈS RAPIDE ========== */}
+      <div className="pt-4 border-t border-white/10">
+        <div className="flex items-center gap-2 mb-4">
+          <Star className="w-4 h-4 text-gold-500" />
+          <h2 className="text-xs font-serif text-gold-500 tracking-wider">ACCÈS RAPIDE</h2>
+        </div>
+        
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
+          {/* GESTION */}
+          <Link href="/inbox" className="flex items-center gap-2 p-2 rounded-lg bg-white/5 hover:bg-white/10 transition-all group">
+            <Inbox className="w-4 h-4 text-blue-400" />
+            <span className="text-xs text-gray-300">Brain Dump</span>
+          </Link>
+          <Link href="/tasks" className="flex items-center gap-2 p-2 rounded-lg bg-white/5 hover:bg-white/10 transition-all group">
+            <CheckSquare className="w-4 h-4 text-blue-400" />
+            <span className="text-xs text-gray-300">Tasks</span>
+          </Link>
+          <Link href="/calendar" className="flex items-center gap-2 p-2 rounded-lg bg-white/5 hover:bg-white/10 transition-all group">
+            <CalendarDays className="w-4 h-4 text-blue-400" />
+            <span className="text-xs text-gray-300">Calendar</span>
+          </Link>
+
+          {/* FINANCES */}
+          <Link href="/money" className="flex items-center gap-2 p-2 rounded-lg bg-white/5 hover:bg-white/10 transition-all group">
+            <DollarSign className="w-4 h-4 text-emerald-400" />
+            <span className="text-xs text-gray-300">Money</span>
+          </Link>
+          <Link href="/opportunities" className="flex items-center gap-2 p-2 rounded-lg bg-white/5 hover:bg-white/10 transition-all group">
+            <TrendingUp className="w-4 h-4 text-emerald-400" />
+            <span className="text-xs text-gray-300">Opportunities</span>
+          </Link>
+
+          {/* CONTENU & DOCS */}
+          <Link href="/content" className="flex items-center gap-2 p-2 rounded-lg bg-white/5 hover:bg-white/10 transition-all group">
+            <FileText className="w-4 h-4 text-purple-400" />
+            <span className="text-xs text-gray-300">Content</span>
+          </Link>
+          <Link href="/documents" className="flex items-center gap-2 p-2 rounded-lg bg-white/5 hover:bg-white/10 transition-all group">
+            <FolderOpen className="w-4 h-4 text-orange-400" />
+            <span className="text-xs text-gray-300">Documents</span>
+          </Link>
+          <Link href="/email" className="flex items-center gap-2 p-2 rounded-lg bg-white/5 hover:bg-white/10 transition-all group">
+            <Mail className="w-4 h-4 text-purple-400" />
+            <span className="text-xs text-gray-300">Email</span>
+          </Link>
+
+          {/* PROJETS */}
+          <Link href="/missions" className="flex items-center gap-2 p-2 rounded-lg bg-white/5 hover:bg-white/10 transition-all group">
+            <Target className="w-4 h-4 text-gold-500" />
+            <span className="text-xs text-gray-300">Missions</span>
+          </Link>
+          <Link href="/business" className="flex items-center gap-2 p-2 rounded-lg bg-white/5 hover:bg-white/10 transition-all group">
+            <Briefcase className="w-4 h-4 text-blue-400" />
+            <span className="text-xs text-gray-300">Business</span>
+          </Link>
+          <Link href="/love-fire-sport" className="flex items-center gap-2 p-2 rounded-lg bg-white/5 hover:bg-white/10 transition-all group">
+            <Trophy className="w-4 h-4 text-emerald-400" />
+            <span className="text-xs text-gray-300">Love & Fire</span>
+          </Link>
+          <Link href="/farm" className="flex items-center gap-2 p-2 rounded-lg bg-white/5 hover:bg-white/10 transition-all group">
+            <Sprout className="w-4 h-4 text-green-400" />
+            <span className="text-xs text-gray-300">Ifè Farm</span>
+          </Link>
+          <Link href="/sante-plus-benin" className="flex items-center gap-2 p-2 rounded-lg bg-white/5 hover:bg-white/10 transition-all group">
+            <Heart className="w-4 h-4 text-pink-400" />
+            <span className="text-xs text-gray-300">Santé Plus</span>
+          </Link>
+          <Link href="/relocation" className="flex items-center gap-2 p-2 rounded-lg bg-white/5 hover:bg-white/10 transition-all group">
+            <Globe className="w-4 h-4 text-cyan-400" />
+            <span className="text-xs text-gray-300">Relocation</span>
+          </Link>
+
+          {/* VIE */}
+          <Link href="/family" className="flex items-center gap-2 p-2 rounded-lg bg-white/5 hover:bg-white/10 transition-all group">
+            <Users className="w-4 h-4 text-pink-400" />
+            <span className="text-xs text-gray-300">Family</span>
+          </Link>
+          <Link href="/wins" className="flex items-center gap-2 p-2 rounded-lg bg-white/5 hover:bg-white/10 transition-all group">
+            <Trophy className="w-4 h-4 text-yellow-400" />
+            <span className="text-xs text-gray-300">Wins</span>
+          </Link>
+          <Link href="/alignment" className="flex items-center gap-2 p-2 rounded-lg bg-white/5 hover:bg-white/10 transition-all group">
+            <Zap className="w-4 h-4 text-purple-400" />
+            <span className="text-xs text-gray-300">Alignment</span>
+          </Link>
+          <Link href="/rescue" className="flex items-center gap-2 p-2 rounded-lg bg-white/5 hover:bg-white/10 transition-all group">
+            <ShieldAlert className="w-4 h-4 text-red-400" />
+            <span className="text-xs text-gray-300">Rescue</span>
+          </Link>
+
+          {/* STRATÉGIE & SYSTÈME */}
+          <Link href="/life-map" className="flex items-center gap-2 p-2 rounded-lg bg-white/5 hover:bg-white/10 transition-all group">
+            <Map className="w-4 h-4 text-gold-500" />
+            <span className="text-xs text-gray-300">Life Map</span>
+          </Link>
+          <Link href="/weekly-ceo" className="flex items-center gap-2 p-2 rounded-lg bg-white/5 hover:bg-white/10 transition-all group">
+            <Crown className="w-4 h-4 text-gold-500" />
+            <span className="text-xs text-gray-300">Weekly CEO</span>
+          </Link>
+          <Link href="/content-calendar" className="flex items-center gap-2 p-2 rounded-lg bg-white/5 hover:bg-white/10 transition-all group">
+            <Calendar className="w-4 h-4 text-gold-500" />
+            <span className="text-xs text-gray-300">Content Cal.</span>
+          </Link>
+          <Link href="/memory" className="flex items-center gap-2 p-2 rounded-lg bg-white/5 hover:bg-white/10 transition-all group">
+            <Brain className="w-4 h-4 text-gold-500" />
+            <span className="text-xs text-gray-300">Mémoire</span>
+          </Link>
+          <Link href="/settings" className="flex items-center gap-2 p-2 rounded-lg bg-white/5 hover:bg-white/10 transition-all group">
+            <Settings className="w-4 h-4 text-gray-400" />
+            <span className="text-xs text-gray-300">Settings</span>
+          </Link>
+        </div>
       </div>
 
       {/* BOUTON BRAIN DUMP RAPIDE */}
