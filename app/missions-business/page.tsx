@@ -206,7 +206,7 @@ export default function MissionsBusinessPage() {
   // Filtres pour l'onglet Business
   const businessFilteredMissions = missions.filter(m => {
     if (businessFilterStatus === "all") return true;
-    if (businessFilterStatus === "active") return m.status === "active" || m.status === "in_progress";
+    if (businessFilterStatus === "active") return m.status === "active";
     if (businessFilterStatus === "planning") return m.status === "planning";
     if (businessFilterStatus === "complete") return m.status === "complete";
     return true;
