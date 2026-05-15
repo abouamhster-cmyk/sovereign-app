@@ -45,11 +45,14 @@ export function useTextToSpeech() {
     setIsLoading(true);
     
     try {
-      const response = await fetch(`${API_URL}/api/tts/speak`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text: cleanText, voice_id: selectedVoice })
-      });
+          const response = await fetch(`${API_URL}/api/tts/deepgram`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ 
+              text: cleanText, 
+              voice: "aura-2-odysseus-en"  // Voix masculine douce
+            })
+          });
       
       const data = await response.json();
       
