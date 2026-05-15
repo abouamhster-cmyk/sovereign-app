@@ -190,22 +190,25 @@ export default function SovereignAvatar({
   return (
     <div className="relative inline-block">
       {/* Bulle de pensée */}
-      <AnimatePresence>
-        {showBubble && (
-          <motion.div
-            initial={{ opacity: 0, y: 10, scale: 0.8 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: -10, scale: 0.8 }}
-            transition={{ type: "spring", stiffness: 500, damping: 30 }}
-            className="absolute -top-14 left-1/2 -translate-x-1/2 bg-midnight/95 backdrop-blur-lg border border-gold-500/30 rounded-2xl px-4 py-2 max-w-[200px] z-10 shadow-xl"
-          >
-            <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-2 h-2 bg-midnight/95 border-r border-b border-gold-500/30 rotate-45" />
-            <p className="text-xs text-gold-400 whitespace-pre-wrap break-words">
-              {bubbleText}
-            </p>
-          </motion.div>
-        )}
-      </AnimatePresence>
+        
+        <AnimatePresence>
+          {showBubble && (
+            <motion.div
+              initial={{ opacity: 0, x: -10, scale: 0.9 }}
+              animate={{ opacity: 1, x: 0, scale: 1 }}
+              exit={{ opacity: 0, x: -10, scale: 0.9 }}
+              transition={{ type: "spring", stiffness: 500, damping: 30 }}
+              // Position à droite de l'avatar
+              className="absolute top-1/2 -translate-y-1/2 left-full ml-3 bg-midnight/95 backdrop-blur-lg border border-gold-500/30 rounded-2xl px-4 py-2 max-w-[250px] z-10 shadow-xl"
+            >
+              {/* Triangle pointant vers la gauche */}
+              <div className="absolute -left-1 top-1/2 -translate-y-1/2 w-2 h-2 bg-midnight/95 border-l border-b border-gold-500/30 -rotate-45" />
+              <p className="text-xs text-gold-400 whitespace-pre-wrap break-words">
+                {bubbleText}
+              </p>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
       {/* Avatar avec animation */}
       <motion.div
