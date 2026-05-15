@@ -6,16 +6,18 @@ import {
   Wallet, TrendingUp, FileText, Target, Briefcase, Sprout, Globe,
   Trophy, Heart, Users, Zap, ShieldAlert, Menu, X, LogOut,
   ChevronDown, ChevronRight, Download, Settings, Mail, Brain, Bell, BellRing, Volume2, VolumeX, Vibrate,
-  Map, Crown, DollarSign, Megaphone
+  Map, Crown, DollarSign, Megaphone, WifiOff, Loader2, Clock
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/lib/supabase";
 import { toast } from "sonner";
-
-// Structure du menu - avec typage correct des icônes
 import type { LucideIcon } from "lucide-react";
+
+// ============================================
+// TYPES
+// ============================================
 
 interface MenuItem {
   name: string;
@@ -33,7 +35,7 @@ const menuItems: MenuItem[] = [
 
   { name: "Vision & Stratégie", icon: Crown, href: "/vision-strategy", group: "strategies" },
   { name: "Money & Opportunities", icon: DollarSign, href: "/money-opportunities", group: "strategies" },
-  { name: "Content Calendar", icon: Calendar, href: "/content-calendar", group: "strategies" },
+  { name: "Content Studio", icon: Megaphone, href: "/content-studio", group: "strategies" },
   { name: "Communications", icon: Mail, href: "/communications", group: "strategies" },
    
   { name: "Love & Fire Sport", icon: Trophy, href: "/love-fire-sport", group: "projects" },
@@ -42,7 +44,7 @@ const menuItems: MenuItem[] = [
   { name: "Santé Plus & Bénin", icon: Heart, href: "/sante-plus-benin", group: "projects" },
   { name: "Relocation", icon: Globe, href: "/relocation", group: "projects" },
   
-   { name: "Family", icon: Heart, href: "/family", group: "vie" },
+  { name: "Family", icon: Heart, href: "/family", group: "vie" },
   
   { name: "Rescue & Wins", icon: ShieldAlert, href: "/rescue-wins", group: "alignment" },
   { name: "Alignment", icon: Zap, href: "/alignment", group: "alignment" },
@@ -86,7 +88,7 @@ function urlBase64ToUint8Array(base64String: string) {
 }
 
 // ============================================
-// COMPOSANT NOTIFICATION BELL (POUR AFFICHER LES NOTIFICATIONS)
+// COMPOSANT NOTIFICATION BELL
 // ============================================
 function NotificationBell() {
   const [unreadCount, setUnreadCount] = useState(0);
@@ -123,7 +125,7 @@ function NotificationBell() {
 }
 
 // ============================================
-// COMPOSANT PUSH NOTIFICATION SETTINGS (POUR LE MENU)
+// COMPOSANT PUSH NOTIFICATION SETTINGS
 // ============================================
 function PushNotificationToggle() {
   const [isSubscribed, setIsSubscribed] = useState(false);
@@ -154,7 +156,6 @@ function PushNotificationToggle() {
     
     try {
       if (isSubscribed) {
-        // Désactiver
         const swReg = await navigator.serviceWorker.ready;
         const subscription = await swReg.pushManager.getSubscription();
         if (subscription) {
@@ -168,7 +169,6 @@ function PushNotificationToggle() {
           toast.info("Notifications push désactivées");
         }
       } else {
-        // Activer
         let permission = Notification.permission;
         if (permission !== "granted") {
           permission = await Notification.requestPermission();
@@ -289,7 +289,7 @@ function SoundVibrationSettings() {
 }
 
 // ============================================
-// COMPOSANT PARAMÈTRES (DANS LE MENU/FOOTER)
+// COMPOSANT PARAMÈTRES
 // ============================================
 function SettingsMenu() {
   const [isOpen, setIsOpen] = useState(false);
@@ -316,7 +316,41 @@ function SettingsMenu() {
   );
 }
 
-// Composant d'invite d'installation PWA - UNIQUEMENT SUR MOBILE
+// ============================================
+// COMPOSANT OFFLINE STATUS
+// ============================================
+function OfflineStatus() {
+  // Note: useOffline sera utilisé quand le hook sera créé
+  // Pour l'instant, version simplifiée
+  const [isOnline, setIsOnline] = useState(true);
+  
+  useEffect(() => {
+    setIsOnline(navigator.onLine);
+    const handleOnline = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
+  
+  if (!isOnline) {
+    return (
+      <div className="flex items-center gap-1 px-2 py-1 bg-red-500/20 rounded-full">
+        <WifiOff className="w-3 h-3 text-red-400" />
+        <span className="text-[10px] text-red-400">Hors ligne</span>
+      </div>
+    );
+  }
+  
+  return null;
+}
+
+// ============================================
+// COMPOSANT INSTALLATION PWA
+// ============================================
 function InstallButton() {
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [isVisible, setIsVisible] = useState(false);
@@ -408,7 +442,9 @@ function InstallButton() {
   );
 }
 
-// Bannière d'installation en bas - UNIQUEMENT SUR MOBILE
+// ============================================
+// BANNIÈRE D'INSTALLATION
+// ============================================
 function InstallBanner() {
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [showPrompt, setShowPrompt] = useState(false);
@@ -504,6 +540,9 @@ function InstallBanner() {
   );
 }
 
+// ============================================
+// COMPOSANT PRINCIPAL
+// ============================================
 export default function ClientLayout({ children }: { children: React.ReactNode }) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>(DEFAULT_OPEN_GROUPS);
@@ -619,7 +658,10 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
             <NotificationBell />
           </div>
           
-          <SettingsMenu />
+          <div className="flex items-center justify-between">
+            <OfflineStatus />
+            <SettingsMenu />
+          </div>
           
           <button
             onClick={handleSignOut}
