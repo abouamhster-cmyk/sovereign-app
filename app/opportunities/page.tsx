@@ -283,6 +283,27 @@ export default function OpportunitiesPage() {
         >
           <Plus className="w-4 h-4" /> Nouvelle opportunité
         </button>
+        
+        // Dans le header, à côté du bouton "Nouvelle opportunité"
+        <button
+          onClick={async () => {
+            toast.info("🔍 Scan en cours...");
+            const response = await fetch(`${API_URL}/api/opportunities/scan`, { method: "POST" });
+            const data = await response.json();
+            if (data.success && data.count > 0) {
+              toast.success(`🎯 ${data.count} opportunité(s) détectée(s) !`);
+              fetchOpportunities();
+            } else if (data.success) {
+              toast.info("Aucune nouvelle opportunité détectée");
+            } else {
+              toast.error("Erreur lors du scan");
+            }
+          }}
+          className="bg-purple-500/20 text-purple-400 px-4 py-2 rounded-full text-sm flex items-center gap-2 hover:bg-purple-500/30 transition-colors"
+        >
+          <Brain className="w-4 h-4" />
+          Scanner les opportunités
+        </button>
       </div>
 
       {/* STATS */}
