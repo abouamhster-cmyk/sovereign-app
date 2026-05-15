@@ -18,7 +18,7 @@ import { toast } from "sonner";
 import { supabase } from "@/lib/supabase";
 import { useDropzone } from "react-dropzone";
 import SpeechRecognition, { useSpeechRecognition } from "react-speech-recognition";
-import { useTextToSpeech } from "@/hooks/useTextToSpeech";
+import { useTextToSpeech, VOICE_OPTIONS } from "@/hooks/useTextToSpeech";
 import { MessageWithActions, type Action } from "@/components/MessageWithActions";
 
 const API_URL = "https://sovereign-bridge.onrender.com";
@@ -167,6 +167,10 @@ export default function ChatPage() {
   // État pour le mode exécution
   const [executionPlan, setExecutionPlan] = useState<{ planId: string; plan: any } | null>(null);
   const [isGeneratingPlan, setIsGeneratingPlan] = useState(false);
+  
+  // TTS
+  const [lastAssistantMessage, setLastAssistantMessage] = useState("");
+  const { speak, stop, isSpeaking, isLoading: isTTSLoading, selectedVoice, setSelectedVoice } = useTextToSpeech();
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -322,7 +326,6 @@ export default function ChatPage() {
         setExecutionPlan({ planId: data.plan_id, plan: data.plan });
         return true;
       } else if (data.fallback) {
-        // Fallback: générer un plan simple
         setExecutionPlan({
           planId: "fallback-" + Date.now(),
           plan: {
@@ -389,12 +392,20 @@ export default function ChatPage() {
       const assistantMessage: Message = { role: "assistant", content: assistantContent };
       setMessages(prev => [...prev, assistantMessage]);
       await saveMessage(currentConversationId, "assistant", assistantContent);
+
+      // === TTS : faire parler Becks ===
+      setLastAssistantMessage(assistantContent);
+      // Ne pas parler si c'est un plan d'exécution ou si trop long
+      if (selectedMode !== "fais-le-avec-moi" && 
+          !assistantContent.includes("🎯 Je vais t'aider") && 
+          assistantContent.length < 500) {
+        speak(assistantContent);
+      }
       
       // Détection du mode "fais-le-avec-moi" pour générer un plan
       if (selectedMode === "fais-le-avec-moi" && userMessageContent.length > 10 && userMessageContent.length < 500) {
         const hasPlan = await generateExecutionPlan(userMessageContent);
         if (hasPlan && executionPlan) {
-          // Ajouter un message assistant avec le guide
           const guideMessageContent = `🎯 Je vais t'aider à avancer étape par étape.
 
 **Plan : ${executionPlan.plan.title}**
@@ -492,14 +503,43 @@ Coche les étapes au fur et à mesure. Une chose à la fois. ✨`;
       {/* HEADER */}
       <header className="sticky top-0 z-10 h-12 border-b border-white/10 flex items-center justify-between px-4 bg-midnight/90 backdrop-blur-lg shrink-0">
         <button onClick={() => setIsSidebarOpen(true)} className="p-1.5 text-gray-400 hover:text-gold-500"><Menu className="w-4 h-4" /></button>
+        
+        {/* Contrôle vocal TTS */}
         <div className="flex items-center gap-2">
-          <div className="w-6 h-6 rounded-full bg-gold-500/20 flex items-center justify-center"><span className="text-gold-500 text-xs font-serif">B</span></div>
-          <span className="text-xs font-serif text-gold-500 hidden sm:block">Becks</span>
+          <select
+            value={selectedVoice}
+            onChange={(e) => setSelectedVoice(e.target.value)}
+            className="text-[10px] bg-white/10 border border-white/10 rounded-full px-2 py-1 text-gray-400"
+            title="Choisir la voix de Becks"
+          >
+            {VOICE_OPTIONS.map(voice => (
+              <option key={voice.id} value={voice.id}>{voice.name} - {voice.description}</option>
+            ))}
+          </select>
+          <button
+            onClick={isSpeaking ? stop : () => speak(lastAssistantMessage)}
+            disabled={isTTSLoading}
+            className={`p-1.5 rounded-full transition-all ${
+              isSpeaking 
+                ? "bg-red-500/20 text-red-400 animate-pulse" 
+                : "bg-gold-500/20 text-gold-500 hover:bg-gold-500/30"
+            } disabled:opacity-50`}
+            title={isSpeaking ? "Arrêter" : "Faire parler Becks"}
+          >
+            {isTTSLoading ? (
+              <Loader2 className="w-3 h-3 animate-spin" />
+            ) : isSpeaking ? (
+              <VolumeX className="w-3 h-3" />
+            ) : (
+              <Volume2 className="w-3 h-3" />
+            )}
+          </button>
         </div>
+        
         <Link href="/" className="p-1.5 text-gray-400 hover:text-gold-500"><ArrowLeft className="w-4 h-4" /></Link>
       </header>
 
-      {/* SIDEBAR */}
+      {/* SIDEBAR - identique à ton code existant */}
       <AnimatePresence>
         {isSidebarOpen && (
           <>
@@ -544,7 +584,7 @@ Coche les étapes au fur et à mesure. Une chose à la fois. ✨`;
           </motion.div>
         ))}
         
-       {/* AFFICHAGE DU GUIDE D'EXÉCUTION */}
+        {/* AFFICHAGE DU GUIDE D'EXÉCUTION */}
         {executionPlan && (
           <div className="flex justify-start">
             <div className="max-w-[85%] w-full">
@@ -558,7 +598,7 @@ Coche les étapes au fur et à mesure. Une chose à la fois. ✨`;
           </div>
         )}
         
-        {/* ========== COMPOSANTS SPÉCIAUX PAR MODE ========== */}
+        {/* COMPOSANTS SPÉCIAUX PAR MODE */}
         {selectedMode === "documents" && (
           <div className="flex justify-start mt-4">
             <div className="max-w-[85%] w-full">
@@ -618,7 +658,7 @@ Coche les étapes au fur et à mesure. Une chose à la fois. ✨`;
         {selectedMode === "fais-le-avec-moi" && (<div className="mt-2 text-center"><span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] bg-gold-500/20 text-gold-400"><Sparkles className="w-3 h-3" />Mode Exécution activé</span></div>)}
       </div>
 
-      {/* MODALES */}
+      {/* MODALES - identiques à ton code existant */}
       {showChecklistModal && currentChecklist && (
         <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4" onClick={() => setShowChecklistModal(false)}>
           <div className="bg-midnight border border-gold-500/30 rounded-xl max-w-md w-full p-6" onClick={(e) => e.stopPropagation()}>
