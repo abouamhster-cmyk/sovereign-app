@@ -203,7 +203,7 @@ export default function MissionsBusinessPage() {
 
   const sortedMissions = [...filteredMissions].sort((a, b) => getPriorityScore(b) - getPriorityScore(a));
 
-  // Filtres pour l'onglet Business
+  // Filtres pour l'onglet Business (corrigé - suppression de "in_progress")
   const businessFilteredMissions = missions.filter(m => {
     if (businessFilterStatus === "all") return true;
     if (businessFilterStatus === "active") return m.status === "active";
@@ -221,7 +221,7 @@ export default function MissionsBusinessPage() {
 
   const businessStats = {
     total: missions.length,
-    active: missions.filter(m => m.status === "active" || m.status === "in_progress").length,
+    active: missions.filter(m => m.status === "active").length,
     completed: missions.filter(m => m.status === "complete").length,
     planning: missions.filter(m => m.status === "planning").length,
   };
@@ -233,7 +233,7 @@ export default function MissionsBusinessPage() {
     const name = status?.toLowerCase() || "";
     if (name.includes("term") || name.includes("fait") || name.includes("done") || name === "complete") 
       return { icon: CheckCircle, label: "Terminée", color: "bg-emerald-500/20 text-emerald-400" };
-    if (name.includes("cours") || name.includes("progress") || name === "active" || name === "in_progress") 
+    if (name.includes("cours") || name.includes("progress") || name === "active") 
       return { icon: Clock, label: "En cours", color: "bg-blue-500/20 text-blue-400" };
     if (name === "planning") 
       return { icon: Calendar, label: "Planification", color: "bg-purple-500/20 text-purple-400" };
