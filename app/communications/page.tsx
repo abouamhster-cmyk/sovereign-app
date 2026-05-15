@@ -1,0 +1,576 @@
+"use client";
+import { useEffect, useState, useCallback } from "react";
+import { supabase } from "@/lib/supabase";
+import LoadingSpinner from "@/components/LoadingSpinner";
+import { motion, AnimatePresence } from "framer-motion";
+import { useDropzone } from "react-dropzone";
+import { 
+  FileText, Clock, CheckCircle, AlertCircle, Filter, Search, 
+  ExternalLink, Plus, Edit2, Trash2, X, Upload, Download,
+  FolderOpen, Tag, Calendar, File, Image, FileArchive, FileSpreadsheet,
+  Send, Loader2, Mail, LayoutGrid
+} from "lucide-react";
+import { toast } from "sonner";
+import { exportDocumentsToPDF } from "@/lib/exportPDF";
+
+const API_URL = "https://sovereign-bridge.onrender.com";
+
+type Document = {
+  id: string;
+  name: string;
+  type: string;
+  status: string;
+  mission_id: string | null;
+  due_date: string | null;
+  url: string | null;
+  file_url: string | null;
+  file_name: string | null;
+  missing_pieces: string[] | null;
+  notes: string | null;
+  created_at: string;
+};
+
+const documentTypeConfig: Record<string, { label: string; color: string }> = {
+  proposal: { label: "📄 Proposition", color: "bg-blue-500/20 text-blue-400" },
+  contract: { label: "📑 Contrat", color: "bg-purple-500/20 text-purple-400" },
+  grant: { label: "🎯 Subvention", color: "bg-emerald-500/20 text-emerald-400" },
+  invoice: { label: "💰 Facture", color: "bg-orange-500/20 text-orange-400" },
+  legal: { label: "⚖️ Légal", color: "bg-red-500/20 text-red-400" },
+  admin: { label: "📋 Administratif", color: "bg-cyan-500/20 text-cyan-400" },
+  other: { label: "📁 Autre", color: "bg-gray-500/20 text-gray-400" }
+};
+
+const statusConfig: Record<string, { label: string; icon: any; color: string }> = {
+  draft: { label: "📝 Brouillon", icon: Edit2, color: "bg-yellow-500/20 text-yellow-400" },
+  review: { label: "🔍 En relecture", icon: Clock, color: "bg-blue-500/20 text-blue-400" },
+  ready: { label: "✅ Prêt", icon: CheckCircle, color: "bg-emerald-500/20 text-emerald-400" },
+  submitted: { label: "📤 Soumis", icon: Upload, color: "bg-purple-500/20 text-purple-400" },
+  approved: { label: "⭐ Approuvé", icon: CheckCircle, color: "bg-green-500/20 text-green-400" },
+  rejected: { label: "❌ Rejeté", icon: AlertCircle, color: "bg-red-500/20 text-red-400" }
+};
+
+export default function CommunicationsPage() {
+  const [activeTab, setActiveTab] = useState<"documents" | "email">("documents");
+  
+  // ========== ÉTATS DOCUMENTS ==========
+  const [documents, setDocuments] = useState<Document[]>([]);
+  const [isDocumentsLoading, setIsDocumentsLoading] = useState(true);
+  const [showDocumentForm, setShowDocumentForm] = useState(false);
+  const [editingDoc, setEditingDoc] = useState<Document | null>(null);
+  const [filter, setFilter] = useState("all");
+  const [searchTerm, setSearchTerm] = useState("");
+  const [isUploading, setIsUploading] = useState(false);
+  
+  const [documentFormData, setDocumentFormData] = useState({
+    name: "",
+    type: "other",
+    status: "draft",
+    due_date: "",
+    url: "",
+    file_url: "",
+    file_name: "",
+    missing_pieces: "",
+    notes: ""
+  });
+
+  // ========== ÉTATS EMAIL ==========
+  const [to, setTo] = useState("");
+  const [subject, setSubject] = useState("");
+  const [body, setBody] = useState("");
+  const [isSending, setIsSending] = useState(false);
+
+  const scrollToForm = () => {
+    setTimeout(() => {
+      const formElement = document.getElementById('form-container');
+      if (formElement) {
+        formElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    }, 150);
+  };
+
+  // ========== CHARGEMENT DOCUMENTS ==========
+  useEffect(() => {
+    fetchDocuments();
+    
+    const channel = supabase
+      .channel('documents_changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'documents' }, () => fetchDocuments())
+      .subscribe();
+    
+    return () => {
+      channel.unsubscribe();
+    };
+  }, []);
+  
+  async function fetchDocuments() {
+    setIsDocumentsLoading(true);
+    const { data } = await supabase
+      .from("documents")
+      .select("*")
+      .order("created_at", { ascending: false });
+    setDocuments(data || []);
+    setIsDocumentsLoading(false);
+  }
+
+  // ========== UPLOAD DOCUMENTS ==========
+  const onDrop = useCallback(async (acceptedFiles: File[]) => {
+    const file = acceptedFiles[0];
+    if (!file) return;
+    
+    setIsUploading(true);
+    try {
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${Date.now()}.${fileExt}`;
+      const filePath = `documents/${fileName}`;
+      
+      const { error: uploadError } = await supabase.storage
+        .from('documents')
+        .upload(filePath, file);
+      
+      if (uploadError) throw uploadError;
+      
+      const { data: { publicUrl } } = supabase.storage
+        .from('documents')
+        .getPublicUrl(filePath);
+      
+      setDocumentFormData(prev => ({
+        ...prev,
+        file_url: publicUrl,
+        file_name: file.name
+      }));
+      
+      toast.success("Fichier uploadé avec succès");
+    } catch (error) {
+      console.error("Erreur upload:", error);
+      toast.error("Erreur lors de l'upload");
+    } finally {
+      setIsUploading(false);
+    }
+  }, []);
+
+  const { getRootProps, getInputProps, isDragActive } = useDropzone({
+    onDrop,
+    accept: {
+      'application/pdf': ['.pdf'],
+      'application/msword': ['.doc', '.docx'],
+      'image/*': ['.png', '.jpg', '.jpeg', '.gif'],
+      'application/vnd.ms-excel': ['.xls', '.xlsx'],
+      'application/zip': ['.zip', '.rar']
+    },
+    maxFiles: 1
+  });
+
+  // ========== CRUD DOCUMENTS ==========
+  async function saveDocument() {
+    const data = {
+      name: documentFormData.name,
+      type: documentFormData.type,
+      status: documentFormData.status,
+      due_date: documentFormData.due_date || null,
+      url: documentFormData.url || null,
+      file_url: documentFormData.file_url || null,
+      file_name: documentFormData.file_name || null,
+      missing_pieces: documentFormData.missing_pieces ? documentFormData.missing_pieces.split(",").map(s => s.trim()) : null,
+      notes: documentFormData.notes || null
+    };
+    
+    let error;
+    if (editingDoc) {
+      const result = await supabase.from("documents").update(data).eq("id", editingDoc.id);
+      error = result.error;
+    } else {
+      const result = await supabase.from("documents").insert(data);
+      error = result.error;
+    }
+    
+    if (!error) {
+      resetDocumentForm();
+      fetchDocuments();
+      toast.success(editingDoc ? "Document modifié" : "Document ajouté");
+    } else {
+      toast.error("Erreur: " + error.message);
+    }
+  }
+
+  async function updateDocumentStatus(id: string, newStatus: string) {
+    const { error } = await supabase.from("documents").update({ status: newStatus }).eq("id", id);
+    if (!error) fetchDocuments();
+  }
+
+  async function deleteDocument(id: string) {
+    if (confirm("Supprimer ce document ?")) {
+      const { error } = await supabase.from("documents").delete().eq("id", id);
+      if (!error) {
+        fetchDocuments();
+        toast.success("Document supprimé");
+      }
+    }
+  }
+
+  function editDocument(doc: Document) {
+    setEditingDoc(doc);
+    setDocumentFormData({
+      name: doc.name,
+      type: doc.type,
+      status: doc.status,
+      due_date: doc.due_date || "",
+      url: doc.url || "",
+      file_url: doc.file_url || "",
+      file_name: doc.file_name || "",
+      missing_pieces: doc.missing_pieces ? doc.missing_pieces.join(", ") : "",
+      notes: doc.notes || ""
+    });
+    setShowDocumentForm(true);
+    scrollToForm();
+  }
+
+  function resetDocumentForm() {
+    setShowDocumentForm(false);
+    setEditingDoc(null);
+    setDocumentFormData({
+      name: "",
+      type: "other",
+      status: "draft",
+      due_date: "",
+      url: "",
+      file_url: "",
+      file_name: "",
+      missing_pieces: "",
+      notes: ""
+    });
+  }
+
+  // ========== FILTRES DOCUMENTS ==========
+  const filteredDocuments = documents.filter(doc => {
+    const matchesFilter = filter === "all" || doc.status === filter;
+    const matchesSearch = doc.name.toLowerCase().includes(searchTerm.toLowerCase());
+    return matchesFilter && matchesSearch;
+  });
+
+  const documentStats = {
+    total: documents.length,
+    pending: documents.filter(d => d.status === "draft" || d.status === "review").length,
+    completed: documents.filter(d => d.status === "approved" || d.status === "ready").length,
+    submitted: documents.filter(d => d.status === "submitted").length
+  };
+
+  const getFileIcon = (fileName: string) => {
+    if (!fileName) return <File className="w-4 h-4" />;
+    const ext = fileName.split('.').pop()?.toLowerCase();
+    if (ext === 'pdf') return <FileText className="w-4 h-4 text-red-400" />;
+    if (['jpg', 'jpeg', 'png', 'gif'].includes(ext || '')) return <Image className="w-4 h-4 text-blue-400" />;
+    if (['zip', 'rar', '7z'].includes(ext || '')) return <FileArchive className="w-4 h-4 text-yellow-400" />;
+    if (['xls', 'xlsx', 'csv'].includes(ext || '')) return <FileSpreadsheet className="w-4 h-4 text-green-400" />;
+    return <File className="w-4 h-4" />;
+  };
+
+  // ========== EMAIL ==========
+  const handleSendEmail = async () => {
+    if (!to || !subject || !body) {
+      toast.error("Tous les champs sont requis");
+      return;
+    }
+
+    setIsSending(true);
+    try {
+      const response = await fetch(`${API_URL}/api/email/send`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ to, subject, body })
+      });
+      
+      const data = await response.json();
+      if (data.success) {
+        toast.success("Email envoyé avec succès !");
+        setTo("");
+        setSubject("");
+        setBody("");
+      } else {
+        toast.error("Erreur: " + data.error);
+      }
+    } catch (error) {
+      toast.error("Erreur de connexion");
+    } finally {
+      setIsSending(false);
+    }
+  };
+
+  if (isDocumentsLoading && activeTab === "documents") {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <Loader2 className="w-8 h-8 text-gold-500 animate-spin" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="h-full flex flex-col overflow-y-auto bg-midnight p-4 md:p-6 lg:p-8">
+      <div className="max-w-7xl mx-auto w-full">
+        {/* HEADER */}
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
+          <div>
+            <div className="flex items-center gap-3 mb-2">
+              <FileText className="w-8 h-8 text-orange-400" />
+              <Mail className="w-8 h-8 text-purple-400" />
+              <h1 className="text-3xl md:text-4xl font-serif text-gold-500 tracking-tight">
+                Communications
+              </h1>
+            </div>
+            <p className="text-gray-500 text-sm">
+              Gestion des documents et envoi d'emails
+            </p>
+          </div>
+        </div>
+
+        {/* Bloc Becks */}
+        <div className="bg-orange-500/10 border border-orange-500/20 rounded-xl p-4 mb-6">
+          <div className="flex items-center gap-3">
+            <FileText className="w-5 h-5 text-orange-400" />
+            <div>
+              <p className="text-sm text-orange-400 font-medium">Becks - Communications</p>
+              <p className="text-sm text-ivory">
+                📄 {documents.filter(d => d.status === "draft").length} brouillon(s) • 
+                📧 Prêt à envoyer des emails
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* TABS */}
+        <div className="flex flex-wrap gap-2 border-b border-white/10 mb-6 overflow-x-auto pb-2">
+          <button
+            onClick={() => setActiveTab("documents")}
+            className={`px-4 py-2 text-sm flex items-center gap-2 transition-colors rounded-lg ${
+              activeTab === "documents" ? "bg-gold-500/20 text-gold-500" : "text-gray-400 hover:text-white hover:bg-white/5"
+            }`}
+          >
+            <LayoutGrid className="w-4 h-4" /> Documents & Deals
+          </button>
+          <button
+            onClick={() => setActiveTab("email")}
+            className={`px-4 py-2 text-sm flex items-center gap-2 transition-colors rounded-lg ${
+              activeTab === "email" ? "bg-gold-500/20 text-gold-500" : "text-gray-400 hover:text-white hover:bg-white/5"
+            }`}
+          >
+            <Mail className="w-4 h-4" /> Email
+          </button>
+        </div>
+
+        {/* ==================== ONGLET DOCUMENTS ==================== */}
+        {activeTab === "documents" && (
+          <div>
+            {/* STATISTIQUES DOCUMENTS */}
+            <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 mb-6">
+              <div className="bg-white/5 border border-white/10 rounded-xl p-4 text-center">
+                <FileText className="w-6 h-6 text-gold-500 mx-auto mb-2" />
+                <div className="text-2xl font-serif text-ivory">{documentStats.total}</div>
+                <div className="text-xs text-gray-500 uppercase">Total documents</div>
+              </div>
+              <div className="bg-white/5 border border-white/10 rounded-xl p-4 text-center">
+                <Clock className="w-6 h-6 text-yellow-400 mx-auto mb-2" />
+                <div className="text-2xl font-serif text-yellow-400">{documentStats.pending}</div>
+                <div className="text-xs text-gray-500 uppercase">En attente</div>
+              </div>
+              <div className="bg-white/5 border border-white/10 rounded-xl p-4 text-center">
+                <Upload className="w-6 h-6 text-purple-400 mx-auto mb-2" />
+                <div className="text-2xl font-serif text-purple-400">{documentStats.submitted}</div>
+                <div className="text-xs text-gray-500 uppercase">Soumis</div>
+              </div>
+              <div className="bg-white/5 border border-white/10 rounded-xl p-4 text-center">
+                <CheckCircle className="w-6 h-6 text-emerald-400 mx-auto mb-2" />
+                <div className="text-2xl font-serif text-emerald-400">{documentStats.completed}</div>
+                <div className="text-xs text-gray-500 uppercase">Validés</div>
+              </div>
+            </div>
+
+            {/* RECHERCHE ET FILTRES */}
+            <div className="flex flex-col sm:flex-row justify-between gap-4 mb-6">
+              <div className="relative flex-1 max-w-md">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-500" />
+                <input
+                  type="text"
+                  placeholder="Rechercher un document..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2 bg-white/5 border border-white/10 rounded-xl text-ivory placeholder:text-gray-500 focus:outline-none focus:border-gold-500"
+                />
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <button onClick={() => setFilter("all")} className={`px-4 py-2 rounded-full text-sm transition-all ${filter === "all" ? "bg-gold-500 text-midnight" : "bg-white/5 text-gray-400 hover:bg-white/10"}`}>Tous</button>
+                <button onClick={() => setFilter("draft")} className={`px-4 py-2 rounded-full text-sm transition-all ${filter === "draft" ? "bg-yellow-500 text-midnight" : "bg-white/5 text-gray-400 hover:bg-white/10"}`}>📝 Brouillons</button>
+                <button onClick={() => setFilter("review")} className={`px-4 py-2 rounded-full text-sm transition-all ${filter === "review" ? "bg-blue-500 text-white" : "bg-white/5 text-gray-400 hover:bg-white/10"}`}>🔍 Relecture</button>
+                <button onClick={() => setFilter("submitted")} className={`px-4 py-2 rounded-full text-sm transition-all ${filter === "submitted" ? "bg-purple-500 text-white" : "bg-white/5 text-gray-400 hover:bg-white/10"}`}>📤 Soumis</button>
+                <button onClick={() => setFilter("approved")} className={`px-4 py-2 rounded-full text-sm transition-all ${filter === "approved" ? "bg-emerald-500 text-white" : "bg-white/5 text-gray-400 hover:bg-white/10"}`}>✅ Approuvés</button>
+              </div>
+            </div>
+
+            {/* BOUTON AJOUTER DOCUMENT */}
+            <div className="flex justify-end mb-4">
+              <button
+                onClick={() => { setShowDocumentForm(true); setEditingDoc(null); scrollToForm(); }}
+                className="bg-gold-500 text-midnight px-4 py-2 rounded-full text-sm font-medium flex items-center gap-2 hover:bg-gold-400 transition-colors"
+              >
+                <Plus className="w-4 h-4" /> Nouveau document
+              </button>
+            </div>
+
+            {/* FORMULAIRE DOCUMENT */}
+            <AnimatePresence>
+              {showDocumentForm && (
+                <motion.div id="form-container" initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-2xl p-6 mb-6">
+                  <div className="flex justify-between items-center mb-4">
+                    <h3 className="text-lg font-serif text-ivory">{editingDoc ? "Modifier" : "Nouveau"} document</h3>
+                    <button onClick={resetDocumentForm} className="text-gray-400 hover:text-white"><X className="w-5 h-5" /></button>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <input type="text" placeholder="Nom du document" value={documentFormData.name} onChange={(e) => setDocumentFormData({ ...documentFormData, name: e.target.value })} className="bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-ivory md:col-span-2" />
+                    <select value={documentFormData.type} onChange={(e) => setDocumentFormData({ ...documentFormData, type: e.target.value })} className="bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-ivory">
+                      {Object.entries(documentTypeConfig).map(([key, conf]) => <option key={key} value={key}>{conf.label}</option>)}
+                    </select>
+                    <select value={documentFormData.status} onChange={(e) => setDocumentFormData({ ...documentFormData, status: e.target.value })} className="bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-ivory">
+                      {Object.entries(statusConfig).map(([key, conf]) => <option key={key} value={key}>{conf.label}</option>)}
+                    </select>
+                    <input type="date" value={documentFormData.due_date} onChange={(e) => setDocumentFormData({ ...documentFormData, due_date: e.target.value })} className="bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-ivory" />
+                    
+                    <div className="md:col-span-2">
+                      <div {...getRootProps()} className={`border-2 border-dashed rounded-xl p-6 text-center cursor-pointer transition-all ${isDragActive ? "border-gold-500 bg-gold-500/10" : "border-white/20 hover:border-gold-500/50"}`}>
+                        <input {...getInputProps()} />
+                        <Upload className="w-8 h-8 text-gray-500 mx-auto mb-2" />
+                        <p className="text-sm text-gray-400">{isDragActive ? "Dépose le fichier ici..." : "Glisse ou clique pour uploader un fichier"}</p>
+                        <p className="text-xs text-gray-600 mt-1">PDF, Word, Excel, Images, ZIP (max 50MB)</p>
+                      </div>
+                      {isUploading && <div className="mt-2 text-center text-sm text-gold-500 animate-pulse">Upload en cours...</div>}
+                      {documentFormData.file_name && (
+                        <div className="mt-2 p-2 bg-gold-500/10 rounded-lg flex items-center justify-between">
+                          <div className="flex items-center gap-2">{getFileIcon(documentFormData.file_name)}<span className="text-xs text-ivory">{documentFormData.file_name}</span></div>
+                          <button onClick={() => setDocumentFormData({ ...documentFormData, file_url: "", file_name: "" })} className="text-gray-500 hover:text-red-400"><Trash2 className="w-3 h-3" /></button>
+                        </div>
+                      )}
+                    </div>
+
+                    <input type="url" placeholder="Ou un lien externe" value={documentFormData.url} onChange={(e) => setDocumentFormData({ ...documentFormData, url: e.target.value })} className="bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-ivory md:col-span-2" />
+                    <input type="text" placeholder="Pièces manquantes (séparées par des virgules)" value={documentFormData.missing_pieces} onChange={(e) => setDocumentFormData({ ...documentFormData, missing_pieces: e.target.value })} className="bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-ivory md:col-span-2" />
+                    <textarea placeholder="Notes" value={documentFormData.notes} onChange={(e) => setDocumentFormData({ ...documentFormData, notes: e.target.value })} className="bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-ivory md:col-span-2" rows={2} />
+                  </div>
+                  <div className="flex gap-3 mt-6">
+                    <button onClick={saveDocument} className="bg-gold-500 text-midnight px-6 py-2 rounded-full font-medium hover:bg-gold-400 transition-colors">
+                      {editingDoc ? "Mettre à jour" : "Enregistrer"}
+                    </button>
+                    <button onClick={resetDocumentForm} className="bg-white/10 px-6 py-2 rounded-full hover:bg-white/20 transition-colors">Annuler</button>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            {/* LISTE DES DOCUMENTS */}
+            <div className="bg-white/5 border border-white/10 rounded-2xl overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead className="bg-white/5 border-b border-white/10">
+                    <tr>
+                      <th className="text-left p-4 text-xs uppercase tracking-wider text-gray-500">Document</th>
+                      <th className="text-left p-4 text-xs uppercase tracking-wider text-gray-500">Échéance</th>
+                      <th className="text-left p-4 text-xs uppercase tracking-wider text-gray-500">Type</th>
+                      <th className="text-left p-4 text-xs uppercase tracking-wider text-gray-500">Statut</th>
+                      <th className="text-left p-4 text-xs uppercase tracking-wider text-gray-500">Fichier</th>
+                      <th className="text-left p-4 text-xs uppercase tracking-wider text-gray-500"></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {isDocumentsLoading ? (
+                      <tr><td colSpan={6} className="text-center py-12"><LoadingSpinner /></td></tr>
+                    ) : filteredDocuments.length === 0 ? (
+                      <tr><td colSpan={6} className="text-center py-12 text-gray-500"><FileText className="w-12 h-12 mx-auto mb-4 opacity-30" /><p>Aucun document trouvé</p></td></tr>
+                    ) : (
+                      filteredDocuments.map((doc) => {
+                        const statusConf = statusConfig[doc.status] || statusConfig.draft;
+                        const StatusIcon = statusConf.icon;
+                        return (
+                          <tr key={doc.id} className="border-b border-white/5 hover:bg-white/5 transition-colors">
+                            <td className="p-4">
+                              <div>
+                                <div className="flex items-center gap-3"><FileText className="w-5 h-5 text-gold-500/60" /><span className="text-ivory font-medium">{doc.name}</span></div>
+                                {doc.notes && <p className="text-xs text-gray-600 mt-1 ml-8">{doc.notes}</p>}
+                                {doc.missing_pieces && doc.missing_pieces.length > 0 && (
+                                  <div className="flex flex-wrap gap-1 mt-1 ml-8">{doc.missing_pieces.map((piece, i) => <span key={i} className="text-xs text-orange-400 bg-orange-500/10 px-2 py-0.5 rounded-full">⚠️ {piece}</span>)}</div>
+                                )}
+                              </div>
+                            </td>
+                            <td className="p-4 text-gray-400 text-sm">{doc.due_date ? <span className="flex items-center gap-1"><Calendar className="w-3 h-3" />{new Date(doc.due_date).toLocaleDateString('fr-FR')}</span> : "—"}</td>
+                            <td className="p-4"><span className={`inline-flex px-2 py-1 rounded-full text-xs ${documentTypeConfig[doc.type]?.color || "bg-gray-500/20 text-gray-400"}`}>{documentTypeConfig[doc.type]?.label.split(" ")[1] || doc.type}</span></td>
+                            <td className="p-4">
+                              <select value={doc.status} onChange={(e) => updateDocumentStatus(doc.id, e.target.value)} className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs border focus:outline-none ${statusConf.color}`}>
+                                {Object.entries(statusConfig).map(([key, conf]) => <option key={key} value={key}>{conf.label}</option>)}
+                              </select>
+                            </td>
+                            <td className="p-4">{(doc.file_url || doc.url) && <a href={doc.file_url || doc.url || "#"} target="_blank" rel="noopener noreferrer" className="text-gray-500 hover:text-gold-500 transition-colors flex items-center gap-1">{getFileIcon(doc.file_name || "")}<span className="text-xs">Ouvrir</span></a>}</td>
+                            <td className="p-4"><div className="flex items-center gap-2"><button onClick={() => editDocument(doc)} className="text-gray-500 hover:text-gold-500"><Edit2 className="w-4 h-4" /></button><button onClick={() => deleteDocument(doc.id)} className="text-gray-500 hover:text-red-400"><Trash2 className="w-4 h-4" /></button></div></td>
+                          </tr>
+                        );
+                      })
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ==================== ONGLET EMAIL ==================== */}
+        {activeTab === "email" && (
+          <div className="max-w-3xl mx-auto">
+            <div className="bg-white/5 border border-white/10 rounded-2xl p-6">
+              <h2 className="text-xl font-serif text-gold-500 mb-6 flex items-center gap-2">
+                <Mail className="w-5 h-5" /> Envoyer un email
+              </h2>
+              
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm text-gray-400 mb-2">Destinataire</label>
+                  <input
+                    type="email"
+                    value={to}
+                    onChange={(e) => setTo(e.target.value)}
+                    placeholder="exemple@email.com"
+                    className="w-full bg-white/10 border border-white/10 rounded-xl px-4 py-3 text-ivory focus:outline-none focus:border-gold-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm text-gray-400 mb-2">Sujet</label>
+                  <input
+                    type="text"
+                    value={subject}
+                    onChange={(e) => setSubject(e.target.value)}
+                    placeholder="Sujet de l'email"
+                    className="w-full bg-white/10 border border-white/10 rounded-xl px-4 py-3 text-ivory focus:outline-none focus:border-gold-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm text-gray-400 mb-2">Message (HTML supporté)</label>
+                  <textarea
+                    value={body}
+                    onChange={(e) => setBody(e.target.value)}
+                    placeholder="Écris ton message ici...<br>Tu peux utiliser du HTML"
+                    rows={8}
+                    className="w-full bg-white/10 border border-white/10 rounded-xl px-4 py-3 text-ivory focus:outline-none focus:border-gold-500 resize-none font-mono text-sm"
+                  />
+                </div>
+
+                <button
+                  onClick={handleSendEmail}
+                  disabled={isSending}
+                  className="w-full bg-gold-500 text-midnight py-3 rounded-xl font-medium flex items-center justify-center gap-2 hover:bg-gold-400 transition-colors disabled:opacity-50"
+                >
+                  {isSending ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}
+                  Envoyer l'email
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
