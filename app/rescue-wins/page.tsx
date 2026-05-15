@@ -671,5 +671,5 @@ export default function RescueWinsPage() {
         )}
       </div>
     </div>
-  };
+  );
 }
