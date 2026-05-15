@@ -7,7 +7,7 @@ import {
   Megaphone, Calendar, Plus, Edit2, Trash2, X,
   Sparkles, Clock, CheckCircle, AlertCircle, Filter,
   Image, FileText, Video, Music, Download,
-  ChevronLeft, ChevronRight, Brain, LayoutGrid
+  ChevronLeft, ChevronRight, Brain, LayoutGrid, Loader2
 } from "lucide-react";
 import { exportToPDF } from "@/lib/exportPDF";
 import { toast } from "sonner";
