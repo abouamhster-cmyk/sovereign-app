@@ -524,4 +524,178 @@ export default function SantePlusBeninPage() {
                     </select>
                     <input type="number" placeholder="Valeur estimée (CFA)" value={formData.estimated_value || ""} onChange={(e) => setFormData({ ...formData, estimated_value: e.target.value })} className="bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-ivory" />
                     <input type="text" placeholder="Prochaine action" value={formData.next_action || ""} onChange={(e) => setFormData({ ...formData, next_action: e.target.value })} className="bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-ivory" />
-                    <textarea placeholder="Notes" value={formData.notes || ""} onChange={(e) => setFormData({ ...formData, notes: e.target.value })} className="bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-ivory md:col-span-2" rows={2
+                    <textarea placeholder="Notes" value={formData.notes || ""} onChange={(e) => setFormData({ ...formData, notes: e.target.value })} className="bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-ivory md:col-span-2" rows={2} />
+                  </>
+                )}
+              </div>
+              
+              <div className="flex gap-3 mt-6">
+                <button onClick={saveItem} className="bg-gold-500 text-midnight px-6 py-2 rounded-full font-medium hover:bg-gold-400 transition-colors">
+                  {editingId ? "Mettre à jour" : "Enregistrer"}
+                </button>
+                <button onClick={resetForm} className="bg-white/10 px-6 py-2 rounded-full hover:bg-white/20 transition-colors">Annuler</button>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* LISTES */}
+        {isLoading ? (
+          <div className="flex justify-center py-12"><Loader2 className="w-8 h-8 text-gold-500 animate-spin" /></div>
+        ) : (
+          <div className="space-y-3">
+            {/* CLIENTS */}
+            {activeTab === "clients" && clients.map(client => (
+              <div key={client.id} className="bg-white/5 border border-white/10 rounded-xl p-4 hover:bg-white/10 transition-colors">
+                <div className="flex justify-between items-start">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-3 flex-wrap">
+                      <h3 className="text-ivory font-medium">{client.name}</h3>
+                      <span className={`text-xs px-2 py-0.5 rounded-full ${getStatusColor(client.status)}`}>
+                        {client.status === "active" ? "Actif" : "Inactif"}
+                      </span>
+                    </div>
+                    <div className="flex flex-wrap gap-4 mt-2 text-xs text-gray-500">
+                      {client.phone && <span className="flex items-center gap-1"><Phone className="w-3 h-3" /> {client.phone}</span>}
+                      {client.email && <span className="flex items-center gap-1"><Mail className="w-3 h-3" /> {client.email}</span>}
+                      {client.address && <span className="flex items-center gap-1"><MapPin className="w-3 h-3" /> {client.address}</span>}
+                    </div>
+                    {client.service_type && <p className="text-xs text-gray-400 mt-2">Service: {client.service_type}</p>}
+                    {client.notes && <p className="text-xs text-gray-500 mt-1 italic">{client.notes}</p>}
+                  </div>
+                  <div className="flex gap-2">
+                    <button onClick={() => editItem(client, "clients")} className="text-gray-500 hover:text-gold-500"><Edit2 className="w-4 h-4" /></button>
+                    <button onClick={() => deleteItem("sante_plus_clients", client.id)} className="text-gray-500 hover:text-red-400"><Trash2 className="w-4 h-4" /></button>
+                  </div>
+                </div>
+              </div>
+            ))}
+
+            {/* VISITES */}
+            {activeTab === "visits" && visits.map(visit => (
+              <div key={visit.id} className="bg-white/5 border border-white/10 rounded-xl p-4 hover:bg-white/10 transition-colors">
+                <div className="flex justify-between items-start">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-3 flex-wrap">
+                      <h3 className="text-ivory font-medium">{visit.client_name}</h3>
+                      <span className={`text-xs px-2 py-0.5 rounded-full ${getStatusColor(visit.status)}`}>
+                        {visit.status === "scheduled" ? "Planifiée" : visit.status === "completed" ? "Réalisée" : "Annulée"}
+                      </span>
+                    </div>
+                    <div className="flex flex-wrap gap-4 mt-2 text-xs text-gray-500">
+                      <span className="flex items-center gap-1"><Calendar className="w-3 h-3" /> {formatDate(visit.date)}</span>
+                      {visit.duration && <span className="flex items-center gap-1"><Clock className="w-3 h-3" /> {visit.duration} min</span>}
+                      {visit.service && <span>{visit.service}</span>}
+                    </div>
+                    {visit.notes && <p className="text-xs text-gray-500 mt-1 italic">{visit.notes}</p>}
+                  </div>
+                  <div className="flex gap-2">
+                    <button onClick={() => editItem(visit, "visits")} className="text-gray-500 hover:text-gold-500"><Edit2 className="w-4 h-4" /></button>
+                    <button onClick={() => deleteItem("sante_plus_visits", visit.id)} className="text-gray-500 hover:text-red-400"><Trash2 className="w-4 h-4" /></button>
+                  </div>
+                </div>
+              </div>
+            ))}
+
+            {/* STAFF */}
+            {activeTab === "staff" && staff.map(member => (
+              <div key={member.id} className="bg-white/5 border border-white/10 rounded-xl p-4 hover:bg-white/10 transition-colors">
+                <div className="flex justify-between items-start">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-3 flex-wrap">
+                      <h3 className="text-ivory font-medium">{member.name}</h3>
+                      <span className="text-xs text-gold-500">{member.role}</span>
+                      <span className={`text-xs px-2 py-0.5 rounded-full ${getStatusColor(member.status)}`}>
+                        {member.status === "active" ? "Actif" : "Inactif"}
+                      </span>
+                    </div>
+                    <div className="flex flex-wrap gap-4 mt-2 text-xs text-gray-500">
+                      {member.phone && <span className="flex items-center gap-1"><Phone className="w-3 h-3" /> {member.phone}</span>}
+                      {member.email && <span className="flex items-center gap-1"><Mail className="w-3 h-3" /> {member.email}</span>}
+                      {member.hourly_rate && <span>{member.hourly_rate.toLocaleString()} CFA/h</span>}
+                    </div>
+                    {member.notes && <p className="text-xs text-gray-500 mt-1 italic">{member.notes}</p>}
+                  </div>
+                  <div className="flex gap-2">
+                    <button onClick={() => editItem(member, "staff")} className="text-gray-500 hover:text-gold-500"><Edit2 className="w-4 h-4" /></button>
+                    <button onClick={() => deleteItem("sante_plus_staff", member.id)} className="text-gray-500 hover:text-red-400"><Trash2 className="w-4 h-4" /></button>
+                  </div>
+                </div>
+              </div>
+            ))}
+
+            {/* PROJETS BÉNIN */}
+            {activeTab === "benin-projects" && beninProjects.map(project => {
+              const categoryConf = categoriesBenin[project.category as keyof typeof categoriesBenin] || categoriesBenin.other;
+              return (
+                <div key={project.id} className="bg-white/5 border border-white/10 rounded-xl p-4 hover:bg-white/10 transition-colors">
+                  <div className="flex justify-between items-start">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-3 flex-wrap">
+                        <h3 className="text-ivory font-medium">{project.name}</h3>
+                        <span className={`text-xs px-2 py-0.5 rounded-full ${categoryConf.color}`}>{categoryConf.label}</span>
+                        <span className={`text-xs px-2 py-0.5 rounded-full ${getPriorityColor(project.priority)}`}>
+                          {project.priority === "critical" ? "Critique" : project.priority === "high" ? "Haute" : project.priority === "normal" ? "Normale" : "Basse"}
+                        </span>
+                      </div>
+                      <div className="flex flex-wrap gap-4 mt-2 text-xs text-gray-500">
+                        {project.deadline && <span className="flex items-center gap-1"><Calendar className="w-3 h-3" /> {new Date(project.deadline).toLocaleDateString('fr-FR')}</span>}
+                        {project.budget > 0 && <span>💰 Budget: {project.budget.toLocaleString()} CFA</span>}
+                        {project.spent > 0 && <span>💸 Dépensé: {project.spent.toLocaleString()} CFA</span>}
+                      </div>
+                      {project.next_action && <p className="text-xs text-gold-500 mt-2">🎯 {project.next_action}</p>}
+                      {project.notes && <p className="text-xs text-gray-500 mt-1 italic">{project.notes}</p>}
+                    </div>
+                    <div className="flex gap-2">
+                      <button onClick={() => editItem(project, "benin-projects")} className="text-gray-500 hover:text-gold-500"><Edit2 className="w-4 h-4" /></button>
+                      <button onClick={() => deleteItem("benin_projects", project.id)} className="text-gray-500 hover:text-red-400"><Trash2 className="w-4 h-4" /></button>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+
+            {/* OPPORTUNITÉS BÉNIN */}
+            {activeTab === "benin-opportunities" && beninOpportunities.map(opp => (
+              <div key={opp.id} className="bg-white/5 border border-white/10 rounded-xl p-4 hover:bg-white/10 transition-colors">
+                <div className="flex justify-between items-start">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-3 flex-wrap">
+                      <h3 className="text-ivory font-medium">{opp.title}</h3>
+                      <span className={`text-xs px-2 py-0.5 rounded-full ${getPriorityColor(opp.priority)}`}>
+                        {opp.priority === "high" ? "Haute" : opp.priority === "medium" ? "Moyenne" : "Basse"}
+                      </span>
+                    </div>
+                    <div className="flex flex-wrap gap-4 mt-2 text-xs text-gray-500">
+                      {opp.contact_name && <span className="flex items-center gap-1"><Users className="w-3 h-3" /> {opp.contact_name}</span>}
+                      {opp.estimated_value > 0 && <span className="text-emerald-400">{opp.estimated_value.toLocaleString()} CFA</span>}
+                    </div>
+                    {opp.next_action && <p className="text-xs text-gold-500 mt-2">🎯 {opp.next_action}</p>}
+                    {opp.notes && <p className="text-xs text-gray-500 mt-1 italic">{opp.notes}</p>}
+                  </div>
+                  <div className="flex gap-2">
+                    <button onClick={() => editItem(opp, "benin-opportunities")} className="text-gray-500 hover:text-gold-500"><Edit2 className="w-4 h-4" /></button>
+                    <button onClick={() => deleteItem("benin_opportunities", opp.id)} className="text-gray-500 hover:text-red-400"><Trash2 className="w-4 h-4" /></button>
+                  </div>
+                </div>
+              </div>
+            ))}
+
+            {/* Message vide */}
+            {(activeTab === "clients" && clients.length === 0) ||
+             (activeTab === "visits" && visits.length === 0) ||
+             (activeTab === "staff" && staff.length === 0) ||
+             (activeTab === "benin-projects" && beninProjects.length === 0) ||
+             (activeTab === "benin-opportunities" && beninOpportunities.length === 0) && (
+              <div className="text-center py-12 text-gray-500">
+                <Heart className="w-12 h-12 mx-auto mb-4 opacity-30" />
+                <p>Aucune donnée</p>
+                <p className="text-sm mt-2">Clique sur "Ajouter" pour commencer</p>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
