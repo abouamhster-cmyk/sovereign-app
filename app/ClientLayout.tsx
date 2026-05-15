@@ -43,6 +43,7 @@ const menuItems: MenuItem[] = [
   { name: "Business", icon: Briefcase, href: "/business", group: "projects" },
   { name: "Love & Fire Sport", icon: Trophy, href: "/love-fire-sport", group: "projects" },
   { name: "Ifè Farm", icon: Sprout, href: "/farm", group: "projects" },
+  { name: "Santé Plus & Bénin", icon: Heart, href: "/sante-plus-benin", group: "projects" },
   { name: "Relocation", icon: Globe, href: "/relocation", group: "projects" },
   
   { name: "Wins", icon: Trophy, href: "/wins", group: "vie" },
