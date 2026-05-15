@@ -7,7 +7,8 @@ import {
   Wallet, TrendingUp, TrendingDown, Plus, Trash2, Edit2, 
   X, Check, Calendar, FolderOpen, Tag, Loader2, RefreshCw,
   Download, DollarSign, Target, Clock, AlertCircle,
-  Filter, Search, Briefcase, Sparkles, Brain, LayoutGrid
+  Filter, Search, Briefcase, Sparkles, Brain, LayoutGrid,
+  CheckCircle, Send, Package
 } from "lucide-react";
 import { exportFinancialToPDF } from "@/lib/exportPDF";
 import { Chart as ChartJS, ArcElement, Tooltip, Legend, CategoryScale, LinearScale, BarElement, Title } from 'chart.js';
