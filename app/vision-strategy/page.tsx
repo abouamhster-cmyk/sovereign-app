@@ -126,7 +126,31 @@ export default function VisionStrategyPage() {
       const response = await fetch(`${API_URL}/api/weekly-ceo`);
       const result = await response.json();
       if (result.success) {
-        setWeeklyData(result);
+        // Sécurisation des données avec valeurs par défaut
+        setWeeklyData({
+          ...result,
+          mood_summary: result.mood_summary || [],
+          what_moved: {
+            completed_tasks: result.what_moved?.completed_tasks || [],
+            wins: result.what_moved?.wins || []
+          },
+          what_stalled: {
+            overdue_docs: result.what_stalled?.overdue_docs || [],
+            pending_docs_count: result.what_stalled?.pending_docs_count || 0,
+            stalled_missions: result.what_stalled?.stalled_missions || []
+          },
+          next_week_priorities: result.next_week_priorities || [],
+          summary: {
+            tasks_completed: result.summary?.tasks_completed || 0,
+            tasks_created: result.summary?.tasks_created || 0,
+            completion_rate: result.summary?.completion_rate || 0,
+            wins: result.summary?.wins || 0,
+            total_spending: result.summary?.total_spending || 0,
+            total_revenue: result.summary?.total_revenue || 0,
+            net_balance: result.summary?.net_balance || 0
+          },
+          insights: result.insights || "Analyse en cours..."
+        });
       }
     } catch (error) {
       console.error("Erreur weekly CEO:", error);
@@ -152,6 +176,7 @@ export default function VisionStrategyPage() {
   }
 
   const formatDate = (dateStr: string) => {
+    if (!dateStr) return "";
     const date = new Date(dateStr);
     return date.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' });
   };
@@ -190,7 +215,7 @@ export default function VisionStrategyPage() {
             Vue d'ensemble et pilotage stratégique
           </p>
         </div>
-        {activeTab === "weekly" && (
+        {activeTab === "weekly" && weeklyData && (
           <button
             onClick={regeneratePriorities}
             disabled={isGenerating}
@@ -338,7 +363,7 @@ export default function VisionStrategyPage() {
           <div className="bg-white/5 border border-white/10 rounded-xl p-4 text-center mb-6">
             <Calendar className="w-5 h-5 text-gold-500 mx-auto mb-2" />
             <p className="text-sm text-ivory">
-              Semaine du {formatDate(weeklyData.week_range.start)} au {formatDate(weeklyData.week_range.end)}
+              Semaine du {formatDate(weeklyData.week_range?.start)} au {formatDate(weeklyData.week_range?.end)}
             </p>
           </div>
 
@@ -383,7 +408,7 @@ export default function VisionStrategyPage() {
               ✅ CE QUI A AVANCÉ
             </h2>
             
-            {weeklyData.what_moved.completed_tasks.length > 0 && (
+            {weeklyData.what_moved?.completed_tasks && weeklyData.what_moved.completed_tasks.length > 0 && (
               <div className="mb-4">
                 <p className="text-xs text-gray-500 mb-2">Tâches complétées :</p>
                 <div className="space-y-1">
@@ -398,7 +423,7 @@ export default function VisionStrategyPage() {
               </div>
             )}
             
-            {weeklyData.what_moved.wins.length > 0 && (
+            {weeklyData.what_moved?.wins && weeklyData.what_moved.wins.length > 0 && (
               <div>
                 <p className="text-xs text-gray-500 mb-2">Victoires célébrées :</p>
                 <div className="space-y-1">
@@ -412,7 +437,8 @@ export default function VisionStrategyPage() {
               </div>
             )}
             
-            {weeklyData.what_moved.completed_tasks.length === 0 && weeklyData.what_moved.wins.length === 0 && (
+            {(!weeklyData.what_moved?.completed_tasks || weeklyData.what_moved.completed_tasks.length === 0) && 
+             (!weeklyData.what_moved?.wins || weeklyData.what_moved.wins.length === 0) && (
               <p className="text-sm text-gray-500">Aucune avancée enregistrée cette semaine.</p>
             )}
           </div>
@@ -424,7 +450,7 @@ export default function VisionStrategyPage() {
               ⚠️ CE QUI A BLOQUÉ
             </h2>
             
-            {weeklyData.what_stalled.overdue_docs.length > 0 && (
+            {weeklyData.what_stalled?.overdue_docs && weeklyData.what_stalled.overdue_docs.length > 0 && (
               <div className="mb-4">
                 <p className="text-xs text-gray-500 mb-2">Documents en retard :</p>
                 <div className="space-y-1">
@@ -438,7 +464,7 @@ export default function VisionStrategyPage() {
               </div>
             )}
             
-            {weeklyData.what_stalled.stalled_missions.length > 0 && (
+            {weeklyData.what_stalled?.stalled_missions && weeklyData.what_stalled.stalled_missions.length > 0 && (
               <div>
                 <p className="text-xs text-gray-500 mb-2">Missions sans activité :</p>
                 <div className="space-y-1">
@@ -452,12 +478,13 @@ export default function VisionStrategyPage() {
               </div>
             )}
             
-            {weeklyData.what_stalled.overdue_docs.length === 0 && weeklyData.what_stalled.stalled_missions.length === 0 && (
+            {(!weeklyData.what_stalled?.overdue_docs || weeklyData.what_stalled.overdue_docs.length === 0) && 
+             (!weeklyData.what_stalled?.stalled_missions || weeklyData.what_stalled.stalled_missions.length === 0) && (
               <p className="text-sm text-gray-500">Rien à signaler, tout roule !</p>
             )}
             
             <p className="text-xs text-gray-500 mt-3 pt-2 border-t border-red-500/20">
-              {weeklyData.pending_documents_summary}
+              {weeklyData.pending_documents_summary || "Aucun document en attente"}
             </p>
           </div>
 
@@ -467,19 +494,19 @@ export default function VisionStrategyPage() {
               <DollarSign className="w-4 h-4 text-emerald-400" />
               <h2 className="text-sm font-serif text-emerald-400">PLUS PROCHE DU CASH</h2>
             </div>
-            <p className="text-ivory text-lg font-medium">{weeklyData.closest_to_cash}</p>
+            <p className="text-ivory text-lg font-medium">{weeklyData.closest_to_cash || "Aucune mission identifiée"}</p>
             <p className="text-xs text-gray-500 mt-1">Mission avec le plus fort potentiel de revenu immédiat</p>
           </div>
 
           {/* HUMEURS DE LA SEMAINE */}
-          {weeklyData.mood_summary.length > 0 && (
+          {weeklyData.mood_summary && weeklyData.mood_summary.length > 0 && (
             <div className="bg-white/5 border border-white/10 rounded-xl p-5 mb-6">
               <h2 className="text-sm font-serif text-gold-500 mb-3 flex items-center gap-2">
                 <Heart className="w-4 h-4" />
                 Humeurs de la semaine
               </h2>
               <div className="flex flex-wrap gap-2">
-                {weeklyData.mood_summary.map((entry, idx) => (
+                {weeklyData.mood_summary.slice(0, 7).map((entry, idx) => (
                   <span key={idx} className="text-xs px-2 py-1 bg-white/10 rounded-full">
                     {getMoodEmoji(entry.mood)} {formatDate(entry.date)}
                   </span>
@@ -489,22 +516,24 @@ export default function VisionStrategyPage() {
           )}
 
           {/* PRIORITÉS SEMAINE PROCHAINE */}
-          <div className="bg-gold-500/10 border border-gold-500/20 rounded-xl p-5 mb-6">
-            <h2 className="text-sm font-serif text-gold-500 mb-4 flex items-center gap-2">
-              <Target className="w-4 h-4" />
-              🎯 TOP 3 PRIORITÉS SEMAINE PROCHAINE
-            </h2>
-            <div className="space-y-3">
-              {weeklyData.next_week_priorities.map((priority, idx) => (
-                <div key={idx} className="flex items-center gap-3">
-                  <div className="w-6 h-6 rounded-full bg-gold-500/20 text-gold-500 flex items-center justify-center text-xs font-bold">
-                    {idx + 1}
+          {weeklyData.next_week_priorities && weeklyData.next_week_priorities.length > 0 && (
+            <div className="bg-gold-500/10 border border-gold-500/20 rounded-xl p-5 mb-6">
+              <h2 className="text-sm font-serif text-gold-500 mb-4 flex items-center gap-2">
+                <Target className="w-4 h-4" />
+                🎯 TOP 3 PRIORITÉS SEMAINE PROCHAINE
+              </h2>
+              <div className="space-y-3">
+                {weeklyData.next_week_priorities.slice(0, 3).map((priority, idx) => (
+                  <div key={idx} className="flex items-center gap-3">
+                    <div className="w-6 h-6 rounded-full bg-gold-500/20 text-gold-500 flex items-center justify-center text-xs font-bold">
+                      {idx + 1}
+                    </div>
+                    <span className="text-ivory">{priority}</span>
                   </div>
-                  <span className="text-ivory">{priority}</span>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
-          </div>
+          )}
 
           {/* BOUTON EXPORT */}
           <div className="flex justify-center">
