@@ -291,60 +291,58 @@ export default function DashboardPage() {
   return (
     <div className="max-w-2xl mx-auto space-y-6 pb-24">
       {/* HEADER avec message personnalisé de Becks */}
-      <div className="space-y-4">
-        <div className="flex justify-between items-center">
-          <div>
-            <h1 className="text-2xl font-serif text-ivory">
-              {greeting}, {userName}. <Crown className="inline w-5 h-5 text-gold-500" />
-            </h1>
-          </div>
-          <Link href="/settings" className="p-2 text-gray-400 hover:text-gold-500 transition-colors">
-            <Settings className="w-5 h-5" />
-          </Link>
-        </div>
-
-        <div className="flex items-start justify-between">
-          <div className="flex-1">
-            {/* Message de Becks existant */}
-          </div>
-          <SovereignAvatar 
-            size="sm" 
-            mood={mood}
-            state={isLoadingMessage ? "thinking" : "idle"}
-            lastMessage={becksMessage}
-          />
-        </div>
-
-        {/* Message personnalisé de Becks */}
-        <div className="bg-gradient-to-r from-gold-500/10 to-transparent border-l-4 border-gold-500 rounded-xl p-4">
-          {isLoadingMessage ? (
-            <div className="flex items-center gap-2">
-              <Loader2 className="w-4 h-4 text-gold-500 animate-spin" />
-              <span className="text-sm text-gray-400">Becks réfléchit...</span>
+         <div className="space-y-4">
+          <div className="flex justify-between items-center">
+            <div>
+              <h1 className="text-2xl font-serif text-ivory">
+                {greeting}, {userName}. <Crown className="inline w-5 h-5 text-gold-500" />
+              </h1>
             </div>
-          ) : (
-            <div className="flex items-start gap-3">
-              <Sparkles className="w-5 h-5 text-gold-500 mt-0.5 flex-shrink-0" />
-              <p className="text-ivory text-sm leading-relaxed">{becksMessage}</p>
+            <Link href="/settings" className="p-2 text-gray-400 hover:text-gold-500 transition-colors">
+              <Settings className="w-5 h-5" />
+            </Link>
+          </div>
+        
+          {/* Message Becks + Avatar */}
+          <div className="flex items-start gap-3">
+            <div className="flex-1">
+              <div className="bg-gradient-to-r from-gold-500/10 to-transparent border-l-4 border-gold-500 rounded-xl p-4">
+                {isLoadingMessage ? (
+                  <div className="flex items-center gap-2">
+                    <Loader2 className="w-4 h-4 text-gold-500 animate-spin" />
+                    <span className="text-sm text-gray-400">Becks réfléchit...</span>
+                  </div>
+                ) : (
+                  <div className="flex items-start gap-3">
+                    <Sparkles className="w-5 h-5 text-gold-500 mt-0.5 flex-shrink-0" />
+                    <p className="text-ivory text-sm leading-relaxed">{becksMessage}</p>
+                  </div>
+                )}
+              </div>
+            </div>
+            <SovereignAvatar 
+              size="sm" 
+              mood={mood}
+              state={isLoadingMessage ? "thinking" : "idle"}
+              lastMessage={becksMessage}
+            />
+          </div>
+        
+          {/* Petit résumé visuel */}
+          {todaySummary && (
+            <div className="flex gap-2 text-xs">
+              <span className="px-2 py-1 bg-white/5 rounded-full">
+                📋 {todaySummary.tasks_count} tâche(s)
+              </span>
+              <span className="px-2 py-1 bg-white/5 rounded-full">
+                🎯 {todaySummary.missions_count} mission(s)
+              </span>
+              <span className="px-2 py-1 bg-white/5 rounded-full">
+                📄 {todaySummary.docs_count} document(s)
+              </span>
             </div>
           )}
         </div>
-      
-        {/* Petit résumé visuel */}
-        {todaySummary && (
-          <div className="flex gap-2 text-xs">
-            <span className="px-2 py-1 bg-white/5 rounded-full">
-              📋 {todaySummary.tasks_count} tâche(s)
-            </span>
-            <span className="px-2 py-1 bg-white/5 rounded-full">
-              🎯 {todaySummary.missions_count} mission(s)
-            </span>
-            <span className="px-2 py-1 bg-white/5 rounded-full">
-              📄 {todaySummary.docs_count} document(s)
-            </span>
-          </div>
-        )}
-      </div>
 
       {/* HUMEUR DU JOUR */}
       <div className="bg-white/5 border border-white/10 rounded-xl p-4">
