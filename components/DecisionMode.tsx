@@ -17,14 +17,6 @@ export function DecisionMode({ onInsert, className = "" }: DecisionModeProps) {
   const [isComparing, setIsComparing] = useState(false);
   const [result, setResult] = useState<any>(null);
 
-  const criteriaLabels = {
-    revenue_speed: { label: "💰 Rapidité de revenu", icon: TrendingUp, weight: 5 },
-    strategic_value: { label: "🎯 Valeur stratégique", icon: Target, weight: 4 },
-    effort: { label: "⚡ Effort nécessaire", icon: Battery, weight: 3, lowerIsBetter: true },
-    emotional_cost: { label: "❤️ Coût émotionnel", icon: Heart, weight: 3, lowerIsBetter: true },
-    urgency: { label: "⏰ Urgence", icon: Clock, weight: 4 }
-  };
-
   async function compare() {
     if (!optionA.trim() || !optionB.trim()) {
       toast.error("Remplis les deux options");
@@ -72,7 +64,6 @@ export function DecisionMode({ onInsert, className = "" }: DecisionModeProps) {
         Decision Mode
       </h3>
 
-      {/* Options */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
         <div>
           <label className="text-sm text-gray-400 mb-1 block">Option A</label>
@@ -96,7 +87,6 @@ export function DecisionMode({ onInsert, className = "" }: DecisionModeProps) {
         </div>
       </div>
 
-      {/* Contexte */}
       <textarea
         placeholder="Contexte (optionnel) : Délais, budget, équipe..."
         value={context}
@@ -105,7 +95,6 @@ export function DecisionMode({ onInsert, className = "" }: DecisionModeProps) {
         rows={2}
       />
 
-      {/* Bouton comparer */}
       <div className="flex gap-3">
         <button
           onClick={compare}
@@ -122,10 +111,8 @@ export function DecisionMode({ onInsert, className = "" }: DecisionModeProps) {
         </button>
       </div>
 
-      {/* Résultats */}
       {result && (
         <div className="mt-6 space-y-4">
-          {/* Scores */}
           <div className="grid grid-cols-2 gap-4">
             <div className="bg-black/30 rounded-xl p-4 text-center">
               <p className="text-xs text-gray-500 mb-1">Option A</p>
@@ -147,7 +134,6 @@ export function DecisionMode({ onInsert, className = "" }: DecisionModeProps) {
             </div>
           </div>
 
-          {/* Pros & Cons */}
           <div className="grid grid-cols-2 gap-4">
             <div className="bg-emerald-500/5 rounded-xl p-4">
               <p className="text-xs text-emerald-400 mb-2">✅ Points forts - Option A</p>
@@ -179,7 +165,6 @@ export function DecisionMode({ onInsert, className = "" }: DecisionModeProps) {
             </div>
           </div>
 
-          {/* Recommandation */}
           <div className="bg-gold-500/10 border border-gold-500/20 rounded-xl p-4">
             <div className="flex items-center gap-2 mb-2">
               <ThumbsUp className="w-4 h-4 text-gold-500" />
@@ -194,7 +179,6 @@ export function DecisionMode({ onInsert, className = "" }: DecisionModeProps) {
             </p>
           </div>
 
-          {/* Bouton insérer */}
           {onInsert && (
             <button
               onClick={() => onInsert(JSON.stringify(result, null, 2))}
