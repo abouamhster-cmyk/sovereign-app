@@ -4,8 +4,7 @@ import { supabase } from "@/lib/supabase";
 import { motion, AnimatePresence } from "framer-motion";
 import { 
   Calendar, ChevronLeft, ChevronRight, Plus, 
-  Sparkles, Instagram, Linkedin, Youtube, Facebook,
-  CheckCircle, Clock, Edit2, Trash2, X, Loader2,
+  Sparkles, CheckCircle, Clock, Edit2, Trash2, X, Loader2,
   Filter, Brain, TrendingUp, Heart, MessageCircle
 } from "lucide-react";
 import { toast } from "sonner";
@@ -31,14 +30,15 @@ type Suggestion = {
   suggested_theme: string;
 };
 
-const platformIcons = {
-  instagram: Instagram,
-  linkedin: Linkedin,
-  youtube: Youtube,
-  facebook: Facebook,
-  tiktok: TrendingUp,
-  website: Sparkles,
-  other: Sparkles
+// Plateformes avec émojis (pas d'icônes lucide problématiques)
+const platformEmojis = {
+  instagram: "📸",
+  linkedin: "💼",
+  youtube: "📺",
+  facebook: "📘",
+  tiktok: "🎵",
+  website: "🌐",
+  other: "📝"
 };
 
 const platformColors = {
@@ -88,7 +88,6 @@ export default function ContentCalendarPage() {
         setSuggestions(data.suggestions || []);
         setStats(data.stats);
         
-        // Récupérer aussi les contenus existants
         const { data: contentsData } = await supabase
           .from("content")
           .select("*")
@@ -113,9 +112,11 @@ export default function ContentCalendarPage() {
       const data = await response.json();
       if (data.success) {
         setGeneratedIdea(data.idea);
+      } else {
+        toast.error("Erreur génération d'idée");
       }
     } catch (error) {
-      toast.error("Erreur génération d'idée");
+      toast.error("Erreur de connexion");
     }
     setGeneratingIdea(false);
   }
@@ -126,11 +127,11 @@ export default function ContentCalendarPage() {
     const { error } = await supabase.from("content").insert({
       title: generatedIdea.title,
       hook: generatedIdea.hook,
-      platform: "instagram", // à adapter
-      content_type: generatedIdea.content_type,
+      platform: "instagram",
+      content_type: generatedIdea.content_type || "post",
       status: "idea",
       publish_date: selectedDate,
-      cta: "À définir"
+      cta: generatedIdea.cta || "À définir"
     });
     
     if (!error) {
@@ -295,13 +296,13 @@ export default function ContentCalendarPage() {
                   
                   <div className="space-y-1">
                     {dayContents.slice(0, 2).map((content, idx) => {
-                      const Icon = platformIcons[content.platform as keyof typeof platformIcons] || Sparkles;
+                      const platformEmoji = platformEmojis[content.platform as keyof typeof platformEmojis] || "📝";
                       const iconColor = platformColors[content.platform as keyof typeof platformColors] || "text-gray-400";
                       const statusColor = statusConfig[content.status as keyof typeof statusConfig]?.color || "bg-gray-500/20 text-gray-400";
                       
                       return (
                         <div key={idx} className="text-[10px] p-1 rounded bg-white/5 truncate flex items-center gap-1">
-                          <Icon className={`w-3 h-3 ${iconColor}`} />
+                          <span className={iconColor}>{platformEmoji}</span>
                           <span className="text-gray-300 truncate flex-1">{content.title}</span>
                           <span className={`w-1.5 h-1.5 rounded-full ${statusColor.includes("emerald") ? "bg-emerald-400" : statusColor.includes("blue") ? "bg-blue-400" : "bg-yellow-400"}`} />
                         </div>
