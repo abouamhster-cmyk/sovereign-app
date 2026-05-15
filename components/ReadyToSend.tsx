@@ -88,7 +88,6 @@ export function ReadyToSend({ onInsert, className = "" }: ReadyToSendProps) {
         Génération prête à envoyer
       </h3>
 
-      {/* Type de document */}
       <div className="flex flex-wrap gap-2 mb-4">
         {(Object.entries(typeConfig) as [DocType, any][]).map(([key, conf]) => (
           <button
@@ -103,7 +102,6 @@ export function ReadyToSend({ onInsert, className = "" }: ReadyToSendProps) {
         ))}
       </div>
 
-      {/* Ton */}
       <div className="flex flex-wrap gap-2 mb-4">
         <span className="text-xs text-gray-500 mr-2">Ton :</span>
         {["professional", "warm", "direct", "persuasive"].map(t => (
@@ -122,7 +120,6 @@ export function ReadyToSend({ onInsert, className = "" }: ReadyToSendProps) {
         ))}
       </div>
 
-      {/* Destinataire */}
       <input
         type="text"
         placeholder="Destinataire (optionnel)"
@@ -131,7 +128,6 @@ export function ReadyToSend({ onInsert, className = "" }: ReadyToSendProps) {
         className="w-full bg-white/10 border border-white/10 rounded-xl px-4 py-2 text-sm text-ivory placeholder:text-gray-500 focus:outline-none focus:border-gold-500 mb-4"
       />
 
-      {/* Contexte */}
       <textarea
         placeholder={typeConfig[docType].placeholder}
         value={context}
@@ -140,7 +136,6 @@ export function ReadyToSend({ onInsert, className = "" }: ReadyToSendProps) {
         rows={4}
       />
 
-      {/* Bouton générer */}
       <button
         onClick={generate}
         disabled={isGenerating || !context.trim()}
@@ -149,11 +144,10 @@ export function ReadyToSend({ onInsert, className = "" }: ReadyToSendProps) {
         {isGenerating ? "Génération..." : "✨ Générer"}
       </button>
 
-      {/* Résultat */}
       {generated && (
         <div className="mt-4 p-4 bg-black/30 rounded-xl">
           {generated.subject && (
-            <div className="mb-3 pb-2 border-b border-white/10">
+            <div className="mb-3 pb-2 border-t border-white/10">
               <span className="text-xs text-gray-500">Objet :</span>
               <p className="text-sm text-gold-500 font-medium">{generated.subject}</p>
             </div>
