@@ -18,6 +18,7 @@ import { toast } from "sonner";
 import { supabase } from "@/lib/supabase";
 import { useDropzone } from "react-dropzone";
 import SpeechRecognition, { useSpeechRecognition } from "react-speech-recognition";
+import { useTextToSpeech } from "@/hooks/useTextToSpeech";
 import { MessageWithActions, type Action } from "@/components/MessageWithActions";
 
 const API_URL = "https://sovereign-bridge.onrender.com";
