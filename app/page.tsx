@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import SovereignAvatar from "@/components/SovereignAvatar";
 import { supabase } from "@/lib/supabase";
 import { motion } from "framer-motion";
 import Link from "next/link";
@@ -301,7 +302,19 @@ export default function DashboardPage() {
             <Settings className="w-5 h-5" />
           </Link>
         </div>
-      
+
+        <div className="flex items-start justify-between">
+          <div className="flex-1">
+            {/* Message de Becks existant */}
+          </div>
+          <SovereignAvatar 
+            size="sm" 
+            mood={mood}
+            state={isLoadingMessage ? "thinking" : "idle"}
+            lastMessage={becksMessage}
+          />
+        </div>
+
         {/* Message personnalisé de Becks */}
         <div className="bg-gradient-to-r from-gold-500/10 to-transparent border-l-4 border-gold-500 rounded-xl p-4">
           {isLoadingMessage ? (
