@@ -10,7 +10,7 @@ import {
   Moon, Sun, AlertCircle, TrendingUp, Calendar,
   Briefcase, DollarSign, Users, Sprout, FileText, Brain,
   ArrowRight, X, Trophy, Plus, Trash2, Edit2,
-  Star, Award, LayoutGrid, ListTodo, Smile
+  Star, Award, LayoutGrid, ListTodo, Smile, Download
 } from "lucide-react";
 import Link from "next/link";
 import { toast } from "sonner";
