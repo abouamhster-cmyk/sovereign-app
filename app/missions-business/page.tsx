@@ -4,12 +4,12 @@ import { supabase } from "@/lib/supabase";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import { motion, AnimatePresence } from "framer-motion";
 import { 
-  Target, Plus, Trash2, Edit2, X, Calendar, 
-  Flag, FolderOpen, Loader2, TrendingUp, Battery,
-  CheckCircle, Clock, AlertCircle, BarChart3,
-  Sprout, Briefcase, Heart, Globe, FileText, 
-  Lightbulb, Activity, Pause, Users, User, Download,
-  Building2, Star, Filter, LayoutGrid
+  ShieldAlert, Heart, CheckCircle, Clock, 
+  Target, Sparkles, RefreshCw, Loader2,
+  Moon, Sun, AlertCircle, TrendingUp, Calendar,
+  Briefcase, DollarSign, Users, Sprout, FileText, Brain,
+  ArrowRight, X, Trophy, Plus, Trash2, Edit2,
+  Star, Award, LayoutGrid, ListTodo, Smile
 } from "lucide-react";
 import Link from "next/link";
 import { exportMissionsToPDF } from "@/lib/exportPDF";
