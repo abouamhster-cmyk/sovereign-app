@@ -70,11 +70,11 @@ type WeeklyData = {
 
 const domainConfig: Record<string, { label: string; icon: any; color: string; bgColor: string; href: string }> = {
   family: { label: "Famille", icon: Heart, color: "text-pink-400", bgColor: "bg-pink-500/10", href: "/family" },
-  money: { label: "Argent", icon: DollarSign, color: "text-emerald-400", bgColor: "bg-emerald-500/10", href: "/money" },
-  business: { label: "Business", icon: Briefcase, color: "text-blue-400", bgColor: "bg-blue-500/10", href: "/business" },
+  money: { label: "Argent", icon: DollarSign, color: "text-emerald-400", bgColor: "bg-emerald-500/10", href: "/money-opportunities" },
+  business: { label: "Business", icon: Briefcase, color: "text-blue-400", bgColor: "bg-blue-500/10", href: "/missions-business" },
   farm: { label: "Ferme", icon: Sprout, color: "text-green-400", bgColor: "bg-green-500/10", href: "/farm" },
-  documents: { label: "Documents", icon: FileText, color: "text-orange-400", bgColor: "bg-orange-500/10", href: "/documents" },
-  wins: { label: "Victoires", icon: TrendingUp, color: "text-yellow-400", bgColor: "bg-yellow-500/10", href: "/wins" },
+  documents: { label: "Documents", icon: FileText, color: "text-orange-400", bgColor: "bg-orange-500/10", href: "/communications" },
+  wins: { label: "Victoires", icon: TrendingUp, color: "text-yellow-400", bgColor: "bg-yellow-500/10", href: "/rescue-wins" },
   relocation: { label: "Relocalisation", icon: Globe, color: "text-cyan-400", bgColor: "bg-cyan-500/10", href: "/relocation" },
   alignment: { label: "Alignement", icon: Shield, color: "text-purple-400", bgColor: "bg-purple-500/10", href: "/alignment" }
 };
@@ -126,20 +126,8 @@ export default function VisionStrategyPage() {
       const response = await fetch(`${API_URL}/api/weekly-ceo`);
       const result = await response.json();
       if (result.success) {
-        // Sécurisation des données avec valeurs par défaut
         setWeeklyData({
-          ...result,
-          mood_summary: result.mood_summary || [],
-          what_moved: {
-            completed_tasks: result.what_moved?.completed_tasks || [],
-            wins: result.what_moved?.wins || []
-          },
-          what_stalled: {
-            overdue_docs: result.what_stalled?.overdue_docs || [],
-            pending_docs_count: result.what_stalled?.pending_docs_count || 0,
-            stalled_missions: result.what_stalled?.stalled_missions || []
-          },
-          next_week_priorities: result.next_week_priorities || [],
+          week_range: result.week_range || { start: "", end: "" },
           summary: {
             tasks_completed: result.summary?.tasks_completed || 0,
             tasks_created: result.summary?.tasks_created || 0,
@@ -149,6 +137,19 @@ export default function VisionStrategyPage() {
             total_revenue: result.summary?.total_revenue || 0,
             net_balance: result.summary?.net_balance || 0
           },
+          what_moved: {
+            completed_tasks: result.what_moved?.completed_tasks || [],
+            wins: result.what_moved?.wins || []
+          },
+          what_stalled: {
+            overdue_docs: result.what_stalled?.overdue_docs || [],
+            pending_docs_count: result.what_stalled?.pending_docs_count || 0,
+            stalled_missions: result.what_stalled?.stalled_missions || []
+          },
+          closest_to_cash: result.closest_to_cash || "Aucune mission identifiée",
+          pending_documents_summary: result.pending_documents_summary || "Aucun document en attente",
+          next_week_priorities: result.next_week_priorities || [],
+          mood_summary: result.mood_summary || [],
           insights: result.insights || "Analyse en cours..."
         });
       }
@@ -412,7 +413,7 @@ export default function VisionStrategyPage() {
               <div className="mb-4">
                 <p className="text-xs text-gray-500 mb-2">Tâches complétées :</p>
                 <div className="space-y-1">
-                  {weeklyData.what_moved.completed_tasks.map((task, idx) => (
+                  {weeklyData.what_moved.completed_tasks.slice(0, 5).map((task, idx) => (
                     <div key={idx} className="flex items-center gap-2 text-sm">
                       <CheckCircle className="w-3 h-3 text-emerald-400" />
                       <span className="text-gray-300">{task.title}</span>
@@ -427,7 +428,7 @@ export default function VisionStrategyPage() {
               <div>
                 <p className="text-xs text-gray-500 mb-2">Victoires célébrées :</p>
                 <div className="space-y-1">
-                  {weeklyData.what_moved.wins.map((win, idx) => (
+                  {weeklyData.what_moved.wins.slice(0, 5).map((win, idx) => (
                     <div key={idx} className="flex items-center gap-2 text-sm">
                       <span>{win.celebration_emoji}</span>
                       <span className="text-gray-300">{win.title}</span>
@@ -454,7 +455,7 @@ export default function VisionStrategyPage() {
               <div className="mb-4">
                 <p className="text-xs text-gray-500 mb-2">Documents en retard :</p>
                 <div className="space-y-1">
-                  {weeklyData.what_stalled.overdue_docs.map((doc, idx) => (
+                  {weeklyData.what_stalled.overdue_docs.slice(0, 5).map((doc, idx) => (
                     <div key={idx} className="flex items-center justify-between text-sm">
                       <span className="text-gray-300">{doc.name}</span>
                       <span className="text-xs text-red-400">📅 {formatDate(doc.due_date)}</span>
@@ -468,7 +469,7 @@ export default function VisionStrategyPage() {
               <div>
                 <p className="text-xs text-gray-500 mb-2">Missions sans activité :</p>
                 <div className="space-y-1">
-                  {weeklyData.what_stalled.stalled_missions.map((mission, idx) => (
+                  {weeklyData.what_stalled.stalled_missions.slice(0, 5).map((mission, idx) => (
                     <div key={idx} className="flex items-center gap-2 text-sm">
                       <Target className="w-3 h-3 text-gray-500" />
                       <span className="text-gray-300">{mission.name}</span>
@@ -484,7 +485,7 @@ export default function VisionStrategyPage() {
             )}
             
             <p className="text-xs text-gray-500 mt-3 pt-2 border-t border-red-500/20">
-              {weeklyData.pending_documents_summary || "Aucun document en attente"}
+              {weeklyData.pending_documents_summary}
             </p>
           </div>
 
@@ -494,7 +495,7 @@ export default function VisionStrategyPage() {
               <DollarSign className="w-4 h-4 text-emerald-400" />
               <h2 className="text-sm font-serif text-emerald-400">PLUS PROCHE DU CASH</h2>
             </div>
-            <p className="text-ivory text-lg font-medium">{weeklyData.closest_to_cash || "Aucune mission identifiée"}</p>
+            <p className="text-ivory text-lg font-medium">{weeklyData.closest_to_cash}</p>
             <p className="text-xs text-gray-500 mt-1">Mission avec le plus fort potentiel de revenu immédiat</p>
           </div>
 
