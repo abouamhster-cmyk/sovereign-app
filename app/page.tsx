@@ -204,7 +204,7 @@ export default function DashboardPage() {
 
   async function fetchOverloadDetection() {
     try {
-      const response = await fetch(`${API_URL}/api/rescue/detect-overload`);
+      const response = await fetch(`${API_URL}/api/rescue/detect-overload`, {   method: "POST",   headers: { "Content-Type": "application/json" } });
       const data = await response.json();
       if (data.success) {
         setOverloadData(data);
