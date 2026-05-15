@@ -2,6 +2,8 @@
 import "regenerator-runtime/runtime";
 import { useState, useRef, useEffect } from "react";
 import { ExecutionGuide } from "@/components/ExecutionGuide";
+import { ReadyToSend } from "@/components/ReadyToSend";
+import { DecisionMode } from "@/components/DecisionMode";
 import ReactMarkdown from 'react-markdown';
 import { 
   Send, ArrowLeft, Plus, Trash2, ChevronLeft, ChevronRight, 
@@ -541,7 +543,7 @@ Coche les étapes au fur et à mesure. Une chose à la fois. ✨`;
           </motion.div>
         ))}
         
-        {/* AFFICHAGE DU GUIDE D'EXÉCUTION */}
+       {/* AFFICHAGE DU GUIDE D'EXÉCUTION */}
         {executionPlan && (
           <div className="flex justify-start">
             <div className="max-w-[85%] w-full">
@@ -551,6 +553,36 @@ Coche les étapes au fur et à mesure. Une chose à la fois. ✨`;
                 onComplete={handlePlanComplete}
                 onClose={handleClosePlan}
               />
+            </div>
+          </div>
+        )}
+        
+        {/* ========== COMPOSANTS SPÉCIAUX PAR MODE ========== */}
+        {selectedMode === "documents" && (
+          <div className="flex justify-start mt-4">
+            <div className="max-w-[85%] w-full">
+              <ReadyToSend onInsert={(text) => setInput(prev => prev + "\n\n" + text)} />
+            </div>
+          </div>
+        )}
+        
+        {selectedMode === "sovereign-mode" && (
+          <div className="flex justify-start mt-4">
+            <div className="max-w-[85%] w-full">
+              <DecisionMode onInsert={(text) => setInput(prev => prev + "\n\n" + text)} />
+            </div>
+          </div>
+        )}
+        
+        {selectedMode === "business-argent" && (
+          <div className="flex justify-start mt-4">
+            <div className="bg-gold-500/10 border border-gold-500/20 rounded-xl p-4 max-w-[85%] w-full">
+              <p className="text-xs text-gold-500 mb-2">💡 Actions rapides :</p>
+              <div className="flex flex-wrap gap-2">
+                <button onClick={() => setInput(prev => prev + " Prépare un email de prospection")} className="text-xs px-3 py-1.5 bg-white/10 rounded-full hover:bg-white/20">📧 Email pro</button>
+                <button onClick={() => setInput(prev => prev + " Compare ces deux opportunités")} className="text-xs px-3 py-1.5 bg-white/10 rounded-full hover:bg-white/20">⚖️ Comparer</button>
+                <button onClick={() => setInput(prev => prev + " Analyse cette opportunité")} className="text-xs px-3 py-1.5 bg-white/10 rounded-full hover:bg-white/20">🔍 Analyser</button>
+              </div>
             </div>
           </div>
         )}
