@@ -436,7 +436,7 @@ export default function RescueWinsPage() {
     );
   }
 
-  return {
+  return (
     <div className="h-full flex flex-col overflow-y-auto bg-midnight p-4 md:p-6 lg:p-8">
       <div className="max-w-7xl mx-auto w-full">
         {/* HEADER */}
