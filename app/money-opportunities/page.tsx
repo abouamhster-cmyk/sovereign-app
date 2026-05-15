@@ -8,7 +8,7 @@ import {
   X, Check, Calendar, FolderOpen, Tag, Loader2, RefreshCw,
   Download, DollarSign, Target, Clock, AlertCircle,
   Filter, Search, Briefcase, Sparkles, Brain, LayoutGrid,
-  CheckCircle, Send, Package
+  CheckCircle, Send, Package, FileText
 } from "lucide-react";
 import { exportFinancialToPDF } from "@/lib/exportPDF";
 import { Chart as ChartJS, ArcElement, Tooltip, Legend, CategoryScale, LinearScale, BarElement, Title } from 'chart.js';
@@ -117,7 +117,6 @@ const probabilityConfig = {
   high: { label: "🔴 Haute", color: "text-emerald-400", value: 75 }
 };
 
-import { FileText, Package, Send } from "lucide-react";
 
 function calculateOpportunityScore(opp: Opportunity): number {
   let score = 0;
