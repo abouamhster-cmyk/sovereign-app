@@ -29,16 +29,13 @@ const menuItems: MenuItem[] = [
   { name: "Chat", icon: MessageSquare, href: "/chat", group: "main" },
   
   { name: "Brain Dump", icon: Inbox, href: "/inbox", group: "operations" },
-  { name: "Tasks", icon: CheckSquare, href: "/tasks", group: "operations" },
-  { name: "Calendar", icon: Calendar, href: "/calendar", group: "operations" },
-
+  { name: "Agenda", icon: Calendar, href: "/agenda", group: "operations" },
 
   { name: "Vision & Stratégie", icon: Crown, href: "/vision-strategy", group: "strategies" },
   { name: "Money & Opportunities", icon: DollarSign, href: "/money-opportunities", group: "strategies" },
   { name: "Content Calendar", icon: Calendar, href: "/content-calendar", group: "strategies" },
-  { name: "Documents", icon: FileText, href: "/documents", group: "strategies" },
-  { name: "Email", icon: Mail, href: "/email", group: "strategies" },
-  
+  { name: "Communications", icon: Mail, href: "/communications", group: "strategies" },
+   
   { name: "Love & Fire Sport", icon: Trophy, href: "/love-fire-sport", group: "projects" },
   { name: "Missions & Business", icon: Target, href: "/missions-business", group: "projects" },
   { name: "Ifè Farm", icon: Sprout, href: "/farm", group: "projects" },
