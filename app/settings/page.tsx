@@ -8,7 +8,7 @@ import {
   ChevronRight, X, Plus, Heart, Baby, Globe, Sprout, Trophy,
   Bell, Volume2, VolumeX, Vibrate, BellRing, Check, Loader2,
   Mail, Phone, MapPin, Clock, Shield, Eye, EyeOff, Settings,
-  Edit2, Trash2
+  Edit2, Trash2, Sparkles, Brain
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -43,6 +43,14 @@ type NotificationPreferences = {
   mission_reminders: boolean;
   document_reminders: boolean;
   celebration_reminders: boolean;
+};
+
+type IntelligentPreferences = {
+  intelligent_mode: boolean;
+  morning_checkin: boolean;
+  evening_summary: boolean;
+  brain_dump_reminder: boolean;
+  win_reminder: boolean;
 };
 
 export default function SettingsPage() {
@@ -86,6 +94,14 @@ export default function SettingsPage() {
     celebration_reminders: true
   });
 
+  const [intelligentPrefs, setIntelligentPrefs] = useState<IntelligentPreferences>({
+    intelligent_mode: true,
+    morning_checkin: true,
+    evening_summary: true,
+    brain_dump_reminder: true,
+    win_reminder: true
+  });
+
   const availableProjects = [
     "Ifè Living Farm",
     "Love & Fire Sport", 
@@ -98,6 +114,7 @@ export default function SettingsPage() {
   useEffect(() => {
     fetchProfile();
     loadLocalPreferences();
+    fetchIntelligentPreferences();
   }, []);
 
   async function fetchProfile() {
@@ -132,6 +149,39 @@ export default function SettingsPage() {
     const vibration = localStorage.getItem("notif_vibrate");
     if (sound !== null) setNotifPrefs(prev => ({ ...prev, sound: sound === "true" }));
     if (vibration !== null) setNotifPrefs(prev => ({ ...prev, vibration: vibration === "true" }));
+  }
+
+  async function fetchIntelligentPreferences() {
+    try {
+      const response = await fetch(`${API_URL}/api/notifications/preferences`);
+      const data = await response.json();
+      if (data.success && data.preferences) {
+        setIntelligentPrefs(prev => ({ ...prev, ...data.preferences }));
+      }
+    } catch (error) {
+      console.error("Erreur fetch intelligent preferences:", error);
+    }
+  }
+
+  async function saveIntelligentPreferences() {
+    setIsSaving(true);
+    try {
+      const response = await fetch(`${API_URL}/api/notifications/preferences`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ preferences: intelligentPrefs })
+      });
+      const data = await response.json();
+      if (data.success) {
+        toast.success("Préférences intelligentes sauvegardées");
+      } else {
+        toast.error("Erreur: " + (data.error || "Inconnue"));
+      }
+    } catch (error) {
+      console.error("Erreur save intelligent preferences:", error);
+      toast.error("Erreur de connexion");
+    }
+    setIsSaving(false);
   }
 
   // ==================== IDENTITY ====================
@@ -836,6 +886,7 @@ export default function SettingsPage() {
         {/* ==================== NOTIFICATIONS TAB ==================== */}
         {activeTab === "notifications" && (
           <div className="space-y-6">
+            {/* NOTIFICATIONS STANDARD */}
             <div className="bg-white/5 border border-white/10 rounded-xl p-6">
               <h2 className="text-lg font-serif text-ivory mb-4 flex items-center gap-2">
                 <Bell className="w-5 h-5 text-gold-500" />
@@ -949,6 +1000,93 @@ export default function SettingsPage() {
               >
                 <Save className="w-4 h-4" />
                 Sauvegarder les préférences
+              </button>
+            </div>
+
+            {/* ==================== NOTIFICATIONS INTELLIGENTES ==================== */}
+            <div className="bg-white/5 border border-white/10 rounded-xl p-6">
+              <h2 className="text-lg font-serif text-ivory mb-4 flex items-center gap-2">
+                <Sparkles className="w-5 h-5 text-gold-500" />
+                Notifications intelligentes
+              </h2>
+              <p className="text-xs text-gray-500 mb-4">
+                Becks analyse ton contexte (humeur, charge, heure) pour t'envoyer des notifications adaptées.
+              </p>
+              
+              <div className="space-y-4">
+                <div className="flex items-center justify-between py-2">
+                  <div>
+                    <p className="text-ivory text-sm">Mode intelligent</p>
+                    <p className="text-xs text-gray-500">Notifications contextuelles adaptées à ton humeur</p>
+                  </div>
+                  <button
+                    onClick={() => setIntelligentPrefs(prev => ({ ...prev, intelligent_mode: !prev.intelligent_mode }))}
+                    className={`w-12 h-6 rounded-full transition-colors ${intelligentPrefs.intelligent_mode ? "bg-gold-500" : "bg-white/20"}`}
+                  >
+                    <div className={`w-5 h-5 rounded-full bg-white transition-transform ${intelligentPrefs.intelligent_mode ? "translate-x-6" : "translate-x-1"}`} />
+                  </button>
+                </div>
+
+                <div className="flex items-center justify-between py-2">
+                  <div>
+                    <p className="text-ivory text-sm">Check-in matinal</p>
+                    <p className="text-xs text-gray-500">Bonjour personnalisé chaque matin</p>
+                  </div>
+                  <button
+                    onClick={() => setIntelligentPrefs(prev => ({ ...prev, morning_checkin: !prev.morning_checkin }))}
+                    className={`w-12 h-6 rounded-full transition-colors ${intelligentPrefs.morning_checkin ? "bg-gold-500" : "bg-white/20"}`}
+                  >
+                    <div className={`w-5 h-5 rounded-full bg-white transition-transform ${intelligentPrefs.morning_checkin ? "translate-x-6" : "translate-x-1"}`} />
+                  </button>
+                </div>
+
+                <div className="flex items-center justify-between py-2">
+                  <div>
+                    <p className="text-ivory text-sm">Résumé de fin de journée</p>
+                    <p className="text-xs text-gray-500">Récap' le soir pour décharger ta tête</p>
+                  </div>
+                  <button
+                    onClick={() => setIntelligentPrefs(prev => ({ ...prev, evening_summary: !prev.evening_summary }))}
+                    className={`w-12 h-6 rounded-full transition-colors ${intelligentPrefs.evening_summary ? "bg-gold-500" : "bg-white/20"}`}
+                  >
+                    <div className={`w-5 h-5 rounded-full bg-white transition-transform ${intelligentPrefs.evening_summary ? "translate-x-6" : "translate-x-1"}`} />
+                  </button>
+                </div>
+
+                <div className="flex items-center justify-between py-2">
+                  <div>
+                    <p className="text-ivory text-sm">Rappel Brain Dump</p>
+                    <p className="text-xs text-gray-500">Si des idées non traitées s'accumulent</p>
+                  </div>
+                  <button
+                    onClick={() => setIntelligentPrefs(prev => ({ ...prev, brain_dump_reminder: !prev.brain_dump_reminder }))}
+                    className={`w-12 h-6 rounded-full transition-colors ${intelligentPrefs.brain_dump_reminder ? "bg-gold-500" : "bg-white/20"}`}
+                  >
+                    <div className={`w-5 h-5 rounded-full bg-white transition-transform ${intelligentPrefs.brain_dump_reminder ? "translate-x-6" : "translate-x-1"}`} />
+                  </button>
+                </div>
+
+                <div className="flex items-center justify-between py-2">
+                  <div>
+                    <p className="text-ivory text-sm">Rappel victoires</p>
+                    <p className="text-xs text-gray-500">Encouragement à célébrer tes succès</p>
+                  </div>
+                  <button
+                    onClick={() => setIntelligentPrefs(prev => ({ ...prev, win_reminder: !prev.win_reminder }))}
+                    className={`w-12 h-6 rounded-full transition-colors ${intelligentPrefs.win_reminder ? "bg-gold-500" : "bg-white/20"}`}
+                  >
+                    <div className={`w-5 h-5 rounded-full bg-white transition-transform ${intelligentPrefs.win_reminder ? "translate-x-6" : "translate-x-1"}`} />
+                  </button>
+                </div>
+              </div>
+
+              <button
+                onClick={saveIntelligentPreferences}
+                disabled={isSaving}
+                className="mt-6 w-full py-2 bg-gold-500 text-midnight rounded-lg font-medium hover:bg-gold-400 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Brain className="w-4 h-4" />}
+                Sauvegarder les préférences intelligentes
               </button>
             </div>
           </div>
