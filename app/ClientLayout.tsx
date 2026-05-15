@@ -35,6 +35,7 @@ const menuItems: MenuItem[] = [
   { name: "Life Map", icon: Map, href: "/life-map", group: "strategies" },
   { name: "Money", icon: Wallet, href: "/money", group: "strategies" },
   { name: "Opportunities", icon: TrendingUp, href: "/opportunities", group: "strategies" },
+  { name: "Weekly CEO", icon: TrendingUp, href: "/weekly-ceo", group: "strategies" },
   { name: "Documents", icon: FileText, href: "/documents", group: "strategies" },
   { name: "Email", icon: Mail, href: "/email", group: "strategies" },
   
