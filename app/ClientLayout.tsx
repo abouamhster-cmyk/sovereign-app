@@ -31,11 +31,10 @@ const menuItems: MenuItem[] = [
   { name: "Brain Dump", icon: Inbox, href: "/inbox", group: "operations" },
   { name: "Tasks", icon: CheckSquare, href: "/tasks", group: "operations" },
   { name: "Calendar", icon: Calendar, href: "/calendar", group: "operations" },
-  
-  { name: "Life Map", icon: Map, href: "/life-map", group: "strategies" },
-  { name: "Money", icon: Wallet, href: "/money", group: "strategies" },
-  { name: "Opportunities", icon: TrendingUp, href: "/opportunities", group: "strategies" },
-  { name: "Weekly CEO", icon: TrendingUp, href: "/weekly-ceo", group: "strategies" },
+
+
+  { name: "Vision & Stratégie", icon: Crown, href: "/vision-strategy", group: "strategies" },
+  { name: "Money & Opportunities", icon: DollarSign, href: "/money-opportunities", group: "strategies" },
   { name: "Content Calendar", icon: Calendar, href: "/content-calendar", group: "strategies" },
   { name: "Documents", icon: FileText, href: "/documents", group: "strategies" },
   { name: "Email", icon: Mail, href: "/email", group: "strategies" },
@@ -49,7 +48,6 @@ const menuItems: MenuItem[] = [
   
   { name: "Wins", icon: Trophy, href: "/wins", group: "vie" },
   { name: "Family", icon: Heart, href: "/family", group: "vie" },
-  { name: "Motherhood", icon: Users, href: "/motherhood", group: "vie" },
   
   { name: "Alignment", icon: Zap, href: "/alignment", group: "alignment" },
   { name: "Rescue Mode", icon: ShieldAlert, href: "/rescue", group: "alignment" },
