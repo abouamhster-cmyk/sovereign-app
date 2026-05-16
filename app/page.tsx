@@ -55,7 +55,7 @@ export default function DashboardPage() {
     docs_count: number;
   } | null>(null);
   
-  // Stats pour les moves (valeurs par défaut en fallback)
+  // Stats pour les moves
   const [farmStatus, setFarmStatus] = useState("En cours");
   const [farmNextAction, setFarmNextAction] = useState("Vérifier l'avancement");
   const [moneyMove, setMoneyMove] = useState("Vérifier les finances");
@@ -158,7 +158,7 @@ export default function DashboardPage() {
             description: "Active le Rescue Mode pour recentrer tes priorités.",
             action: {
               label: "Activer",
-              onClick: () => router.push("/rescue")
+              onClick: () => router.push("/rescue-wins")
             },
             duration: 10000
           });
@@ -204,7 +204,10 @@ export default function DashboardPage() {
 
   async function fetchOverloadDetection() {
     try {
-      const response = await fetch(`${API_URL}/api/rescue/detect-overload`, {   method: "POST",   headers: { "Content-Type": "application/json" } });
+      const response = await fetch(`${API_URL}/api/rescue/detect-overload`, {  
+        method: "POST",   
+        headers: { "Content-Type": "application/json" } 
+      });
       const data = await response.json();
       if (data.success) {
         setOverloadData(data);
@@ -241,7 +244,7 @@ export default function DashboardPage() {
       body: JSON.stringify({ mood: selectedMood })
     });
 
-      window.dispatchEvent(new CustomEvent('moodChange', { detail: { mood: selectedMood } }));
+    window.dispatchEvent(new CustomEvent('moodChange', { detail: { mood: selectedMood } }));
 
     if (selectedMood === "fatiguée") {
       setStabilizationMove("Repose-toi. Rien n'est plus important que ton énergie.");
@@ -292,20 +295,19 @@ export default function DashboardPage() {
           </Link>
         </div>
       
-        {/* Message Becks + Avatar */}
-          <div className="bg-gradient-to-r from-gold-500/10 to-transparent border-l-4 border-gold-500 rounded-xl p-4">
-            {isLoadingMessage ? (
-              <div className="flex items-center gap-2">
-                <Loader2 className="w-4 h-4 text-gold-500 animate-spin" />
-                <span className="text-sm text-gray-400">Becks réfléchit...</span>
-              </div>
-            ) : (
-              <div className="flex items-start gap-3">
-                <Sparkles className="w-5 h-5 text-gold-500 mt-0.5 flex-shrink-0" />
-                <p className="text-ivory text-sm leading-relaxed">{becksMessage}</p>
-              </div>
-            )}
-          </div>
+        {/* Message Becks (sans avatar, car déjà dans le header) */}
+        <div className="bg-gradient-to-r from-gold-500/10 to-transparent border-l-4 border-gold-500 rounded-xl p-4">
+          {isLoadingMessage ? (
+            <div className="flex items-center gap-2">
+              <Loader2 className="w-4 h-4 text-gold-500 animate-spin" />
+              <span className="text-sm text-gray-400">Becks réfléchit...</span>
+            </div>
+          ) : (
+            <div className="flex items-start gap-3">
+              <Sparkles className="w-5 h-5 text-gold-500 mt-0.5 flex-shrink-0" />
+              <p className="text-ivory text-sm leading-relaxed">{becksMessage}</p>
+            </div>
+          )}
         </div>
       
         {/* Petit résumé visuel */}
@@ -382,7 +384,7 @@ export default function DashboardPage() {
             <div className="text-center py-6">
               <Target className="w-8 h-8 mx-auto mb-2 opacity-30" />
               <p className="text-sm text-gray-500">Aucune priorité pour le moment</p>
-              <button onClick={() => window.location.href = "/tasks"} className="text-xs text-gold-500 mt-2 hover:underline">
+              <button onClick={() => window.location.href = "/agenda"} className="text-xs text-gold-500 mt-2 hover:underline">
                 + Créer une tâche
               </button>
             </div>
@@ -405,13 +407,13 @@ export default function DashboardPage() {
               </div>
             ))}
           </div>
-          <Link href="/tasks" className="text-xs text-gold-500 hover:underline block text-center mt-3">Voir toutes les tâches →</Link>
+          <Link href="/agenda" className="text-xs text-gold-500 hover:underline block text-center mt-3">Voir toutes les tâches →</Link>
         </div>
       )}
 
       {/* 4 MOVES */}
       <div className="grid grid-cols-2 gap-3">
-        <Link href="/money" className="block">
+        <Link href="/money-opportunities" className="block">
           <div className="bg-gradient-to-br from-emerald-500/5 to-transparent border border-emerald-500/20 rounded-xl p-4 hover:border-emerald-500/40 transition-all group">
             <div className="flex items-center gap-2 mb-2">
               <DollarSign className="w-4 h-4 text-emerald-400" />
@@ -444,7 +446,7 @@ export default function DashboardPage() {
           </div>
         </Link>
 
-        <Link href="/alignment" className="block">
+        <Link href="/rescue-wins" className="block">
           <div className="bg-gradient-to-br from-yellow-500/5 to-transparent border border-yellow-500/20 rounded-xl p-4 hover:border-yellow-500/40 transition-all group">
             <div className="flex items-center gap-2 mb-2">
               <Sun className="w-4 h-4 text-yellow-400" />
@@ -504,13 +506,13 @@ export default function DashboardPage() {
           </div>
           <div className="space-y-2">
             {activeMissions.map((mission) => (
-              <Link key={mission.id} href="/missions" className="flex items-center justify-between p-2 hover:bg-white/5 rounded-lg transition-colors">
+              <Link key={mission.id} href="/missions-business" className="flex items-center justify-between p-2 hover:bg-white/5 rounded-lg transition-colors">
                 <span className="text-sm text-gray-300">{mission.name}</span>
                 <ArrowRight className="w-3 h-3 text-gray-500" />
               </Link>
             ))}
           </div>
-          <Link href="/missions" className="text-xs text-gold-500 hover:underline block text-center mt-3">Voir toutes les missions →</Link>
+          <Link href="/missions-business" className="text-xs text-gold-500 hover:underline block text-center mt-3">Voir toutes les missions →</Link>
         </div>
       )}
 
@@ -566,16 +568,16 @@ export default function DashboardPage() {
           <div className="flex flex-wrap gap-2">
             {overloadData.rescue_actions?.map((action: { type: string; title: string; task_id?: string; duration?: number; url?: string }, idx: number) => (
               <button key={idx} onClick={() => {
-                if (action.type === "focus_task" && action.task_id) router.push(`/tasks?highlight=${action.task_id}`);
+                if (action.type === "focus_task" && action.task_id) router.push(`/agenda?highlight=${action.task_id}`);
                 else if (action.type === "breathing") toast.info("🌬️ Respire profondément... inspire, expire. 3 fois.", { duration: 10000 });
                 else if (action.type === "reset") toast.info(`⏰ Pause de ${action.duration} minutes recommandée`, { duration: 5000 });
                 else if (action.url) router.push(action.url);
-                else router.push("/rescue");
+                else router.push("/rescue-wins");
               }} className="px-3 py-1.5 bg-white/10 rounded-full text-xs text-gray-300 hover:bg-white/20 transition-colors">
                 {action.title}
               </button>
             ))}
-            <Link href="/rescue" className="px-3 py-1.5 bg-gold-500/20 text-gold-500 rounded-full text-xs hover:bg-gold-500/30 transition-colors">Voir Rescue Mode →</Link>
+            <Link href="/rescue-wins" className="px-3 py-1.5 bg-gold-500/20 text-gold-500 rounded-full text-xs hover:bg-gold-500/30 transition-colors">Voir Rescue Mode →</Link>
           </div>
         </motion.div>
       )}
@@ -610,47 +612,39 @@ export default function DashboardPage() {
             <Inbox className="w-4 h-4 text-blue-400" />
             <span className="text-xs text-gray-300">Brain Dump</span>
           </Link>
-          <Link href="/tasks" className="flex items-center gap-2 p-2 rounded-lg bg-white/5 hover:bg-white/10 transition-all group">
+          <Link href="/agenda" className="flex items-center gap-2 p-2 rounded-lg bg-white/5 hover:bg-white/10 transition-all group">
             <CheckSquare className="w-4 h-4 text-blue-400" />
-            <span className="text-xs text-gray-300">Tasks</span>
+            <span className="text-xs text-gray-300">Agenda</span>
           </Link>
-          <Link href="/calendar" className="flex items-center gap-2 p-2 rounded-lg bg-white/5 hover:bg-white/10 transition-all group">
+          <Link href="/agenda?tab=calendar" className="flex items-center gap-2 p-2 rounded-lg bg-white/5 hover:bg-white/10 transition-all group">
             <CalendarDays className="w-4 h-4 text-blue-400" />
             <span className="text-xs text-gray-300">Calendar</span>
           </Link>
 
           {/* FINANCES */}
-          <Link href="/money" className="flex items-center gap-2 p-2 rounded-lg bg-white/5 hover:bg-white/10 transition-all group">
+          <Link href="/money-opportunities" className="flex items-center gap-2 p-2 rounded-lg bg-white/5 hover:bg-white/10 transition-all group">
             <DollarSign className="w-4 h-4 text-emerald-400" />
             <span className="text-xs text-gray-300">Money</span>
           </Link>
-          <Link href="/opportunities" className="flex items-center gap-2 p-2 rounded-lg bg-white/5 hover:bg-white/10 transition-all group">
-            <TrendingUp className="w-4 h-4 text-emerald-400" />
-            <span className="text-xs text-gray-300">Opportunities</span>
-          </Link>
 
           {/* CONTENU & DOCS */}
-          <Link href="/content" className="flex items-center gap-2 p-2 rounded-lg bg-white/5 hover:bg-white/10 transition-all group">
+          <Link href="/content-studio" className="flex items-center gap-2 p-2 rounded-lg bg-white/5 hover:bg-white/10 transition-all group">
             <FileText className="w-4 h-4 text-purple-400" />
             <span className="text-xs text-gray-300">Content</span>
           </Link>
-          <Link href="/documents" className="flex items-center gap-2 p-2 rounded-lg bg-white/5 hover:bg-white/10 transition-all group">
+          <Link href="/communications" className="flex items-center gap-2 p-2 rounded-lg bg-white/5 hover:bg-white/10 transition-all group">
             <FolderOpen className="w-4 h-4 text-orange-400" />
             <span className="text-xs text-gray-300">Documents</span>
           </Link>
-          <Link href="/email" className="flex items-center gap-2 p-2 rounded-lg bg-white/5 hover:bg-white/10 transition-all group">
+          <Link href="/communications?tab=email" className="flex items-center gap-2 p-2 rounded-lg bg-white/5 hover:bg-white/10 transition-all group">
             <Mail className="w-4 h-4 text-purple-400" />
             <span className="text-xs text-gray-300">Email</span>
           </Link>
 
           {/* PROJETS */}
-          <Link href="/missions" className="flex items-center gap-2 p-2 rounded-lg bg-white/5 hover:bg-white/10 transition-all group">
+          <Link href="/missions-business" className="flex items-center gap-2 p-2 rounded-lg bg-white/5 hover:bg-white/10 transition-all group">
             <Target className="w-4 h-4 text-gold-500" />
             <span className="text-xs text-gray-300">Missions</span>
-          </Link>
-          <Link href="/business" className="flex items-center gap-2 p-2 rounded-lg bg-white/5 hover:bg-white/10 transition-all group">
-            <Briefcase className="w-4 h-4 text-blue-400" />
-            <span className="text-xs text-gray-300">Business</span>
           </Link>
           <Link href="/love-fire-sport" className="flex items-center gap-2 p-2 rounded-lg bg-white/5 hover:bg-white/10 transition-all group">
             <Trophy className="w-4 h-4 text-emerald-400" />
@@ -674,7 +668,7 @@ export default function DashboardPage() {
             <Users className="w-4 h-4 text-pink-400" />
             <span className="text-xs text-gray-300">Family</span>
           </Link>
-          <Link href="/wins" className="flex items-center gap-2 p-2 rounded-lg bg-white/5 hover:bg-white/10 transition-all group">
+          <Link href="/rescue-wins" className="flex items-center gap-2 p-2 rounded-lg bg-white/5 hover:bg-white/10 transition-all group">
             <Trophy className="w-4 h-4 text-yellow-400" />
             <span className="text-xs text-gray-300">Wins</span>
           </Link>
@@ -682,21 +676,21 @@ export default function DashboardPage() {
             <Zap className="w-4 h-4 text-purple-400" />
             <span className="text-xs text-gray-300">Alignment</span>
           </Link>
-          <Link href="/rescue" className="flex items-center gap-2 p-2 rounded-lg bg-white/5 hover:bg-white/10 transition-all group">
+          <Link href="/rescue-wins" className="flex items-center gap-2 p-2 rounded-lg bg-white/5 hover:bg-white/10 transition-all group">
             <ShieldAlert className="w-4 h-4 text-red-400" />
             <span className="text-xs text-gray-300">Rescue</span>
           </Link>
 
           {/* STRATÉGIE & SYSTÈME */}
-          <Link href="/life-map" className="flex items-center gap-2 p-2 rounded-lg bg-white/5 hover:bg-white/10 transition-all group">
+          <Link href="/vision-strategy" className="flex items-center gap-2 p-2 rounded-lg bg-white/5 hover:bg-white/10 transition-all group">
             <Map className="w-4 h-4 text-gold-500" />
             <span className="text-xs text-gray-300">Life Map</span>
           </Link>
-          <Link href="/weekly-ceo" className="flex items-center gap-2 p-2 rounded-lg bg-white/5 hover:bg-white/10 transition-all group">
+          <Link href="/vision-strategy?tab=weekly" className="flex items-center gap-2 p-2 rounded-lg bg-white/5 hover:bg-white/10 transition-all group">
             <Crown className="w-4 h-4 text-gold-500" />
             <span className="text-xs text-gray-300">Weekly CEO</span>
           </Link>
-          <Link href="/content-calendar" className="flex items-center gap-2 p-2 rounded-lg bg-white/5 hover:bg-white/10 transition-all group">
+          <Link href="/content-studio?tab=calendar" className="flex items-center gap-2 p-2 rounded-lg bg-white/5 hover:bg-white/10 transition-all group">
             <Calendar className="w-4 h-4 text-gold-500" />
             <span className="text-xs text-gray-300">Content Cal.</span>
           </Link>
