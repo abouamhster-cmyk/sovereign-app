@@ -271,18 +271,68 @@ export default function ChatPage() {
     }
   }
 
-  async function createNewConversation() {
-    const title = `Nouvelle conversation ${new Date().toLocaleDateString('fr-FR')}`;
-    const { data, error } = await supabase.from("conversations").insert({ title, user_id: "rebecca" }).select().single();
-    if (!error && data) {
-      setConversations(prev => [data, ...prev]);
-      setFilteredConversations(prev => [data, ...prev]);
-      setCurrentConversationId(data.id);
-      setMessages([{ role: "assistant", content: generateProactiveMorningMessage() }]);
-      if (isMobile) setIsSidebarOpen(false);
-    }
+   async function createNewConversation() {
+  const title = "Nouvelle conversation...";
+  const { data, error } = await supabase
+    .from("conversations")
+    .insert({ title, user_id: "rebecca" })
+    .select()
+    .single();
+  
+  if (!error && data) {
+    setConversations(prev => [data, ...prev]);
+    setFilteredConversations(prev => [data, ...prev]);
+    setCurrentConversationId(data.id);
+    
+    // Message d'accueil
+    const welcomeMessage = "Salut. Je suis là.";
+    setMessages([{ role: "assistant", content: welcomeMessage }]);
+    
+    // 🔥 AJOUTER : Sauvegarder le message d'accueil en base
+    await saveMessage(data.id, "assistant", welcomeMessage);
+    
+    if (isMobile) setIsSidebarOpen(false);
   }
+}
 
+
+  async function updateConversationTitleAfterFirstMessage(conversationId: string, userMessage: string) {
+  try {
+    const response = await fetch(`${API_URL}/api/chat/generate-title`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ first_message: userMessage })
+    });
+    
+    const data = await response.json();
+    if (data.success && data.title && data.title !== "Nouvelle conversation...") {
+      // Mettre à jour dans Supabase
+      await supabase
+        .from("conversations")
+        .update({ title: data.title })
+        .eq("id", conversationId);
+      
+      // Mettre à jour dans l'état local
+      setConversations(prev => 
+        prev.map(conv => 
+          conv.id === conversationId 
+            ? { ...conv, title: data.title }
+            : conv
+        )
+      );
+      setFilteredConversations(prev => 
+        prev.map(conv => 
+          conv.id === conversationId 
+            ? { ...conv, title: data.title }
+            : conv
+        )
+      );
+    }
+  } catch (error) {
+    console.error("Erreur mise à jour titre:", error);
+  }
+}
+  
   async function updateConversationTitle(id: string, newTitle: string) {
     if (!newTitle.trim()) return;
     await supabase.from("conversations").update({ title: newTitle }).eq("id", id);
@@ -383,6 +433,18 @@ export default function ChatPage() {
     
     setMessages(prev => [...prev, userMessage]);
     await saveMessage(currentConversationId, "user", userMessageContent, undefined, uploadedFilesData);
+
+    // Si c'est le premier message de la conversation, générer un titre
+    const { data: existingMessages } = await supabase
+      .from("conversation_messages")
+      .select("id", { count: "exact", head: true })
+      .eq("conversation_id", currentConversationId);
+
+    if (existingMessages?.length === 1) {
+          // C'était le premier message
+          await updateConversationTitleAfterFirstMessage(currentConversationId, userMessageContent);
+        }
+    
     setInput("");
     setUploadedFiles([]);
     resetTranscript();
