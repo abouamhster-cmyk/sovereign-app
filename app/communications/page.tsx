@@ -1,6 +1,10 @@
+Voici le code complet et propre de `app/communications/page.tsx` avec l'intégration de `useUserId` :
+
+```tsx
 "use client";
 import { useEffect, useState, useCallback } from "react";
 import { supabase } from "@/lib/supabase";
+import { useUserId } from "@/hooks/useUserId";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import { motion, AnimatePresence } from "framer-motion";
 import { useDropzone } from "react-dropzone";
@@ -8,7 +12,7 @@ import {
   FileText, Clock, CheckCircle, AlertCircle, Filter, Search, 
   ExternalLink, Plus, Edit2, Trash2, X, Upload, Download,
   FolderOpen, Tag, Calendar, File, Image, FileArchive, FileSpreadsheet,
-  Send, Loader2, Mail, LayoutGrid,  RefreshCw
+  Send, Loader2, Mail, LayoutGrid, RefreshCw
 } from "lucide-react";
 import { toast } from "sonner";
 import { exportDocumentsToPDF } from "@/lib/exportPDF";
@@ -50,6 +54,7 @@ const statusConfig: Record<string, { label: string; icon: any; color: string }> 
 };
 
 export default function CommunicationsPage() {
+  const { userId, loading: userIdLoading } = useUserId();
   const [activeTab, setActiveTab] = useState<"documents" | "email">("documents");
   
   // ========== ÉTATS DOCUMENTS ==========
@@ -90,23 +95,31 @@ export default function CommunicationsPage() {
 
   // ========== CHARGEMENT DOCUMENTS ==========
   useEffect(() => {
+    if (!userId) return;
+    
     fetchDocuments();
     
     const channel = supabase
       .channel('documents_changes')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'documents' }, () => fetchDocuments())
+      .on('postgres_changes', 
+        { event: '*', schema: 'public', table: 'documents', filter: `user_id=eq.${userId}` }, 
+        () => fetchDocuments()
+      )
       .subscribe();
     
     return () => {
       channel.unsubscribe();
     };
-  }, []);
+  }, [userId]);
   
   async function fetchDocuments() {
+    if (!userId) return;
+    
     setIsDocumentsLoading(true);
     const { data } = await supabase
       .from("documents")
       .select("*")
+      .eq("user_id", userId)
       .order("created_at", { ascending: false });
     setDocuments(data || []);
     setIsDocumentsLoading(false);
@@ -162,6 +175,8 @@ export default function CommunicationsPage() {
 
   // ========== CRUD DOCUMENTS ==========
   async function saveDocument() {
+    if (!userId) return;
+    
     const data = {
       name: documentFormData.name,
       type: documentFormData.type,
@@ -171,7 +186,8 @@ export default function CommunicationsPage() {
       file_url: documentFormData.file_url || null,
       file_name: documentFormData.file_name || null,
       missing_pieces: documentFormData.missing_pieces ? documentFormData.missing_pieces.split(",").map(s => s.trim()) : null,
-      notes: documentFormData.notes || null
+      notes: documentFormData.notes || null,
+      user_id: userId
     };
     
     let error;
@@ -193,11 +209,15 @@ export default function CommunicationsPage() {
   }
 
   async function updateDocumentStatus(id: string, newStatus: string) {
+    if (!userId) return;
+    
     const { error } = await supabase.from("documents").update({ status: newStatus }).eq("id", id);
     if (!error) fetchDocuments();
   }
 
   async function deleteDocument(id: string) {
+    if (!userId) return;
+    
     if (confirm("Supprimer ce document ?")) {
       const { error } = await supabase.from("documents").delete().eq("id", id);
       if (!error) {
@@ -294,6 +314,23 @@ export default function CommunicationsPage() {
       setIsSending(false);
     }
   };
+
+  // ========== GESTION DU CHARGEMENT ==========
+  if (userIdLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <Loader2 className="w-8 h-8 text-gold-500 animate-spin" />
+      </div>
+    );
+  }
+
+  if (!userId) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <p className="text-gray-500">Veuillez vous connecter</p>
+      </div>
+    );
+  }
 
   if (isDocumentsLoading && activeTab === "documents") {
     return (
@@ -574,3 +611,4 @@ export default function CommunicationsPage() {
     </div>
   );
 }
+```
