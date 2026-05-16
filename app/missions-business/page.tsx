@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
+import { useUserId } from "@/hooks/useUserId";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import { motion, AnimatePresence } from "framer-motion";
 import { 
@@ -56,6 +57,7 @@ const priorityConfig: Record<string, { label: string; color: string; score: numb
 };
 
 export default function MissionsBusinessPage() {
+  const { userId, loading: userIdLoading } = useUserId();
   const [activeTab, setActiveTab] = useState<"missions" | "business">("missions");
   const [missions, setMissions] = useState<Mission[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -86,28 +88,34 @@ export default function MissionsBusinessPage() {
     }, 150);
   };
 
-  useEffect(() => {
-    fetchMissions();
+   useEffect(() => {
+    if (!userId) return;
     
     const channel = supabase
       .channel('missions_changes')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'missions' }, () => fetchMissions())
+      .on('postgres_changes', 
+        { event: '*', schema: 'public', table: 'missions', filter: `user_id=eq.${userId}` }, 
+        () => fetchMissions()
+      )
       .subscribe();
     
     return () => {
       channel.unsubscribe();
     };
-  }, []);
+  }, [userId]);
   
   async function fetchMissions() {
-    setIsLoading(true);
-    const { data } = await supabase
-      .from("missions")
-      .select("*")
-      .order("created_at", { ascending: false });
-    setMissions(data || []);
-    setIsLoading(false);
-  }
+  if (!userId) return;
+  
+  setIsLoading(true);
+  const { data } = await supabase
+    .from("missions")
+    .select("*")
+    .eq("user_id", userId)  
+    .order("created_at", { ascending: false });
+  setMissions(data || []);
+  setIsLoading(false);
+}
 
   async function saveMission() {
     const data = {
@@ -119,7 +127,9 @@ export default function MissionsBusinessPage() {
       strategic_value: formData.strategic_value,
       energy_cost: formData.energy_cost,
       deadline: formData.deadline || null,
-      owner: formData.owner || null
+      owner: formData.owner || null,
+      user_id: userId 
+
     };
     
     let error;
@@ -262,6 +272,23 @@ export default function MissionsBusinessPage() {
     return <Target className="w-4 h-4" />;
   };
 
+
+    if (userIdLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <Loader2 className="w-8 h-8 text-gold-500 animate-spin" />
+      </div>
+    );
+  }
+  
+  if (!userId) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <p className="text-gray-500">Veuillez vous connecter</p>
+      </div>
+    );
+  }
+      
   if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
