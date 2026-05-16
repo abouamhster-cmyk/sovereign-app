@@ -4,8 +4,11 @@ import { useState, useCallback, useRef, useEffect } from "react";
 const API_URL = "https://sovereign-bridge.onrender.com";
 
 export const VOICE_OPTIONS = [
-  { id: "EXAVITQu4vr4xnSDxMaL", name: "Bella", description: "Douce, chaleureuse" },
-  { id: "21m00Tcm4TlvDq8ikWAM", name: "Rachel", description: "Naturelle, professionnelle" },
+  { id: "aura-2-athena-en", name: "Athena", description: "Féminine, chaleureuse" },
+  { id: "aura-2-hera-en", name: "Hera", description: "Féminine, élégante" },
+  { id: "aura-2-odysseus-en", name: "Odysseus", description: "Masculine, douce" },
+  { id: "aura-2-orion-en", name: "Orion", description: "Masculine, claire" },
+  { id: "aura-2-thalia-en", name: "Thalia", description: "Féminine, jeune" },
 ];
 
 export function useTextToSpeech() {
@@ -33,6 +36,7 @@ export function useTextToSpeech() {
   const speak = useCallback(async (text: string, onEnd?: () => void) => {
     if (!text || text.length === 0) return;
     
+    // Nettoyer le texte
     const cleanText = text
       .replace(/\[ACTION:[^\]]*\]/g, '')
       .replace(/\*\*/g, '')
@@ -45,14 +49,14 @@ export function useTextToSpeech() {
     setIsLoading(true);
     
     try {
-          const response = await fetch(`${API_URL}/api/tts/deepgram`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ 
-              text: cleanText, 
-              voice: "aura-2-odysseus-en"  // Voix masculine douce
-            })
-          });
+      const response = await fetch(`${API_URL}/api/tts/deepgram`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ 
+          text: cleanText, 
+          voice: selectedVoice
+        })
+      });
       
       const data = await response.json();
       
@@ -70,6 +74,7 @@ export function useTextToSpeech() {
           onEnd?.();
         };
         audio.onerror = () => {
+          console.error("Erreur lecture audio");
           fallbackSpeak(cleanText, onEnd);
           setIsLoading(false);
         };
@@ -105,5 +110,13 @@ export function useTextToSpeech() {
     window.speechSynthesis.speak(utterance);
   }, []);
 
-  return { speak, stop, isSpeaking, isLoading, selectedVoice, setSelectedVoice, voiceOptions: VOICE_OPTIONS };
+  return { 
+    speak, 
+    stop, 
+    isSpeaking, 
+    isLoading, 
+    selectedVoice, 
+    setSelectedVoice, 
+    voiceOptions: VOICE_OPTIONS 
+  };
 }
