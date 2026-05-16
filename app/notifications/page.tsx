@@ -39,6 +39,7 @@ export default function NotificationsPage() {
   useEffect(() => {
     fetchNotifications();
     
+    // Écouter les changements en temps réel
     const channel = supabase
       .channel('notifications_changes')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'notifications' }, () => {
@@ -56,7 +57,7 @@ export default function NotificationsPage() {
     const { data, error } = await supabase
       .from("notifications")
       .select("*")
-      .neq("type", "whatsapp")  // ← EXCLURE LES NOTIFICATIONS WHATSAPP
+      .neq("type", "whatsapp")
       .order("created_at", { ascending: false })
       .limit(50);
     
@@ -79,12 +80,17 @@ export default function NotificationsPage() {
       setNotifications(prev =>
         prev.map(n => n.id === id ? { ...n, read: true } : n)
       );
+      // Rafraîchir la cloche
+      window.dispatchEvent(new CustomEvent('refreshNotifications'));
     }
   }
 
   async function markAllAsRead() {
     const unreadIds = notifications.filter(n => !n.read).map(n => n.id);
-    if (unreadIds.length === 0) return;
+    if (unreadIds.length === 0) {
+      toast.info("Aucune notification non lue");
+      return;
+    }
     
     const { error } = await supabase
       .from("notifications")
@@ -95,7 +101,11 @@ export default function NotificationsPage() {
       setNotifications(prev =>
         prev.map(n => ({ ...n, read: true }))
       );
-      toast.success("Toutes marquées comme lues");
+      toast.success(`${unreadIds.length} notification(s) marquée(s) comme lue(s)`);
+      // Rafraîchir la cloche
+      window.dispatchEvent(new CustomEvent('refreshNotifications'));
+    } else {
+      toast.error("Erreur: " + error.message);
     }
   }
 
@@ -108,6 +118,8 @@ export default function NotificationsPage() {
     if (!error) {
       setNotifications(prev => prev.filter(n => n.id !== id));
       toast.success("Notification supprimée");
+      // Rafraîchir la cloche
+      window.dispatchEvent(new CustomEvent('refreshNotifications'));
     } else {
       toast.error("Erreur lors de la suppression");
     }
@@ -123,6 +135,8 @@ export default function NotificationsPage() {
       if (!error) {
         setNotifications([]);
         toast.success("Toutes les notifications ont été supprimées");
+        // Rafraîchir la cloche
+        window.dispatchEvent(new CustomEvent('refreshNotifications'));
       }
     }
   }
