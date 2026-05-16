@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { motion, AnimatePresence } from "framer-motion";
+import { useUserId } from "@/hooks/useUserId";
 import { 
   User, Users, Briefcase, Target, Calendar, Save, 
   ChevronRight, X, Plus, Heart, Baby, Globe, Sprout, Trophy,
@@ -54,6 +55,7 @@ type IntelligentPreferences = {
 };
 
 export default function SettingsPage() {
+  const { userId, loading: userIdLoading } = useUserId();
   const [activeTab, setActiveTab] = useState<"identity" | "children" | "projects" | "goals" | "notifications">("identity");
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -112,15 +114,19 @@ export default function SettingsPage() {
   ];
 
   useEffect(() => {
-    fetchProfile();
-    loadLocalPreferences();
-    fetchIntelligentPreferences();
-  }, []);
+    if (userId) {
+      fetchProfile();
+      loadLocalPreferences();
+      fetchIntelligentPreferences();
+    }
+  }, [userId]);
 
   async function fetchProfile() {
+    if (!userId) return;  
+
     setIsLoading(true);
     try {
-      const response = await fetch(`${API_URL}/api/profile`);
+      const response = await fetch(`${API_URL}/api/profile?user_id=${userId}`);
       const data = await response.json();
       if (data.success && data.profile) {
         setProfile(data.profile);
@@ -152,8 +158,9 @@ export default function SettingsPage() {
   }
 
   async function fetchIntelligentPreferences() {
+    if (!userId) return;
     try {
-      const response = await fetch(`${API_URL}/api/notifications/preferences`);
+      const response = await fetch(`${API_URL}/api/notifications/preferences?user_id=${userId}`);
       const data = await response.json();
       if (data.success && data.preferences) {
         setIntelligentPrefs(prev => ({ ...prev, ...data.preferences }));
@@ -164,12 +171,17 @@ export default function SettingsPage() {
   }
 
   async function saveIntelligentPreferences() {
+    if (!userId) return; 
     setIsSaving(true);
     try {
       const response = await fetch(`${API_URL}/api/notifications/preferences`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ preferences: intelligentPrefs })
+        body: JSON.stringify({ 
+          preferences: intelligentPrefs,
+          user_id: userId 
+        })
+
       });
       const data = await response.json();
       if (data.success) {
@@ -186,6 +198,7 @@ export default function SettingsPage() {
 
   // ==================== IDENTITY ====================
   async function saveIdentity() {
+    if (!userId) return;
     setIsSaving(true);
     try {
       const payload: any = {
@@ -194,7 +207,7 @@ export default function SettingsPage() {
         birthday: identityForm.birthday
       };
       
-      const response = await fetch(`${API_URL}/api/profile/identity`, {
+      const response = await fetch(`${API_URL}/api/profile/identity?user_id=${userId}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload)
@@ -216,6 +229,7 @@ export default function SettingsPage() {
 
   // ==================== CHILDREN ====================
   async function saveChildren() {
+    if (!userId) return;
     setIsSaving(true);
     try {
       const cleanChildren = children.map(child => ({
@@ -225,7 +239,7 @@ export default function SettingsPage() {
         notes: child.notes || ""
       }));
       
-      const response = await fetch(`${API_URL}/api/profile/children`, {
+      const response = await fetch(`${API_URL}/api/profile/children?user_id=${userId}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ children: cleanChildren })
@@ -281,6 +295,7 @@ export default function SettingsPage() {
 
   // ==================== PROJECTS ====================
   async function saveProjects() {
+     if (!userId) return; 
     setIsSaving(true);
     try {
       const cleanProjects = projects.map(project => ({
@@ -291,7 +306,7 @@ export default function SettingsPage() {
         description: project.description || ""
       }));
       
-      const response = await fetch(`${API_URL}/api/profile/projects`, {
+      const response = await fetch(`${API_URL}/api/profile/projects?user_id=${userId}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ projects: cleanProjects })
@@ -347,6 +362,7 @@ export default function SettingsPage() {
 
   // ==================== GOALS ====================
   async function saveGoals() {
+     if (!userId) return; 
     setIsSaving(true);
     try {
       const cleanGoals = goals.map(goal => ({
@@ -355,11 +371,11 @@ export default function SettingsPage() {
         deadline: goal.deadline || null
       }));
       
-      const response = await fetch(`${API_URL}/api/profile/goals`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ current_goals: cleanGoals })
-      });
+        const response = await fetch(`${API_URL}/api/profile/goals?user_id=${userId}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ current_goals: cleanGoals })
+        });
       const data = await response.json();
       
       if (data.success) {
@@ -437,6 +453,23 @@ export default function SettingsPage() {
     }
   };
 
+
+  if (userIdLoading) {
+  return (
+    <div className="flex items-center justify-center h-screen">
+      <div className="w-8 h-8 border-2 border-gold-500 border-t-transparent rounded-full animate-spin" />
+    </div>
+  );
+}
+
+if (!userId) {
+  return (
+    <div className="flex items-center justify-center h-screen">
+      <p className="text-gray-500">Veuillez vous connecter</p>
+    </div>
+  );
+}
+  
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-screen">
