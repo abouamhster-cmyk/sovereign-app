@@ -12,7 +12,7 @@ import {
   Calendar, AlertCircle, ArrowRight, Smile, Meh, Frown, Sun, Moon,
   Loader2, Edit2, Inbox, CheckSquare, Briefcase, Globe, Trophy,
   Users, Zap, ShieldAlert, Map, Mail, FileText, TrendingUp,
-  CalendarDays, FolderOpen, MessageCircle, Star
+  CalendarDays, FolderOpen, MessageCircle, Star, X
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -45,8 +45,14 @@ export default function DashboardPage() {
   const [recentMemories, setRecentMemories] = useState<Memory[]>([]);
   const [overloadData, setOverloadData] = useState<any>(null);
   const [isLoadingMemories, setIsLoadingMemories] = useState(true);
+  
+  // Message de bienvenue
   const [welcomeMessage, setWelcomeMessage] = useState("");
   const [showWelcome, setShowWelcome] = useState(false);
+  
+  // Suggestion prochaine action
+  const [nextActionSuggestion, setNextActionSuggestion] = useState("");
+  const [showSuggestion, setShowSuggestion] = useState(false);
   
   // Message personnalisé de Becks
   const [becksMessage, setBecksMessage] = useState("");
@@ -65,30 +71,46 @@ export default function DashboardPage() {
   const [businessMove, setBusinessMove] = useState("Avancer sur une mission");
   const [stabilizationMove, setStabilizationMove] = useState("Prendre 5 minutes");
 
-
   // Afficher le toast de bienvenue
-useEffect(() => {
-  if (welcomeMessage && showWelcome) {
-    toast(welcomeMessage, {
-      duration: 5000,
-      icon: "👑",
-      position: "top-center",
-      style: {
-        background: "rgba(212, 175, 55, 0.1)",
-        border: "1px solid rgba(212, 175, 55, 0.3)",
-        color: "#D4AF37"
-      }
-    });
-  }
-}, [welcomeMessage, showWelcome]);
-  
+  useEffect(() => {
+    if (welcomeMessage && showWelcome) {
+      toast(welcomeMessage, {
+        duration: 5000,
+        icon: "👑",
+        position: "top-center",
+        style: {
+          background: "rgba(212, 175, 55, 0.1)",
+          border: "1px solid rgba(212, 175, 55, 0.3)",
+          color: "#D4AF37"
+        }
+      });
+    }
+  }, [welcomeMessage, showWelcome]);
+
+  // Afficher la suggestion
+  useEffect(() => {
+    if (nextActionSuggestion && showSuggestion) {
+      toast.info(nextActionSuggestion, {
+        duration: 8000,
+        icon: "💡",
+        position: "bottom-right",
+        style: {
+          background: "rgba(212, 175, 55, 0.1)",
+          border: "1px solid rgba(212, 175, 55, 0.3)",
+          color: "#D4AF37"
+        }
+      });
+    }
+  }, [nextActionSuggestion, showSuggestion]);
+
   useEffect(() => {
     const hour = new Date().getHours();
     if (hour < 12) setGreeting("Bonjour");
     else if (hour < 18) setGreeting("Bon après-midi");
     else setGreeting("Bonsoir");
     
-    fetchWelcomeMessage(); 
+    fetchWelcomeMessage();
+    fetchNextActionSuggestion();
     
     const savedMood = localStorage.getItem("todayMood");
     const savedDate = localStorage.getItem("todayMoodDate");
@@ -121,71 +143,115 @@ useEffect(() => {
     }
   }
 
-
-  // Ajouter cette fonction
-async function fetchWelcomeMessage() {
-  try {
-    // Récupérer la dernière visite depuis localStorage
-    const lastVisit = localStorage.getItem("lastVisitDate");
-    const today = new Date().toISOString().split('T')[0];
-    
-    let lastVisitDays = 0;
-    if (lastVisit) {
-      const lastDate = new Date(lastVisit);
-      const todayDate = new Date();
-      const diffTime = Math.abs(todayDate.getTime() - lastDate.getTime());
-      lastVisitDays = Math.ceil(diffTime / (1000 * 3600 * 24));
-    }
-    
-    // Mettre à jour la date de dernière visite
-    localStorage.setItem("lastVisitDate", today);
-    
-    // Récupérer le nom depuis le profil ou Supabase
-    let userName = "Rebecca";
-    const { data: profile } = await supabase
-      .from("user_profile")
-      .select("preferred_name")
-      .eq("user_id", "rebecca")
-      .single();
-    
-    if (profile?.preferred_name) {
-      userName = profile.preferred_name;
-    }
-    
-    const response = await fetch(`${API_URL}/api/welcome-message`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        user_name: userName,
-        hour: new Date().getHours(),
-        last_visit_days: lastVisitDays
-      })
-    });
-    
-    const data = await response.json();
-    if (data.success && data.message) {
-      setWelcomeMessage(data.message);
-      setShowWelcome(true);
+  // Message de bienvenue
+  async function fetchWelcomeMessage() {
+    try {
+      const lastVisit = localStorage.getItem("lastVisitDate");
+      const today = new Date().toISOString().split('T')[0];
       
-      // Masquer après 5 secondes
-      setTimeout(() => setShowWelcome(false), 5000);
+      let lastVisitDays = 0;
+      if (lastVisit) {
+        const lastDate = new Date(lastVisit);
+        const todayDate = new Date();
+        const diffTime = Math.abs(todayDate.getTime() - lastDate.getTime());
+        lastVisitDays = Math.ceil(diffTime / (1000 * 3600 * 24));
+      }
+      
+      localStorage.setItem("lastVisitDate", today);
+      
+      let userName = "Rebecca";
+      const { data: profile } = await supabase
+        .from("user_profile")
+        .select("preferred_name")
+        .eq("user_id", "rebecca")
+        .single();
+      
+      if (profile?.preferred_name) {
+        userName = profile.preferred_name;
+      }
+      
+      const response = await fetch(`${API_URL}/api/welcome-message`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          user_name: userName,
+          hour: new Date().getHours(),
+          last_visit_days: lastVisitDays
+        })
+      });
+      
+      const data = await response.json();
+      if (data.success && data.message) {
+        setWelcomeMessage(data.message);
+        setShowWelcome(true);
+        setTimeout(() => setShowWelcome(false), 5000);
+      }
+    } catch (error) {
+      console.error("Erreur message bienvenue:", error);
     }
-  } catch (error) {
-    console.error("Erreur message bienvenue:", error);
   }
-}
-  
+
+  // Suggestion prochaine action
+  async function fetchNextActionSuggestion() {
+    try {
+      const lastCompleted = localStorage.getItem("lastCompletedTask");
+      const lastArea = localStorage.getItem("lastArea");
+      
+      const { data: recentTasksData } = await supabase
+        .from("tasks")
+        .select("title")
+        .eq("status", "done")
+        .order("updated_at", { ascending: false })
+        .limit(3);
+      
+      const recentTasks = recentTasksData?.map(t => t.title) || [];
+      
+      const { data: missionsData } = await supabase
+        .from("missions")
+        .select("name")
+        .eq("status", "active")
+        .limit(3);
+      
+      const activeMissionsList = missionsData?.map(m => m.name) || [];
+      
+      const response = await fetch(`${API_URL}/api/suggest-next-action`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          current_page: "dashboard",
+          last_completed_task: lastCompleted,
+          recent_tasks: recentTasks,
+          active_missions: activeMissionsList,
+          hour: new Date().getHours(),
+          last_area: lastArea
+        })
+      });
+      
+      const data = await response.json();
+      if (data.success && data.suggestion) {
+        setNextActionSuggestion(data.suggestion);
+        setShowSuggestion(true);
+        setTimeout(() => setShowSuggestion(false), 10000);
+      }
+    } catch (error) {
+      console.error("Erreur suggestion:", error);
+    }
+  }
+
+  function recordLastAction(actionTitle: string, area: string) {
+    localStorage.setItem("lastCompletedTask", actionTitle);
+    localStorage.setItem("lastArea", area);
+  }
+
   async function fetchDashboardData() {
     try {
       const response = await fetch(`${API_URL}/api/dashboard/today`);
       const data = await response.json();
       
       if (data.success) {
-        // Si le backend renvoie déjà un message, on l'utilise
         if (data.greeting) {
           setBecksMessage(data.greeting);
         } else {
-          // Sinon on génère un message dynamique
           await generateDynamicGreeting();
         }
         setIsLoadingMessage(false);
@@ -252,7 +318,7 @@ async function fetchWelcomeMessage() {
       }
     } catch (error) {
       console.error("Erreur dashboard:", error);
-      await generateDynamicGreeting(); // Fallback : générer un message
+      await generateDynamicGreeting();
       setIsLoadingMessage(false);
     }
   }
