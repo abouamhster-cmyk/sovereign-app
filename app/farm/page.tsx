@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
+import { useUserId } from "@/hooks/useUserId";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import { motion, AnimatePresence } from "framer-motion";
 import { 
@@ -13,7 +14,7 @@ import {
 } from "lucide-react";
 import { exportFarmToPDF } from "@/lib/exportPDF";
 
-// Types
+// Types (inchangés)
 type FarmInfrastructure = {
   id: string;
   name: string;
@@ -59,7 +60,7 @@ type FarmTeam = {
   notes: string | null;
 };
 
-// Configurations
+// Configurations (inchangées)
 const infraTypeConfig: Record<string, { label: string; icon: any; color: string }> = {
   building: { label: "Bâtiment", icon: Building2, color: "bg-blue-500/20 text-blue-400" },
   utility: { label: "Utilitaire", icon: Droplets, color: "bg-cyan-500/20 text-cyan-400" },
@@ -102,6 +103,7 @@ const spendingCategoryConfig: Record<string, { label: string; icon: any }> = {
 };
 
 export default function FarmPage() {
+  const { userId, loading: userIdLoading } = useUserId();
   const [activeTab, setActiveTab] = useState<"infrastructure" | "production" | "spending" | "team">("infrastructure");
   
   const [infrastructure, setInfrastructure] = useState<FarmInfrastructure[]>([]);
@@ -124,18 +126,31 @@ export default function FarmPage() {
   };
 
   useEffect(() => {
+    if (!userId) return;
     fetchAllData();
     
     const channels = [
-      supabase.channel('farm_infra').on('postgres_changes', { event: '*', schema: 'public', table: 'farm_infrastructure' }, () => fetchInfrastructure()),
-      supabase.channel('farm_production').on('postgres_changes', { event: '*', schema: 'public', table: 'farm_production_units' }, () => fetchProduction()),
-      supabase.channel('farm_spending').on('postgres_changes', { event: '*', schema: 'public', table: 'spending' }, () => fetchSpending()),
-      supabase.channel('farm_team').on('postgres_changes', { event: '*', schema: 'public', table: 'farm_team' }, () => fetchTeam())
+      supabase.channel('farm_infra').on('postgres_changes', 
+        { event: '*', schema: 'public', table: 'farm_infrastructure', filter: `user_id=eq.${userId}` }, 
+        () => fetchInfrastructure()
+      ),
+      supabase.channel('farm_production').on('postgres_changes', 
+        { event: '*', schema: 'public', table: 'farm_production_units', filter: `user_id=eq.${userId}` }, 
+        () => fetchProduction()
+      ),
+      supabase.channel('farm_spending').on('postgres_changes', 
+        { event: '*', schema: 'public', table: 'spending', filter: `user_id=eq.${userId}` }, 
+        () => fetchSpending()
+      ),
+      supabase.channel('farm_team').on('postgres_changes', 
+        { event: '*', schema: 'public', table: 'farm_team', filter: `user_id=eq.${userId}` }, 
+        () => fetchTeam()
+      )
     ];
     
     channels.forEach(ch => ch.subscribe());
     return () => channels.forEach(ch => ch.unsubscribe());
-  }, []);
+  }, [userId]);
 
   async function fetchAllData() {
     setIsLoading(true);
@@ -149,19 +164,31 @@ export default function FarmPage() {
   }
 
   async function fetchInfrastructure() {
-    const { data } = await supabase.from("farm_infrastructure").select("*").order("created_at");
+    if (!userId) return;
+    const { data } = await supabase
+      .from("farm_infrastructure")
+      .select("*")
+      .eq("user_id", userId)
+      .order("created_at");
     setInfrastructure(data || []);
   }
 
   async function fetchProduction() {
-    const { data } = await supabase.from("farm_production_units").select("*").order("created_at");
+    if (!userId) return;
+    const { data } = await supabase
+      .from("farm_production_units")
+      .select("*")
+      .eq("user_id", userId)
+      .order("created_at");
     setProduction(data || []);
   }
 
   async function fetchSpending() {
+    if (!userId) return;
     const { data } = await supabase
       .from("spending")
       .select("*")
+      .eq("user_id", userId)
       .eq("project", "Ifè Farm")
       .order("date", { ascending: false });
     
@@ -179,9 +206,14 @@ export default function FarmPage() {
     
     setSpending(formatted);
   }
-  
+
   async function fetchTeam() {
-    const { data } = await supabase.from("farm_team").select("*").order("name");
+    if (!userId) return;
+    const { data } = await supabase
+      .from("farm_team")
+      .select("*")
+      .eq("user_id", userId)
+      .order("name");
     setTeam(data || []);
   }
 
@@ -198,7 +230,8 @@ export default function FarmPage() {
         location_on_site: formData.location_on_site,
         completed_date: formData.completed_date || null,
         responsible_person: formData.responsible_person || null,
-        notes: formData.notes || null
+        notes: formData.notes || null,
+        user_id: userId
       };
     } else if (activeTab === "production") {
       table = "farm_production_units";
@@ -210,7 +243,8 @@ export default function FarmPage() {
         start_date: formData.start_date || null,
         expected_first_revenue: formData.expected_first_revenue || null,
         technical_lead: formData.technical_lead || null,
-        notes: formData.notes || null
+        notes: formData.notes || null,
+        user_id: userId
       };
     } else if (activeTab === "spending") {
       table = "spending";
@@ -220,7 +254,8 @@ export default function FarmPage() {
         category: formData.category,
         project: "Ifè Farm",
         date: new Date().toISOString().split('T')[0],
-        notes: formData.notes || null
+        notes: formData.notes || null,
+        user_id: userId
       };
     } else if (activeTab === "team") {
       table = "farm_team";
@@ -230,7 +265,8 @@ export default function FarmPage() {
         area: formData.area,
         status: formData.status,
         phone: formData.phone || null,
-        notes: formData.notes || null
+        notes: formData.notes || null,
+        user_id: userId
       };
     }
     
@@ -322,6 +358,7 @@ export default function FarmPage() {
   const completedInfra = infrastructure.filter(i => i.status === "complete").length;
   const totalInfra = infrastructure.length;
 
+  // ========== FONCTIONS DE RENDU ==========
   const renderInfrastructure = () => {
     if (infrastructure.length === 0) {
       return <div className="text-center py-12 text-gray-500">Aucune infrastructure</div>;
@@ -481,6 +518,24 @@ export default function FarmPage() {
     });
   };
 
+  // ========== GESTION DU CHARGEMENT ==========
+  if (userIdLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <Loader2 className="w-8 h-8 text-gold-500 animate-spin" />
+      </div>
+    );
+  }
+
+  if (!userId) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <p className="text-gray-500">Veuillez vous connecter</p>
+      </div>
+    );
+  }
+
+  // ========== RENDU PRINCIPAL ==========
   return (
     <div className="h-full flex flex-col overflow-y-auto bg-midnight p-4 md:p-6 lg:p-8">
       <div className="max-w-6xl mx-auto w-full">
@@ -638,6 +693,7 @@ export default function FarmPage() {
                 <button onClick={saveItem} className="bg-gold-500 text-midnight px-6 py-2 rounded-full font-medium hover:bg-gold-400 transition-colors">
                   {editingId ? "Mettre à jour" : "Enregistrer"}
                 </button>
+                <button onClick={resetForm} className="bg-white/10 px-6 py-2 rounded-full hover:bg-white/20 transition-colors">Annuler</button>
               </div>
             </motion.div>
           )}
