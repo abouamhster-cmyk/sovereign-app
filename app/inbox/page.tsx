@@ -3,6 +3,7 @@
 import { useEffect, useState, useRef } from "react";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import "regenerator-runtime/runtime";
+import { useUserId } from "@/hooks/useUserId";
 import { supabase } from "@/lib/supabase";
 import { motion, AnimatePresence } from "framer-motion";
 import { 
@@ -69,6 +70,7 @@ const areaConfig = {
 };
 
 export default function InboxPage() {
+  const { userId, loading: userIdLoading } = useUserId();
   const router = useRouter();
   const [items, setItems] = useState<InboxItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -106,18 +108,21 @@ export default function InboxPage() {
     }
   }, [transcript, resetTranscript]);
 
-  useEffect(() => {
-    fetchItems();
-    
-    const channel = supabase
-      .channel('inbox_changes')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'inbox' }, () => fetchItems())
-      .subscribe();
-    
-    return () => {
-      if (channel) channel.unsubscribe();
-    };
-  }, []);
+useEffect(() => {
+  if (!userId) return;  
+  
+  const channel = supabase
+    .channel('inbox_changes')
+    .on('postgres_changes', 
+      { event: '*', schema: 'public', table: 'inbox', filter: `user_id=eq.${userId}` },  
+      () => fetchItems()
+    )
+    .subscribe();
+  
+  return () => {
+    if (channel) channel.unsubscribe();
+  };
+}, [userId]);  // ← AJOUTER userId dans les dépendances
 
   useEffect(() => {
     return () => {
@@ -173,62 +178,63 @@ export default function InboxPage() {
     return uploaded;
   }
 
-  async function fetchItems() {
+   async function fetchItems() {
+    if (!userId) return;
     setIsLoading(true);
     const { data } = await supabase
       .from("inbox")
       .select("*")
+      .eq("user_id", userId)
       .order("created_at", { ascending: false });
     setItems(data || []);
     setIsLoading(false);
   }
-
   // ========== ACTIONS RAPIDES APRÈS ANALYSE ==========
-  async function createTasksFromPriorities(tasks: { title: string; project: string; priority: string }[]) {
-    setIsCreatingTasks(true);
-    let created = 0;
-    
-    for (const task of tasks) {
-      const { error } = await supabase.from("tasks").insert({
-        title: task.title,
-        status: "today",
-        priority: task.priority || "normal",
-        project: task.project || "Général",
-        created_at: new Date().toISOString()
-      });
-      if (!error) created++;
-    }
-    
-    if (created > 0) {
-      toast.success(`✅ ${created} tâche(s) créée(s)`);
-      router.push("/tasks");
-    } else {
-      toast.error("❌ Erreur lors de la création des tâches");
-    }
-    setIsCreatingTasks(false);
-  }
-
-  async function createChecklistFromAnalysis(checklist: { title: string; steps: string[] }) {
-    if (!checklist || !checklist.steps || checklist.steps.length === 0) {
-      toast.error("❌ Checklist invalide");
-      return;
-    }
-    
-    const { error } = await supabase.from("checklists").insert({
-      title: checklist.title,
-      steps: checklist.steps,
-      completed_steps: [],
-      progress: 0,
-      user_id: "rebecca",
-      created_at: new Date().toISOString()
+async function createTasksFromPriorities(tasks: { title: string; project: string; priority: string }[]) {
+  setIsCreatingTasks(true);
+  let created = 0;
+  
+  for (const task of tasks) {
+    const { error } = await supabase.from("tasks").insert({
+      title: task.title,
+      status: "today",
+      priority: task.priority || "normal",
+      project: task.project || "Général",
+      user_id: userId
     });
-    
-    if (!error) {
-      toast.success(`📋 Checklist "${checklist.title}" créée`);
-    } else {
-      toast.error("❌ Erreur lors de la création de la checklist");
-    }
+    if (!error) created++;
   }
+  
+  if (created > 0) {
+    toast.success(`✅ ${created} tâche(s) créée(s)`);
+    router.push("/agenda");
+  } else {
+    toast.error("❌ Erreur lors de la création des tâches");
+  }
+  setIsCreatingTasks(false);
+}
+  
+async function createChecklistFromAnalysis(checklist: { title: string; steps: string[] }) {
+  if (!checklist || !checklist.steps || checklist.steps.length === 0) {
+    toast.error("❌ Checklist invalide");
+    return;
+  }
+  
+  const { error } = await supabase.from("checklists").insert({
+    title: checklist.title,
+    steps: checklist.steps,
+    completed_steps: [],
+    progress: 0,
+    user_id: userId, 
+    created_at: new Date().toISOString()
+  });
+  
+  if (!error) {
+    toast.success(`📋 Checklist "${checklist.title}" créée`);
+  } else {
+    toast.error("❌ Erreur lors de la création de la checklist");
+  }
+}
 
   async function executeQuickAction(action: string) {
     toast.info(`🔧 ${action}`, { duration: 5000 });
@@ -238,6 +244,7 @@ export default function InboxPage() {
       status: "today",
       priority: "high",
       project: "Général",
+      user_id: userId,
       created_at: new Date().toISOString()
     });
     if (!error) {
@@ -272,7 +279,8 @@ export default function InboxPage() {
         type: "note",
         area: "life",
         urgency: "medium",
-        needs_processing: true
+        needs_processing: true,
+        user_id: userId
       })
       .select();
     
@@ -302,7 +310,9 @@ export default function InboxPage() {
                 title: task.title,
                 status: "today",
                 priority: task.priority || "normal",
-                project: task.project || "Général"
+                project: task.project || "Général",
+                user_id: userId 
+
               });
             }
             toast.success(`✅ ${result.analysis.suggested_tasks.length} tâche(s) créée(s)`);
@@ -314,7 +324,8 @@ export default function InboxPage() {
               type: result.analysis.urgency_level === "high" ? "task" : "note",
               urgency: result.analysis.urgency_level,
               needs_processing: false,
-              processed_at: new Date().toISOString()
+              processed_at: new Date().toISOString(),
+              user_id: userId 
             })
             .eq("id", data[0].id);
             
@@ -355,7 +366,9 @@ export default function InboxPage() {
               title: task.title,
               status: "today",
               priority: task.priority || "normal",
-              project: task.project || "Général"
+              project: task.project || "Général",
+              user_id: userId   
+
             });
           }
           toast.success(`✅ ${result.analysis.suggested_tasks.length} tâche(s) créée(s)`);
@@ -367,7 +380,8 @@ export default function InboxPage() {
             type: result.analysis.urgency_level === "high" ? "task" : "note",
             urgency: result.analysis.urgency_level,
             needs_processing: false,
-            processed_at: new Date().toISOString()
+            processed_at: new Date().toISOString(), 
+            user_id: userId 
           })
           .eq("id", item.id);
           
@@ -382,10 +396,11 @@ export default function InboxPage() {
     }
   }
 
-  async function deleteItem(id: string) {
-    const { error } = await supabase.from("inbox").delete().eq("id", id);
-    if (!error) fetchItems();
-  }
+async function deleteItem(id: string) {
+  if (!userId) return;  
+  const { error } = await supabase.from("inbox").delete().eq("id", id).eq("user_id", userId);
+  if (!error) fetchItems();
+}
 
   const startVoiceRecording = () => {
     resetTranscript();
@@ -447,6 +462,24 @@ export default function InboxPage() {
     highUrgency: items.filter(i => i.urgency === "high").length
   };
 
+
+    
+      if (userIdLoading) {
+      return (
+        <div className="flex items-center justify-center min-h-[400px]">
+          <Loader2 className="w-8 h-8 text-gold-500 animate-spin" />
+        </div>
+      );
+    }
+    
+    if (!userId) {
+      return (
+        <div className="flex items-center justify-center min-h-[400px]">
+          <p className="text-gray-500">Veuillez vous connecter</p>
+        </div>
+      );
+    }
+  
   return (
     <div className="p-4 md:p-6 lg:p-8 h-full flex flex-col overflow-y-auto bg-midnight">
       {/* HEADER */}
