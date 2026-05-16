@@ -1,13 +1,15 @@
 "use client";
 import { useEffect, useState } from "react";
-import LoadingSpinner from "@/components/LoadingSpinner";
 import { supabase } from "@/lib/supabase";
+import { useUserId } from "@/hooks/useUserId";
+import LoadingSpinner from "@/components/LoadingSpinner";
 import { motion, AnimatePresence } from "framer-motion";
 import { 
   Megaphone, Calendar, Plus, Edit2, Trash2, X,
   Sparkles, Clock, CheckCircle, AlertCircle, Filter,
   Image, FileText, Video, Music, Download,
-  ChevronLeft, ChevronRight, Brain, LayoutGrid, Loader2
+  ChevronLeft, ChevronRight, Brain, LayoutGrid, Loader2,
+  RefreshCw
 } from "lucide-react";
 import { exportToPDF } from "@/lib/exportPDF";
 import { toast } from "sonner";
@@ -62,9 +64,8 @@ const contentTypeConfig = {
   behind_scenes: "🎬 Behind the Scenes"
 };
 
-import { RefreshCw } from "lucide-react";
-
 export default function ContentStudioPage() {
+  const { userId, loading: userIdLoading } = useUserId();
   const [activeTab, setActiveTab] = useState<"list" | "calendar" | "generate">("list");
   
   // États pour la liste
@@ -111,17 +112,21 @@ export default function ContentStudioPage() {
   // =====================================================
   
   useEffect(() => {
+    if (!userId) return;
     fetchAllData();
     
     const channel = supabase
       .channel('content_changes')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'content' }, () => fetchAllData())
+      .on('postgres_changes', 
+        { event: '*', schema: 'public', table: 'content', filter: `user_id=eq.${userId}` }, 
+        () => fetchAllData()
+      )
       .subscribe();
     
     return () => {
       channel.unsubscribe();
     };
-  }, [currentDate]);
+  }, [currentDate, userId]);
 
   async function fetchAllData() {
     setIsLoading(true);
@@ -133,9 +138,12 @@ export default function ContentStudioPage() {
   }
 
   async function fetchContent() {
+    if (!userId) return;
+    
     const { data } = await supabase
       .from("content")
       .select("*")
+      .eq("user_id", userId)
       .order("publish_date", { ascending: true, nullsFirst: false });
     setContents(data || []);
   }
@@ -163,6 +171,8 @@ export default function ContentStudioPage() {
   // =====================================================
 
   async function saveContent() {
+    if (!userId) return;
+    
     const data = {
       title: formData.title,
       hook: formData.hook || null,
@@ -170,7 +180,8 @@ export default function ContentStudioPage() {
       content_type: formData.content_type,
       status: formData.status,
       publish_date: formData.publish_date || null,
-      cta: formData.cta || null
+      cta: formData.cta || null,
+      user_id: userId
     };
     
     let error;
@@ -313,7 +324,7 @@ export default function ContentStudioPage() {
   }
 
   async function saveGeneratedIdea() {
-    if (!generatedIdea || !selectedDate) {
+    if (!generatedIdea || !selectedDate || !userId) {
       toast.error("Sélectionne une date d'abord");
       return;
     }
@@ -325,7 +336,8 @@ export default function ContentStudioPage() {
       content_type: generatedIdea.content_type || "post",
       status: "idea",
       publish_date: selectedDate,
-      cta: generatedIdea.cta || "À définir"
+      cta: generatedIdea.cta || "À définir",
+      user_id: userId
     });
     
     if (!error) {
@@ -360,6 +372,22 @@ export default function ContentStudioPage() {
     if (!config) return <Sparkles className="w-4 h-4" />;
     return <config.icon className="w-4 h-4" />;
   };
+
+  if (userIdLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <Loader2 className="w-8 h-8 text-gold-500 animate-spin" />
+      </div>
+    );
+  }
+
+  if (!userId) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <p className="text-gray-500">Veuillez vous connecter</p>
+      </div>
+    );
+  }
 
   if (isLoading) {
     return (
