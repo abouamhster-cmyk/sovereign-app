@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
+import { useUserId } from "@/hooks/useUserId";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import { motion, AnimatePresence } from "framer-motion";
 import { 
@@ -87,6 +88,7 @@ const projects = [
 ];
 
 export default function AgendaPage() {
+  const { userId, loading: userIdLoading } = useUserId();
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<"calendar" | "tasks">("calendar");
   
@@ -128,24 +130,30 @@ export default function AgendaPage() {
   };
 
   // ========== CHARGEMENT DES DONNÉES ==========
-  useEffect(() => {
-    fetchAllData();
-    
-    const tasksChannel = supabase
-      .channel('tasks_changes')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'tasks' }, () => fetchTasks())
-      .subscribe();
-    
-    const eventsChannel = supabase
-      .channel('family_events_changes')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'family_events' }, () => fetchFamilyEvents())
-      .subscribe();
-    
-    return () => {
-      tasksChannel.unsubscribe();
-      eventsChannel.unsubscribe();
-    };
-  }, []);
+useEffect(() => {
+  if (!userId) return;
+  
+  const tasksChannel = supabase
+    .channel('tasks_changes')
+    .on('postgres_changes', 
+      { event: '*', schema: 'public', table: 'tasks', filter: `user_id=eq.${userId}` }, 
+      () => fetchTasks()
+    )
+    .subscribe();
+  
+  const eventsChannel = supabase
+    .channel('family_events_changes')
+    .on('postgres_changes', 
+      { event: '*', schema: 'public', table: 'family_events', filter: `user_id=eq.${userId}` }, 
+      () => fetchFamilyEvents()
+    )
+    .subscribe();
+  
+  return () => {
+    tasksChannel.unsubscribe();
+    eventsChannel.unsubscribe();
+  };
+}, [userId]); 
 
   async function fetchAllData() {
     setIsCalendarLoading(true);
@@ -162,47 +170,61 @@ export default function AgendaPage() {
   }
 
   async function fetchTasks() {
+    if (!userId) return;
+    
     const { data } = await supabase
       .from("tasks")
       .select("*")
+      .eq("user_id", userId)
       .neq("status", "done")
       .order("due_date", { ascending: true });
     setTasks(data || []);
   }
 
-  async function fetchTaskList() {
+   async function fetchTaskList() {
+    if (!userId) return;
+    
     const { data } = await supabase
       .from("tasks")
       .select("*")
+      .eq("user_id", userId)
       .order("created_at", { ascending: false });
     setTaskList(data || []);
   }
+async function fetchFamilyEvents() {
+  if (!userId) return;
+  
+  const { data } = await supabase
+    .from("family_events")
+    .select("*")
+    .eq("user_id", userId)
+    .order("date", { ascending: true });
+  setFamilyEvents(data || []);
+}
 
-  async function fetchFamilyEvents() {
-    const { data } = await supabase
-      .from("family_events")
-      .select("*")
-      .order("date", { ascending: true });
-    setFamilyEvents(data || []);
-  }
-
-  async function fetchFarmTasks() {
-    const { data } = await supabase
-      .from("relocation_tasks")
-      .select("*")
-      .neq("status", "completed")
-      .order("due_date", { ascending: true });
-    setFarmTasks(data || []);
-  }
+async function fetchFarmTasks() {
+  if (!userId) return;
+  
+  const { data } = await supabase
+    .from("relocation_tasks")
+    .select("*")
+    .eq("user_id", userId)
+    .neq("status", "completed")
+    .order("due_date", { ascending: true });
+  setFarmTasks(data || []);
+}
 
   async function fetchDocuments() {
-    const { data } = await supabase
-      .from("documents")
-      .select("*")
-      .neq("status", "approved")
-      .order("due_date", { ascending: true });
-    setDocuments(data || []);
-  }
+  if (!userId) return;
+  
+  const { data } = await supabase
+    .from("documents")
+    .select("*")
+    .eq("user_id", userId)
+    .neq("status", "approved")
+    .order("due_date", { ascending: true });
+  setDocuments(data || []);
+}
 
   // ========== FONCTIONS CALENDRIER ==========
   const getDaysInMonth = (date: Date) => {
@@ -279,7 +301,8 @@ export default function AgendaPage() {
       project: taskFormData.project,
       due_date: taskFormData.due_date || null,
       estimated_time: taskFormData.estimated_time ? parseInt(taskFormData.estimated_time) : null,
-      sync_calendar: syncCalendar
+      sync_calendar: syncCalendar, 
+      user_id: userId 
     };
     
     try {
@@ -376,6 +399,23 @@ export default function AgendaPage() {
     done: taskList.filter(t => t.status === "done").length
   };
 
+
+    if (userIdLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <Loader2 className="w-8 h-8 text-gold-500 animate-spin" />
+      </div>
+    );
+  }
+  
+  if (!userId) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <p className="text-gray-500">Veuillez vous connecter</p>
+      </div>
+    );
+  }
+    
   if (isCalendarLoading && isTasksLoading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
