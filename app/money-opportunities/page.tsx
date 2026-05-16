@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
+import { useUserId } from "@/hooks/useUserId";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import { motion, AnimatePresence } from "framer-motion";
 import { 
@@ -173,6 +174,7 @@ function getScoreColor(score: number): string {
 // =====================================================
 
 export default function MoneyOpportunitiesPage() {
+    const { userId, loading: userIdLoading } = useUserId();
   const [activeTab, setActiveTab] = useState<"money" | "opportunities">("money");
   
   // États pour les finances
@@ -231,70 +233,89 @@ export default function MoneyOpportunitiesPage() {
   // CHARGEMENT DES DONNÉES
   // =====================================================
 
-  useEffect(() => {
-    fetchAllData();
-    
-    const spendingChannel = supabase
-      .channel('spending_changes')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'spending' }, () => fetchFinanceData())
-      .subscribe();
-    
-    const revenueChannel = supabase
-      .channel('revenue_changes')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'revenue' }, () => fetchFinanceData())
-      .subscribe();
-    
-    const opportunitiesChannel = supabase
-      .channel('opportunities_changes')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'opportunities' }, () => fetchOpportunities())
-      .subscribe();
-    
-    return () => {
-      spendingChannel.unsubscribe();
-      revenueChannel.unsubscribe();
-      opportunitiesChannel.unsubscribe();
-    };
-  }, []);
+ useEffect(() => {
+  if (!userId) return;
+  
+  const spendingChannel = supabase
+    .channel('spending_changes')
+    .on('postgres_changes', 
+      { event: '*', schema: 'public', table: 'spending', filter: `user_id=eq.${userId}` }, 
+      () => fetchFinanceData()
+    )
+    .subscribe();
+  
+  const revenueChannel = supabase
+    .channel('revenue_changes')
+    .on('postgres_changes', 
+      { event: '*', schema: 'public', table: 'revenue', filter: `user_id=eq.${userId}` }, 
+      () => fetchFinanceData()
+    )
+    .subscribe();
+  
+  const opportunitiesChannel = supabase
+    .channel('opportunities_changes')
+    .on('postgres_changes', 
+      { event: '*', schema: 'public', table: 'opportunities', filter: `user_id=eq.${userId}` }, 
+      () => fetchOpportunities()
+    )
+    .subscribe();
+  
+  return () => {
+    spendingChannel.unsubscribe();
+    revenueChannel.unsubscribe();
+    opportunitiesChannel.unsubscribe();
+  };
+}, [userId]);
 
   async function fetchAllData() {
     await Promise.all([fetchFinanceData(), fetchOpportunities(), fetchMissions()]);
   }
 
   async function fetchFinanceData() {
-    setIsFinanceLoading(true);
-    
-    const { data: spendingData } = await supabase
-      .from("spending")
-      .select("*")
-      .order("date", { ascending: false });
-    
-    const { data: revenueData } = await supabase
-      .from("revenue")
-      .select("*")
-      .order("date", { ascending: false });
-    
-    setSpending(spendingData || []);
-    setRevenue(revenueData || []);
-    setIsFinanceLoading(false);
-  }
+  if (!userId) return;
+  
+  setIsFinanceLoading(true);
+  
+  const { data: spendingData } = await supabase
+    .from("spending")
+    .select("*")
+    .eq("user_id", userId)
+    .order("date", { ascending: false });
+  
+  const { data: revenueData } = await supabase
+    .from("revenue")
+    .select("*")
+    .eq("user_id", userId)
+    .order("date", { ascending: false });
+  
+  setSpending(spendingData || []);
+  setRevenue(revenueData || []);
+  setIsFinanceLoading(false);
+}
 
-  async function fetchOpportunities() {
-    setIsOpportunityLoading(true);
-    const { data } = await supabase
-      .from("opportunities")
-      .select("*")
-      .order("estimated_value", { ascending: false });
-    setOpportunities(data || []);
-    setIsOpportunityLoading(false);
-  }
+ async function fetchOpportunities() {
+  if (!userId) return;
+  
+  setIsOpportunityLoading(true);
+  const { data } = await supabase
+    .from("opportunities")
+    .select("*")
+    .eq("user_id", userId)
+    .order("estimated_value", { ascending: false });
+  setOpportunities(data || []);
+  setIsOpportunityLoading(false);
+}
 
-  async function fetchMissions() {
-    const { data } = await supabase
-      .from("missions")
-      .select("id, name")
-      .eq("status", "active");
-    setMissions(data || []);
-  }
+async function fetchMissions() {
+  if (!userId) return;
+  
+  const { data } = await supabase
+    .from("missions")
+    .select("id, name")
+    .eq("user_id", userId)
+    .eq("status", "active");
+  setMissions(data || []);
+}
 
   // =====================================================
   // GESTION DES FINANCES
@@ -308,7 +329,9 @@ export default function MoneyOpportunitiesPage() {
       category: financeFormData.category,
       project: financeFormData.project,
       date: financeFormData.date,
-      notes: financeFormData.notes || null
+      notes: financeFormData.notes || null,
+      user_id: userId 
+
     };
     
     const { error } = await supabase.from(table).insert(data);
@@ -329,7 +352,8 @@ export default function MoneyOpportunitiesPage() {
       category: financeFormData.category,
       project: financeFormData.project,
       date: financeFormData.date,
-      notes: financeFormData.notes || null
+      notes: financeFormData.notes || null,
+      user_id: userId 
     };
     
     const { error } = await supabase.from(table).update(data).eq("id", editingFinanceId);
@@ -394,7 +418,9 @@ export default function MoneyOpportunitiesPage() {
       deadline: opportunityFormData.deadline || null,
       probability: opportunityFormData.probability,
       next_action: opportunityFormData.next_action || null,
-      notes: opportunityFormData.notes || null
+      notes: opportunityFormData.notes || null,
+      user_id: userId 
+
     };
     
     let error;
@@ -576,6 +602,22 @@ export default function MoneyOpportunitiesPage() {
   // =====================================================
   // RENDU
   // =====================================================
+
+  if (userIdLoading) {
+  return (
+    <div className="flex items-center justify-center min-h-[400px]">
+      <Loader2 className="w-8 h-8 text-gold-500 animate-spin" />
+    </div>
+  );
+}
+
+if (!userId) {
+  return (
+    <div className="flex items-center justify-center min-h-[400px]">
+      <p className="text-gray-500">Veuillez vous connecter</p>
+    </div>
+  );
+}
 
   if (isFinanceLoading && isOpportunityLoading) {
     return (
