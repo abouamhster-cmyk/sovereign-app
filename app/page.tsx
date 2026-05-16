@@ -240,7 +240,9 @@ export default function DashboardPage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ mood: selectedMood })
     });
-    
+
+      window.dispatchEvent(new CustomEvent('moodChange', { detail: { mood: selectedMood } }));
+
     if (selectedMood === "fatiguée") {
       setStabilizationMove("Repose-toi. Rien n'est plus important que ton énergie.");
       toast.info("🌿 Prends soin de toi aujourd'hui", { duration: 5000 });
