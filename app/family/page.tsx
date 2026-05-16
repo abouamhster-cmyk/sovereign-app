@@ -8,7 +8,7 @@ import {
   Calendar, Plus, Trash2, Edit2, X, Users, 
   Baby, Heart, Clock, AlertCircle, CheckCircle,
   School, Activity, Pill, Plane, Home, Star,
-  FileCheck, CalendarDays, LayoutGrid
+  FileCheck, CalendarDays, LayoutGrid, Loader2
 } from "lucide-react";
 
 // =====================================================
