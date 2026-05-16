@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
+import { useUserId } from "@/hooks/useUserId";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import { motion, AnimatePresence } from "framer-motion";
 import { 
@@ -104,6 +105,7 @@ const celebrationEmojis = [
 ];
 
 export default function RescueWinsPage() {
+  const { userId, loading: userIdLoading } = useUserId();
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<"rescue" | "wins">("rescue");
   
@@ -149,8 +151,9 @@ export default function RescueWinsPage() {
 
   // ========== CHARGEMENT DONNÉES RESCUE ==========
   useEffect(() => {
+    if (!userId) return;
     fetchAllData();
-  }, []);
+  }, [userId]);
 
   async function fetchAllData() {
     setIsRescueLoading(true);
@@ -170,28 +173,58 @@ export default function RescueWinsPage() {
   }
 
   async function fetchUrgentTasks() {
-    const { data } = await supabase.from("tasks").select("*").eq("status", "today").limit(10);
+    if (!userId) return;
+    const { data } = await supabase
+      .from("tasks")
+      .select("*")
+      .eq("user_id", userId)
+      .eq("status", "today")
+      .limit(10);
     setUrgentTasks(data || []);
   }
 
   async function fetchTodayTasks() {
-    const { data } = await supabase.from("tasks").select("*").eq("status", "today").limit(5);
+    if (!userId) return;
+    const { data } = await supabase
+      .from("tasks")
+      .select("*")
+      .eq("user_id", userId)
+      .eq("status", "today")
+      .limit(5);
     setTodayTasks(data || []);
   }
 
   async function fetchActiveMissions() {
-    const { data } = await supabase.from("missions").select("*").eq("status", "active");
+    if (!userId) return;
+    const { data } = await supabase
+      .from("missions")
+      .select("*")
+      .eq("user_id", userId)
+      .eq("status", "active");
     setActiveMissions(data || []);
   }
 
   async function fetchPendingDocs() {
+    if (!userId) return;
     const today = new Date().toISOString().split('T')[0];
-    const { data } = await supabase.from("documents").select("*").neq("status", "approved").not("due_date", "is", null).lt("due_date", today);
+    const { data } = await supabase
+      .from("documents")
+      .select("*")
+      .eq("user_id", userId)
+      .neq("status", "approved")
+      .not("due_date", "is", null)
+      .lt("due_date", today);
     setPendingDocs(data || []);
   }
 
   async function fetchRecentWinsForRescue() {
-    const { data } = await supabase.from("wins").select("*").order("date", { ascending: false }).limit(3);
+    if (!userId) return;
+    const { data } = await supabase
+      .from("wins")
+      .select("*")
+      .eq("user_id", userId)
+      .order("date", { ascending: false })
+      .limit(3);
     setRecentWins(data || []);
   }
 
@@ -206,12 +239,13 @@ export default function RescueWinsPage() {
   }
 
   async function analyzeLoad() {
+    if (!userId) return;
     setIsAnalyzing(true);
     try {
       const [tasksRes, missionsRes, docsRes] = await Promise.all([
-        supabase.from("tasks").select("*").neq("status", "done"),
-        supabase.from("missions").select("*").eq("status", "active"),
-        supabase.from("documents").select("*").neq("status", "approved")
+        supabase.from("tasks").select("*").eq("user_id", userId).neq("status", "done"),
+        supabase.from("missions").select("*").eq("user_id", userId).eq("status", "active"),
+        supabase.from("documents").select("*").eq("user_id", userId).neq("status", "approved")
       ]);
       
       const allTasks = tasksRes.data || [];
@@ -261,13 +295,14 @@ export default function RescueWinsPage() {
   }
 
   async function saveReleaseNote() {
-    if (!releaseNote.trim()) return;
+    if (!releaseNote.trim() || !userId) return;
     setIsSaving(true);
     const { error } = await supabase.from("resets").insert({
       notes: releaseNote,
       type: "release_note",
       state: loadAnalysis?.level || "unknown",
-      what_helped: "Écriture de libération mentale"
+      what_helped: "Écriture de libération mentale",
+      user_id: userId
     });
     if (!error) {
       setSavedRelease(releaseNote);
@@ -280,10 +315,11 @@ export default function RescueWinsPage() {
   }
 
   async function handleIAmBetter() {
+    if (!userId) return;
     await fetch(`${API_URL}/api/mood/save`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ mood: "bien" })
+      body: JSON.stringify({ mood: "bien", user_id: userId })
     });
     toast.success("🌿 Content de te sentir mieux. Retour au commandement.", { duration: 5000 });
     setTimeout(() => router.push("/"), 1500);
@@ -292,7 +328,7 @@ export default function RescueWinsPage() {
   async function executeAction(action: OverloadData["rescue_actions"][0]) {
     switch (action.type) {
       case "focus_task":
-        router.push(action.task_id ? `/tasks?highlight=${action.task_id}` : "/tasks");
+        router.push(action.task_id ? `/agenda?highlight=${action.task_id}` : "/agenda");
         break;
       case "breathing":
         toast.info("🌬️ Respire profondément... Inspire (4s) → Retiens (4s) → Expire (6s).", { duration: 10000 });
@@ -313,17 +349,24 @@ export default function RescueWinsPage() {
 
   // ========== FONCTIONS WINS ==========
   async function fetchWins() {
-    const { data } = await supabase.from("wins").select("*").order("date", { ascending: false });
+    if (!userId) return;
+    const { data } = await supabase
+      .from("wins")
+      .select("*")
+      .eq("user_id", userId)
+      .order("date", { ascending: false });
     setWins(data || []);
   }
 
   async function saveWin() {
+    if (!userId) return;
     const data = {
       title: winFormData.title,
       category: winFormData.category,
       date: winFormData.date,
       celebration_emoji: winFormData.celebration_emoji,
-      notes: winFormData.notes || null
+      notes: winFormData.notes || null,
+      user_id: userId
     };
     
     let error;
@@ -346,13 +389,11 @@ export default function RescueWinsPage() {
   }
 
   async function deleteWin(id: string) {
-    if (confirm("Supprimer cette victoire ?")) {
-      const { error } = await supabase.from("wins").delete().eq("id", id);
-      if (!error) {
-        fetchWins();
-        fetchRecentWinsForRescue();
-        toast.success("Victoire supprimée");
-      }
+    const { error } = await supabase.from("wins").delete().eq("id", id);
+    if (!error) {
+      fetchWins();
+      fetchRecentWinsForRescue();
+      toast.success("Victoire supprimée");
     }
   }
 
@@ -428,10 +469,18 @@ export default function RescueWinsPage() {
     }
   };
 
-  if (isRescueLoading && isWinsLoading) {
+  if (userIdLoading || (isRescueLoading && isWinsLoading)) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
         <Loader2 className="w-8 h-8 text-gold-500 animate-spin" />
+      </div>
+    );
+  }
+
+  if (!userId) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <p className="text-gray-500">Veuillez vous connecter</p>
       </div>
     );
   }
