@@ -45,6 +45,8 @@ export default function DashboardPage() {
   const [recentMemories, setRecentMemories] = useState<Memory[]>([]);
   const [overloadData, setOverloadData] = useState<any>(null);
   const [isLoadingMemories, setIsLoadingMemories] = useState(true);
+  const [welcomeMessage, setWelcomeMessage] = useState("");
+  const [showWelcome, setShowWelcome] = useState(false);
   
   // Message personnalisé de Becks
   const [becksMessage, setBecksMessage] = useState("");
@@ -63,11 +65,30 @@ export default function DashboardPage() {
   const [businessMove, setBusinessMove] = useState("Avancer sur une mission");
   const [stabilizationMove, setStabilizationMove] = useState("Prendre 5 minutes");
 
+
+  // Afficher le toast de bienvenue
+useEffect(() => {
+  if (welcomeMessage && showWelcome) {
+    toast(welcomeMessage, {
+      duration: 5000,
+      icon: "👑",
+      position: "top-center",
+      style: {
+        background: "rgba(212, 175, 55, 0.1)",
+        border: "1px solid rgba(212, 175, 55, 0.3)",
+        color: "#D4AF37"
+      }
+    });
+  }
+}, [welcomeMessage, showWelcome]);
+  
   useEffect(() => {
     const hour = new Date().getHours();
     if (hour < 12) setGreeting("Bonjour");
     else if (hour < 18) setGreeting("Bon après-midi");
     else setGreeting("Bonsoir");
+    
+    fetchWelcomeMessage(); 
     
     const savedMood = localStorage.getItem("todayMood");
     const savedDate = localStorage.getItem("todayMoodDate");
@@ -100,6 +121,60 @@ export default function DashboardPage() {
     }
   }
 
+
+  // Ajouter cette fonction
+async function fetchWelcomeMessage() {
+  try {
+    // Récupérer la dernière visite depuis localStorage
+    const lastVisit = localStorage.getItem("lastVisitDate");
+    const today = new Date().toISOString().split('T')[0];
+    
+    let lastVisitDays = 0;
+    if (lastVisit) {
+      const lastDate = new Date(lastVisit);
+      const todayDate = new Date();
+      const diffTime = Math.abs(todayDate.getTime() - lastDate.getTime());
+      lastVisitDays = Math.ceil(diffTime / (1000 * 3600 * 24));
+    }
+    
+    // Mettre à jour la date de dernière visite
+    localStorage.setItem("lastVisitDate", today);
+    
+    // Récupérer le nom depuis le profil ou Supabase
+    let userName = "Rebecca";
+    const { data: profile } = await supabase
+      .from("user_profile")
+      .select("preferred_name")
+      .eq("user_id", "rebecca")
+      .single();
+    
+    if (profile?.preferred_name) {
+      userName = profile.preferred_name;
+    }
+    
+    const response = await fetch(`${API_URL}/api/welcome-message`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        user_name: userName,
+        hour: new Date().getHours(),
+        last_visit_days: lastVisitDays
+      })
+    });
+    
+    const data = await response.json();
+    if (data.success && data.message) {
+      setWelcomeMessage(data.message);
+      setShowWelcome(true);
+      
+      // Masquer après 5 secondes
+      setTimeout(() => setShowWelcome(false), 5000);
+    }
+  } catch (error) {
+    console.error("Erreur message bienvenue:", error);
+  }
+}
+  
   async function fetchDashboardData() {
     try {
       const response = await fetch(`${API_URL}/api/dashboard/today`);
