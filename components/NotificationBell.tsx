@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { Bell, BellRing, Loader2, Trash2, Volume2, VolumeX, Vibrate } from "lucide-react";
 import { toast } from "sonner";
+import { supabase } from "@/lib/supabase";
 
 const VAPID_PUBLIC_KEY = "BBBlTgNIZqh8TWsKy73wptSd69jogrECwImktCKW3YbWeQgDkSwhvmsbhxr2mo57fJt_rhrgddIwQfgj3p9_0C0";
 const API_URL = "https://sovereign-bridge.onrender.com";
@@ -27,6 +28,47 @@ export default function NotificationBell() {
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [vibrationEnabled, setVibrationEnabled] = useState(true);
   const [showSettings, setShowSettings] = useState(false);
+  
+  // ========== COMPTEUR DE NOTIFICATIONS NON LUES ==========
+  const [unreadCount, setUnreadCount] = useState(0);
+
+  // Récupérer le nombre de notifications non lues
+  const fetchUnreadCount = async () => {
+    try {
+      const { count, error } = await supabase
+        .from("notifications")
+        .select("*", { count: 'exact', head: true })
+        .eq("read", false)
+        .eq("user_id", "rebecca");
+      
+      if (error) throw error;
+      setUnreadCount(count || 0);
+    } catch (error) {
+      console.error("Erreur fetchUnreadCount:", error);
+    }
+  };
+
+  // Écouter les changements de notifications en temps réel
+  useEffect(() => {
+    fetchUnreadCount();
+    
+    const channel = supabase
+      .channel('notifications_bell')
+      .on('postgres_changes', 
+        { event: '*', schema: 'public', table: 'notifications' }, 
+        () => fetchUnreadCount()
+      )
+      .subscribe();
+    
+    // Écouter l'événement personnalisé de la page notifications
+    const handleRefresh = () => fetchUnreadCount();
+    window.addEventListener('refreshNotifications', handleRefresh);
+    
+    return () => {
+      channel.unsubscribe();
+      window.removeEventListener('refreshNotifications', handleRefresh);
+    };
+  }, []);
 
   // Charger les préférences au démarrage
   useEffect(() => {
@@ -297,15 +339,15 @@ export default function NotificationBell() {
         )}
       </button>
       
-      {/* Bouton principal d'activation/désactivation */}
+      {/* Bouton principal d'activation/désactivation AVEC COMPTEUR */}
       <button
         onClick={handleClick}
         disabled={isLoading}
-        className={`p-2 rounded-full transition-all duration-300 ${
+        className={`relative p-2 rounded-full transition-all duration-300 ${
           isSubscribed 
             ? "text-gold-500 bg-gold-500/10" 
             : "text-gray-500 hover:text-ivory hover:bg-white/5"
-        } disabled:opacity-50 relative`}
+        } disabled:opacity-50`}
         title={isSubscribed ? "Désactiver les alertes" : "Activer les alertes"}
       >
         {isLoading ? (
@@ -314,6 +356,13 @@ export default function NotificationBell() {
           <BellRing className="w-5 h-5" />
         ) : (
           <Bell className="w-5 h-5" />
+        )}
+        
+        {/* BULLE ROUGE DU COMPTEUR */}
+        {unreadCount > 0 && (
+          <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] bg-red-500 text-white text-[10px] rounded-full flex items-center justify-center px-1">
+            {unreadCount > 9 ? '9+' : unreadCount}
+          </span>
         )}
         
         {/* Indicateur visuel si permission non accordée */}
