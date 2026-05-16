@@ -293,28 +293,19 @@ export default function DashboardPage() {
         </div>
       
         {/* Message Becks + Avatar */}
-        <div className="flex items-start gap-3">
-          <div className="flex-1">
-            <div className="bg-gradient-to-r from-gold-500/10 to-transparent border-l-4 border-gold-500 rounded-xl p-4">
-              {isLoadingMessage ? (
-                <div className="flex items-center gap-2">
-                  <Loader2 className="w-4 h-4 text-gold-500 animate-spin" />
-                  <span className="text-sm text-gray-400">Becks réfléchit...</span>
-                </div>
-              ) : (
-                <div className="flex items-start gap-3">
-                  <Sparkles className="w-5 h-5 text-gold-500 mt-0.5 flex-shrink-0" />
-                  <p className="text-ivory text-sm leading-relaxed">{becksMessage}</p>
-                </div>
-              )}
-            </div>
+          <div className="bg-gradient-to-r from-gold-500/10 to-transparent border-l-4 border-gold-500 rounded-xl p-4">
+            {isLoadingMessage ? (
+              <div className="flex items-center gap-2">
+                <Loader2 className="w-4 h-4 text-gold-500 animate-spin" />
+                <span className="text-sm text-gray-400">Becks réfléchit...</span>
+              </div>
+            ) : (
+              <div className="flex items-start gap-3">
+                <Sparkles className="w-5 h-5 text-gold-500 mt-0.5 flex-shrink-0" />
+                <p className="text-ivory text-sm leading-relaxed">{becksMessage}</p>
+              </div>
+            )}
           </div>
-          <SovereignAvatar 
-            size="sm" 
-            mood={mood}
-            state={isLoadingMessage ? "thinking" : "idle"}
-            lastMessage={becksMessage}
-          />
         </div>
       
         {/* Petit résumé visuel */}
