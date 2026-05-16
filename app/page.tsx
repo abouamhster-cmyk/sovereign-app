@@ -135,13 +135,25 @@ export default function DashboardPage() {
     setIsLoading(false);
   }
 
-  async function fetchUserName() {
+async function fetchUserName() {
+  // D'abord, essayer de récupérer le preferred_name depuis le profil
+  const { data: profile } = await supabase
+    .from("user_profile")
+    .select("preferred_name")
+    .eq("user_id", "rebecca")
+    .single();
+  
+  if (profile?.preferred_name) {
+    setUserName(profile.preferred_name);
+  } else {
+    // Fallback : utiliser l'email
     const { data: { user } } = await supabase.auth.getUser();
     if (user?.email) {
       const name = user.email.split('@')[0];
       setUserName(name.charAt(0).toUpperCase() + name.slice(1));
     }
   }
+}
 
   // Message de bienvenue
   async function fetchWelcomeMessage() {
