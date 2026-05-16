@@ -1,6 +1,3 @@
-Voici le code complet et propre de `app/sante-plus-benin/page.tsx` :
-
-```tsx
 "use client";
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
@@ -785,4 +782,3 @@ export default function SantePlusBeninPage() {
     </div>
   );
 }
-```
