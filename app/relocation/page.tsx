@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
+import { useUserId } from "@/hooks/useUserId";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import { motion, AnimatePresence } from "framer-motion";
 import { 
@@ -22,6 +23,7 @@ type RelocationTask = {
 };
 
 export default function RelocationPage() {
+  const { userId, loading: userIdLoading } = useUserId();
   const [tasks, setTasks] = useState<RelocationTask[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -47,23 +49,31 @@ export default function RelocationPage() {
   };
 
   useEffect(() => {
+    if (!userId) return;
+    
     fetchTasks();
     
     const channel = supabase
       .channel('relocation_tasks')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'tasks' }, () => fetchTasks())
+      .on('postgres_changes', 
+        { event: '*', schema: 'public', table: 'tasks', filter: `user_id=eq.${userId}` }, 
+        () => fetchTasks()
+      )
       .subscribe();
     
     return () => {
       channel.unsubscribe();
     };
-  }, []);
+  }, [userId]);
   
   async function fetchTasks() {
+    if (!userId) return;
+    
     setIsLoading(true);
     const { data } = await supabase
       .from("tasks")
       .select("*")
+      .eq("user_id", userId)
       .eq("project", "Bénin Relocation")
       .order("due_date", { ascending: true, nullsFirst: false });
     setTasks(data || []);
@@ -71,12 +81,15 @@ export default function RelocationPage() {
   }
 
   async function saveTask() {
+    if (!userId) return;
+    
     const data = {
       title: formData.title,
       category: formData.category,        
       status: formData.status,
       priority: formData.priority,
       project: "Bénin Relocation",
+      user_id: userId,
       due_date: formData.due_date || null,
       notes: formData.notes || null
     };
@@ -236,6 +249,22 @@ export default function RelocationPage() {
     { id: "money", label: "💰 Finances" },
     { id: "children", label: "👶 Enfants" }
   ];
+
+  if (userIdLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <Loader2 className="w-8 h-8 text-gold-500 animate-spin" />
+      </div>
+    );
+  }
+
+  if (!userId) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <p className="text-gray-500">Veuillez vous connecter</p>
+      </div>
+    );
+  }
 
   return (
     <div className="h-full flex flex-col overflow-y-auto bg-midnight p-4 md:p-6 lg:p-8">
