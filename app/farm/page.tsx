@@ -99,7 +99,6 @@ const spendingCategoryConfig: Record<string, { label: string; icon: any }> = {
   transport: { label: "Transport", icon: Truck },
   security: { label: "Sécurité", icon: Shield },
   food: { label: "🍽️ Alimentation", icon: Home } 
-
 };
 
 export default function FarmPage() {
@@ -130,7 +129,7 @@ export default function FarmPage() {
     const channels = [
       supabase.channel('farm_infra').on('postgres_changes', { event: '*', schema: 'public', table: 'farm_infrastructure' }, () => fetchInfrastructure()),
       supabase.channel('farm_production').on('postgres_changes', { event: '*', schema: 'public', table: 'farm_production_units' }, () => fetchProduction()),
-      supabase.channel('farm_spending').on('postgres_changes', { event: '*', schema: 'public', table: 'farm_spending' }, () => fetchSpending()),
+      supabase.channel('farm_spending').on('postgres_changes', { event: '*', schema: 'public', table: 'spending' }, () => fetchSpending()),
       supabase.channel('farm_team').on('postgres_changes', { event: '*', schema: 'public', table: 'farm_team' }, () => fetchTeam())
     ];
     
@@ -159,28 +158,27 @@ export default function FarmPage() {
     setProduction(data || []);
   }
 
-async function fetchSpending() {
-  // Récupérer les dépenses de la ferme avec un filtre plus souple
-  const { data } = await supabase
-    .from("spending")
-    .select("*")
-    .or('project.eq."Ifè Farm",project.eq."Ifè Living Farm"')   
-    .order("date", { ascending: false });
-  
-  const formatted = (data || []).map(s => ({
-    id: s.id,
-    title: s.title,
-    amount: s.amount,
-    category: s.category,
-    project: s.project,
-    date: s.date,
-    notes: s.notes,
-    verified: s.verified || false,
-    created_at: s.created_at
-  }));
-  
-  setSpending(formatted);
-}
+  async function fetchSpending() {
+    const { data } = await supabase
+      .from("spending")
+      .select("*")
+      .eq("project", "Ifè Farm")
+      .order("date", { ascending: false });
+    
+    const formatted = (data || []).map(s => ({
+      id: s.id,
+      title: s.title,
+      amount: s.amount,
+      category: s.category,
+      project: s.project,
+      date: s.date,
+      notes: s.notes,
+      verified: s.verified || false,
+      created_at: s.created_at
+    }));
+    
+    setSpending(formatted);
+  }
   
   async function fetchTeam() {
     const { data } = await supabase.from("farm_team").select("*").order("name");
@@ -215,12 +213,12 @@ async function fetchSpending() {
         notes: formData.notes || null
       };
     } else if (activeTab === "spending") {
-      table = "spending";  
+      table = "spending";
       data = {
         title: formData.title,
         amount: parseFloat(formData.amount),
         category: formData.category,
-        project: "Ifè Farm",   
+        project: "Ifè Farm",
         date: new Date().toISOString().split('T')[0],
         notes: formData.notes || null
       };
@@ -296,7 +294,7 @@ async function fetchSpending() {
         title: item.title,
         amount: item.amount,
         category: item.category,
-        project_area: item.project,   
+        project: item.project || "Ifè Farm",
         notes: item.notes || ""
       });
     } else if (type === "team") {
@@ -432,11 +430,12 @@ async function fetchSpending() {
                   {item.verified ? "✓ Vérifié" : "⏳ En attente"}
                 </span>
               </div>
-                <div className="text-xs text-gray-500">📂 {spendConfig.label} • 📍 {item.project}</div>
+              <div className="text-xs text-gray-500">📂 {spendConfig.label} • 📍 {item.project}</div>
+              {item.notes && <p className="text-xs text-gray-500 mt-1">{item.notes}</p>}
             </div>
             <div className="flex gap-2">
               <button onClick={() => editItem(item, "spending")} className="text-gray-500 hover:text-gold-500"><Edit2 className="w-4 h-4" /></button>
-              <button onClick={() => deleteItem("farm_spending", item.id)} className="text-gray-500 hover:text-red-400"><Trash2 className="w-4 h-4" /></button>
+              <button onClick={() => deleteItem("spending", item.id)} className="text-gray-500 hover:text-red-400"><Trash2 className="w-4 h-4" /></button>
             </div>
           </div>
         </div>
@@ -470,6 +469,7 @@ async function fetchSpending() {
               </div>
               <div className="text-xs text-gray-500">📍 {item.area}</div>
               {item.phone && <div className="text-xs text-gray-500">📞 {item.phone}</div>}
+              {item.notes && <p className="text-xs text-gray-500 mt-1">{item.notes}</p>}
             </div>
             <div className="flex gap-2">
               <button onClick={() => editItem(item, "team")} className="text-gray-500 hover:text-gold-500"><Edit2 className="w-4 h-4" /></button>
@@ -482,179 +482,179 @@ async function fetchSpending() {
   };
 
   return (
-    <div className="h-full flex flex-col overflow-y-auto bg-midnight">
-      {/* HEADER */}
-      <div className="flex justify-between items-center mb-8">
-        <div>
-          <h1 className="text-4xl font-serif text-gold-500 tracking-tight">Ifè Living Farm</h1>
-          <p className="text-gray-500 text-sm mt-1">Command Center - Gestion complète de la ferme</p>
-        </div>
-        <button
-          onClick={() => exportFarmToPDF(infrastructure, production, spending, team)}
-          className="bg-white/10 p-2 rounded-full hover:bg-white/20 transition-colors"
-          title="Exporter le rapport de la ferme en PDF"
-        >
-          <Download className="w-5 h-5" />
-        </button>
-      </div>
-
-      {/* BLOC BECKS - FARM */}
-      <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-xl p-4 mb-6">
-        <div className="flex items-center gap-3">
-          <Sprout className="w-5 h-5 text-emerald-400" />
+    <div className="h-full flex flex-col overflow-y-auto bg-midnight p-4 md:p-6 lg:p-8">
+      <div className="max-w-6xl mx-auto w-full">
+        {/* HEADER */}
+        <div className="flex justify-between items-center mb-8">
           <div>
-            <p className="text-sm text-emerald-400 font-medium">Becks - Ifè Farm</p>
-            <p className="text-sm text-ivory">
-              📊 Dépenses totales : {totalSpent.toLocaleString()} CFA<br/>
-              🐟 Production active : {activeProduction} unité(s)<br/>
-              🎯 Prochaine étape : {infrastructure.filter(i => i.status === "in_progress").length} infrastructure(s) en cours
-            </p>
+            <h1 className="text-4xl font-serif text-gold-500 tracking-tight">Ifè Living Farm</h1>
+            <p className="text-gray-500 text-sm mt-1">Command Center - Gestion complète de la ferme</p>
+          </div>
+          <button
+            onClick={() => exportFarmToPDF(infrastructure, production, spending, team)}
+            className="bg-white/10 p-2 rounded-full hover:bg-white/20 transition-colors"
+            title="Exporter le rapport de la ferme en PDF"
+          >
+            <Download className="w-5 h-5" />
+          </button>
+        </div>
+
+        {/* BLOC BECKS - FARM */}
+        <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-xl p-4 mb-6">
+          <div className="flex items-center gap-3">
+            <Sprout className="w-5 h-5 text-emerald-400" />
+            <div>
+              <p className="text-sm text-emerald-400 font-medium">Becks - Ifè Farm</p>
+              <p className="text-sm text-ivory">
+                📊 Dépenses totales : {totalSpent.toLocaleString()} CFA<br/>
+                🐟 Production active : {activeProduction} unité(s)<br/>
+                🎯 Prochaine étape : {infrastructure.filter(i => i.status === "in_progress").length} infrastructure(s) en cours
+              </p>
+            </div>
           </div>
         </div>
-      </div>
 
-      {/* STATS */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-        <div className="bg-white/5 border border-white/10 rounded-xl p-4 text-center">
-          <div className="text-2xl font-serif text-ivory">{totalSpent.toLocaleString()} CFA</div>
-          <div className="text-xs text-gray-500">Investissement total</div>
+        {/* STATS */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+          <div className="bg-white/5 border border-white/10 rounded-xl p-4 text-center">
+            <div className="text-2xl font-serif text-ivory">{totalSpent.toLocaleString()} CFA</div>
+            <div className="text-xs text-gray-500">Investissement total</div>
+          </div>
+          <div className="bg-white/5 border border-white/10 rounded-xl p-4 text-center">
+            <div className="text-2xl font-serif text-emerald-400">{activeProduction}</div>
+            <div className="text-xs text-gray-500">Productions actives</div>
+          </div>
+          <div className="bg-white/5 border border-white/10 rounded-xl p-4 text-center">
+            <div className="text-2xl font-serif text-blue-400">{completedInfra}/{totalInfra}</div>
+            <div className="text-xs text-gray-500">Infrastructures</div>
+          </div>
+          <div className="bg-white/5 border border-white/10 rounded-xl p-4 text-center">
+            <div className="text-2xl font-serif text-gold-500">{team.length}</div>
+            <div className="text-xs text-gray-500">Équipe</div>
+          </div>
         </div>
-        <div className="bg-white/5 border border-white/10 rounded-xl p-4 text-center">
-          <div className="text-2xl font-serif text-emerald-400">{activeProduction}</div>
-          <div className="text-xs text-gray-500">Productions actives</div>
-        </div>
-        <div className="bg-white/5 border border-white/10 rounded-xl p-4 text-center">
-          <div className="text-2xl font-serif text-blue-400">{completedInfra}/{totalInfra}</div>
-          <div className="text-xs text-gray-500">Infrastructures</div>
-        </div>
-        <div className="bg-white/5 border border-white/10 rounded-xl p-4 text-center">
-          <div className="text-2xl font-serif text-gold-500">{team.length}</div>
-          <div className="text-xs text-gray-500">Équipe</div>
-        </div>
-      </div>
 
-      {/* TABS */}
-      <div className="flex flex-wrap gap-2 border-b border-white/10 mb-6">
-        {[
-          { id: "infrastructure", label: "🏗️ Infrastructures" },
-          { id: "production", label: "🌾 Production" },
-          { id: "spending", label: "💰 Dépenses" },
-          { id: "team", label: "👥 Équipe" }
-        ].map(tab => (
+        {/* TABS */}
+        <div className="flex flex-wrap gap-2 border-b border-white/10 mb-6">
+          {[
+            { id: "infrastructure", label: "🏗️ Infrastructures" },
+            { id: "production", label: "🌾 Production" },
+            { id: "spending", label: "💰 Dépenses" },
+            { id: "team", label: "👥 Équipe" }
+          ].map(tab => (
+            <button
+              key={tab.id}
+              onClick={() => { setActiveTab(tab.id as any); setShowForm(false); }}
+              className={`px-5 py-2 rounded-t-xl transition-all ${activeTab === tab.id ? "bg-gold-500/20 text-gold-500 border-b-2 border-gold-500" : "text-gray-500 hover:text-gray-300"}`}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+
+        {/* BOUTON AJOUTER */}
+        <div className="flex justify-end mb-6">
           <button
-            key={tab.id}
-            onClick={() => { setActiveTab(tab.id as any); setShowForm(false); }}
-            className={`px-5 py-2 rounded-t-xl transition-all ${activeTab === tab.id ? "bg-gold-500/20 text-gold-500 border-b-2 border-gold-500" : "text-gray-500 hover:text-gray-300"}`}
+            onClick={() => { setShowForm(true); setEditingId(null); setFormData({}); scrollToForm(); }}
+            className="bg-gold-500 text-midnight px-5 py-2 rounded-full text-sm font-medium flex items-center gap-2 hover:bg-gold-400 transition-colors"
           >
-            {tab.label}
+            <Plus className="w-4 h-4" /> Ajouter
           </button>
-        ))}
-      </div>
+        </div>
 
-      {/* BOUTON AJOUTER */}
-      <div className="flex justify-end mb-6">
-        <button
-          onClick={() => { setShowForm(true); setEditingId(null); setFormData({}); scrollToForm(); }}
-          className="bg-gold-500 text-midnight px-5 py-2 rounded-full text-sm font-medium flex items-center gap-2 hover:bg-gold-400 transition-colors"
-        >
-          <Plus className="w-4 h-4" /> Ajouter
-        </button>
-      </div>
+        {/* FORMULAIRE DYNAMIQUE */}
+        <AnimatePresence>
+          {showForm && (
+            <motion.div id="form-container" initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-2xl p-6 mb-8">
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="text-lg font-serif text-ivory">
+                  {editingId ? "Modifier" : "Ajouter"} - {activeTab === "infrastructure" ? "Infrastructure" : activeTab === "production" ? "Production" : activeTab === "spending" ? "Dépense" : "Membre"}
+                </h3>
+                <button onClick={resetForm} className="text-gray-400 hover:text-white"><X className="w-5 h-5" /></button>
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {activeTab === "infrastructure" && (
+                  <>
+                    <input type="text" placeholder="Nom" value={formData.name || ""} onChange={(e) => setFormData({ ...formData, name: e.target.value })} className="bg-white/5 border border-white/10 rounded-xl px-4 py-3 focus:outline-none focus:border-gold-500 text-ivory" />
+                    <select value={formData.type || "building"} onChange={(e) => setFormData({ ...formData, type: e.target.value })} className="bg-white/5 border border-white/10 rounded-xl px-4 py-3 focus:outline-none focus:border-gold-500 text-ivory">
+                      {Object.entries(infraTypeConfig).map(([key, conf]) => <option key={key} value={key}>{conf.label}</option>)}
+                    </select>
+                    <select value={formData.status || "planned"} onChange={(e) => setFormData({ ...formData, status: e.target.value })} className="bg-white/5 border border-white/10 rounded-xl px-4 py-3 focus:outline-none focus:border-gold-500 text-ivory">
+                      {Object.entries(statusConfig).map(([key, conf]) => <option key={key} value={key}>{conf.label}</option>)}
+                    </select>
+                    <input type="text" placeholder="Localisation" value={formData.location_on_site || ""} onChange={(e) => setFormData({ ...formData, location_on_site: e.target.value })} className="bg-white/5 border border-white/10 rounded-xl px-4 py-3 focus:outline-none focus:border-gold-500 text-ivory" />
+                    <input type="date" placeholder="Date complétion" value={formData.completed_date || ""} onChange={(e) => setFormData({ ...formData, completed_date: e.target.value })} className="bg-white/5 border border-white/10 rounded-xl px-4 py-3 focus:outline-none focus:border-gold-500 text-ivory" />
+                    <input type="text" placeholder="Responsable" value={formData.responsible_person || ""} onChange={(e) => setFormData({ ...formData, responsible_person: e.target.value })} className="bg-white/5 border border-white/10 rounded-xl px-4 py-3 focus:outline-none focus:border-gold-500 text-ivory" />
+                    <textarea placeholder="Notes" value={formData.notes || ""} onChange={(e) => setFormData({ ...formData, notes: e.target.value })} className="bg-white/5 border border-white/10 rounded-xl px-4 py-3 focus:outline-none focus:border-gold-500 text-ivory md:col-span-2" rows={2} />
+                  </>
+                )}
 
-      {/* FORMULAIRE DYNAMIQUE */}
-      <AnimatePresence>
-        {showForm && (
-          <motion.div id="form-container" initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-2xl p-6 mb-8">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-serif text-ivory">
-                {editingId ? "Modifier" : "Ajouter"} - {activeTab === "infrastructure" ? "Infrastructure" : activeTab === "production" ? "Production" : activeTab === "spending" ? "Dépense" : "Membre"}
-              </h3>
-              <button onClick={resetForm} className="text-gray-400 hover:text-white"><X className="w-5 h-5" /></button>
-            </div>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {activeTab === "infrastructure" && (
-                <>
-                  <input type="text" placeholder="Nom" value={formData.name || ""} onChange={(e) => setFormData({ ...formData, name: e.target.value })} className="bg-white/5 border border-white/10 rounded-xl px-4 py-3 focus:outline-none focus:border-gold-500 text-ivory" />
-                  <select value={formData.type || "building"} onChange={(e) => setFormData({ ...formData, type: e.target.value })} className="bg-white/5 border border-white/10 rounded-xl px-4 py-3 focus:outline-none focus:border-gold-500 text-ivory">
-                    {Object.entries(infraTypeConfig).map(([key, conf]) => <option key={key} value={key}>{conf.label}</option>)}
-                  </select>
-                  <select value={formData.status || "planned"} onChange={(e) => setFormData({ ...formData, status: e.target.value })} className="bg-white/5 border border-white/10 rounded-xl px-4 py-3 focus:outline-none focus:border-gold-500 text-ivory">
-                    {Object.entries(statusConfig).map(([key, conf]) => <option key={key} value={key}>{conf.label}</option>)}
-                  </select>
-                  <input type="text" placeholder="Localisation" value={formData.location_on_site || ""} onChange={(e) => setFormData({ ...formData, location_on_site: e.target.value })} className="bg-white/5 border border-white/10 rounded-xl px-4 py-3 focus:outline-none focus:border-gold-500 text-ivory" />
-                  <input type="date" placeholder="Date complétion" value={formData.completed_date || ""} onChange={(e) => setFormData({ ...formData, completed_date: e.target.value })} className="bg-white/5 border border-white/10 rounded-xl px-4 py-3 focus:outline-none focus:border-gold-500 text-ivory" />
-                  <input type="text" placeholder="Responsable" value={formData.responsible_person || ""} onChange={(e) => setFormData({ ...formData, responsible_person: e.target.value })} className="bg-white/5 border border-white/10 rounded-xl px-4 py-3 focus:outline-none focus:border-gold-500 text-ivory" />
-                  <textarea placeholder="Notes" value={formData.notes || ""} onChange={(e) => setFormData({ ...formData, notes: e.target.value })} className="bg-white/5 border border-white/10 rounded-xl px-4 py-3 focus:outline-none focus:border-gold-500 text-ivory md:col-span-2" rows={2} />
-                </>
-              )}
+                {activeTab === "production" && (
+                  <>
+                    <input type="text" placeholder="Nom" value={formData.name || ""} onChange={(e) => setFormData({ ...formData, name: e.target.value })} className="bg-white/5 border border-white/10 rounded-xl px-4 py-3 focus:outline-none focus:border-gold-500 text-ivory" />
+                    <select value={formData.category || "fish"} onChange={(e) => setFormData({ ...formData, category: e.target.value })} className="bg-white/5 border border-white/10 rounded-xl px-4 py-3 focus:outline-none focus:border-gold-500 text-ivory">
+                      {Object.entries(productionCategoryConfig).map(([key, conf]) => <option key={key} value={key}>{conf.label}</option>)}
+                    </select>
+                    <select value={formData.status || "planned"} onChange={(e) => setFormData({ ...formData, status: e.target.value })} className="bg-white/5 border border-white/10 rounded-xl px-4 py-3 focus:outline-none focus:border-gold-500 text-ivory">
+                      {Object.entries(statusConfig).map(([key, conf]) => <option key={key} value={key}>{conf.label}</option>)}
+                    </select>
+                    <input type="text" placeholder="Capacité" value={formData.current_capacity || ""} onChange={(e) => setFormData({ ...formData, current_capacity: e.target.value })} className="bg-white/5 border border-white/10 rounded-xl px-4 py-3 focus:outline-none focus:border-gold-500 text-ivory" />
+                    <input type="date" placeholder="Date début" value={formData.start_date || ""} onChange={(e) => setFormData({ ...formData, start_date: e.target.value })} className="bg-white/5 border border-white/10 rounded-xl px-4 py-3 focus:outline-none focus:border-gold-500 text-ivory" />
+                    <input type="date" placeholder="Premier revenu" value={formData.expected_first_revenue || ""} onChange={(e) => setFormData({ ...formData, expected_first_revenue: e.target.value })} className="bg-white/5 border border-white/10 rounded-xl px-4 py-3 focus:outline-none focus:border-gold-500 text-ivory" />
+                    <input type="text" placeholder="Lead technique" value={formData.technical_lead || ""} onChange={(e) => setFormData({ ...formData, technical_lead: e.target.value })} className="bg-white/5 border border-white/10 rounded-xl px-4 py-3 focus:outline-none focus:border-gold-500 text-ivory" />
+                    <textarea placeholder="Notes" value={formData.notes || ""} onChange={(e) => setFormData({ ...formData, notes: e.target.value })} className="bg-white/5 border border-white/10 rounded-xl px-4 py-3 focus:outline-none focus:border-gold-500 text-ivory md:col-span-2" rows={2} />
+                  </>
+                )}
 
-              {activeTab === "production" && (
-                <>
-                  <input type="text" placeholder="Nom" value={formData.name || ""} onChange={(e) => setFormData({ ...formData, name: e.target.value })} className="bg-white/5 border border-white/10 rounded-xl px-4 py-3 focus:outline-none focus:border-gold-500 text-ivory" />
-                  <select value={formData.category || "fish"} onChange={(e) => setFormData({ ...formData, category: e.target.value })} className="bg-white/5 border border-white/10 rounded-xl px-4 py-3 focus:outline-none focus:border-gold-500 text-ivory">
-                    {Object.entries(productionCategoryConfig).map(([key, conf]) => <option key={key} value={key}>{conf.label}</option>)}
-                  </select>
-                  <select value={formData.status || "planned"} onChange={(e) => setFormData({ ...formData, status: e.target.value })} className="bg-white/5 border border-white/10 rounded-xl px-4 py-3 focus:outline-none focus:border-gold-500 text-ivory">
-                    {Object.entries(statusConfig).map(([key, conf]) => <option key={key} value={key}>{conf.label}</option>)}
-                  </select>
-                  <input type="text" placeholder="Capacité" value={formData.current_capacity || ""} onChange={(e) => setFormData({ ...formData, current_capacity: e.target.value })} className="bg-white/5 border border-white/10 rounded-xl px-4 py-3 focus:outline-none focus:border-gold-500 text-ivory" />
-                  <input type="date" placeholder="Date début" value={formData.start_date || ""} onChange={(e) => setFormData({ ...formData, start_date: e.target.value })} className="bg-white/5 border border-white/10 rounded-xl px-4 py-3 focus:outline-none focus:border-gold-500 text-ivory" />
-                  <input type="date" placeholder="Premier revenu" value={formData.expected_first_revenue || ""} onChange={(e) => setFormData({ ...formData, expected_first_revenue: e.target.value })} className="bg-white/5 border border-white/10 rounded-xl px-4 py-3 focus:outline-none focus:border-gold-500 text-ivory" />
-                  <input type="text" placeholder="Lead technique" value={formData.technical_lead || ""} onChange={(e) => setFormData({ ...formData, technical_lead: e.target.value })} className="bg-white/5 border border-white/10 rounded-xl px-4 py-3 focus:outline-none focus:border-gold-500 text-ivory" />
-                  <textarea placeholder="Notes" value={formData.notes || ""} onChange={(e) => setFormData({ ...formData, notes: e.target.value })} className="bg-white/5 border border-white/10 rounded-xl px-4 py-3 focus:outline-none focus:border-gold-500 text-ivory md:col-span-2" rows={2} />
-                </>
-              )}
+                {activeTab === "spending" && (
+                  <>
+                    <input type="text" placeholder="Titre" value={formData.title || ""} onChange={(e) => setFormData({ ...formData, title: e.target.value })} className="bg-white/5 border border-white/10 rounded-xl px-4 py-3 focus:outline-none focus:border-gold-500 text-ivory" />
+                    <input type="number" placeholder="Montant (CFA)" value={formData.amount || ""} onChange={(e) => setFormData({ ...formData, amount: e.target.value })} className="bg-white/5 border border-white/10 rounded-xl px-4 py-3 focus:outline-none focus:border-gold-500 text-ivory" />
+                    <select value={formData.category || "materials"} onChange={(e) => setFormData({ ...formData, category: e.target.value })} className="bg-white/5 border border-white/10 rounded-xl px-4 py-3 focus:outline-none focus:border-gold-500 text-ivory">
+                      {Object.entries(spendingCategoryConfig).map(([key, conf]) => <option key={key} value={key}>{conf.label}</option>)}
+                    </select>
+                    <textarea placeholder="Notes" value={formData.notes || ""} onChange={(e) => setFormData({ ...formData, notes: e.target.value })} className="bg-white/5 border border-white/10 rounded-xl px-4 py-3 focus:outline-none focus:border-gold-500 text-ivory md:col-span-2" rows={2} />
+                  </>
+                )}
 
-              {activeTab === "spending" && (
-                <>
-                  <input type="text" placeholder="Titre" value={formData.title || ""} onChange={(e) => setFormData({ ...formData, title: e.target.value })} className="bg-white/5 border border-white/10 rounded-xl px-4 py-3 focus:outline-none focus:border-gold-500 text-ivory" />
-                  <input type="number" placeholder="Montant (CFA)" value={formData.amount || ""} onChange={(e) => setFormData({ ...formData, amount: e.target.value })} className="bg-white/5 border border-white/10 rounded-xl px-4 py-3 focus:outline-none focus:border-gold-500 text-ivory" />
-                  <select value={formData.category || "materials"} onChange={(e) => setFormData({ ...formData, category: e.target.value })} className="bg-white/5 border border-white/10 rounded-xl px-4 py-3 focus:outline-none focus:border-gold-500 text-ivory">
-                    {Object.entries(spendingCategoryConfig).map(([key, conf]) => <option key={key} value={key}>{conf.label}</option>)}
-                  </select>
-                  <input type="text" placeholder="Zone du projet" value={formData.project_area || ""} onChange={(e) => setFormData({ ...formData, project_area: e.target.value })} className="bg-white/5 border border-white/10 rounded-xl px-4 py-3 focus:outline-none focus:border-gold-500 text-ivory" />
-                  <textarea placeholder="Notes" value={formData.notes || ""} onChange={(e) => setFormData({ ...formData, notes: e.target.value })} className="bg-white/5 border border-white/10 rounded-xl px-4 py-3 focus:outline-none focus:border-gold-500 text-ivory md:col-span-2" rows={2} />
-                </>
-              )}
+                {activeTab === "team" && (
+                  <>
+                    <input type="text" placeholder="Nom" value={formData.name || ""} onChange={(e) => setFormData({ ...formData, name: e.target.value })} className="bg-white/5 border border-white/10 rounded-xl px-4 py-3 focus:outline-none focus:border-gold-500 text-ivory" />
+                    <input type="text" placeholder="Rôle" value={formData.role || ""} onChange={(e) => setFormData({ ...formData, role: e.target.value })} className="bg-white/5 border border-white/10 rounded-xl px-4 py-3 focus:outline-none focus:border-gold-500 text-ivory" />
+                    <input type="text" placeholder="Zone" value={formData.area || ""} onChange={(e) => setFormData({ ...formData, area: e.target.value })} className="bg-white/5 border border-white/10 rounded-xl px-4 py-3 focus:outline-none focus:border-gold-500 text-ivory" />
+                    <select value={formData.status || "active"} onChange={(e) => setFormData({ ...formData, status: e.target.value })} className="bg-white/5 border border-white/10 rounded-xl px-4 py-3 focus:outline-none focus:border-gold-500 text-ivory">
+                      <option value="active">Actif</option>
+                      <option value="occasional">Occasionnel</option>
+                      <option value="pending">En attente</option>
+                    </select>
+                    <input type="tel" placeholder="Téléphone" value={formData.phone || ""} onChange={(e) => setFormData({ ...formData, phone: e.target.value })} className="bg-white/5 border border-white/10 rounded-xl px-4 py-3 focus:outline-none focus:border-gold-500 text-ivory" />
+                    <textarea placeholder="Notes" value={formData.notes || ""} onChange={(e) => setFormData({ ...formData, notes: e.target.value })} className="bg-white/5 border border-white/10 rounded-xl px-4 py-3 focus:outline-none focus:border-gold-500 text-ivory md:col-span-2" rows={2} />
+                  </>
+                )}
+              </div>
+              
+              <div className="flex gap-3 mt-6">
+                <button onClick={saveItem} className="bg-gold-500 text-midnight px-6 py-2 rounded-full font-medium hover:bg-gold-400 transition-colors">
+                  {editingId ? "Mettre à jour" : "Enregistrer"}
+                </button>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
-              {activeTab === "team" && (
-                <>
-                  <input type="text" placeholder="Nom" value={formData.name || ""} onChange={(e) => setFormData({ ...formData, name: e.target.value })} className="bg-white/5 border border-white/10 rounded-xl px-4 py-3 focus:outline-none focus:border-gold-500 text-ivory" />
-                  <input type="text" placeholder="Rôle" value={formData.role || ""} onChange={(e) => setFormData({ ...formData, role: e.target.value })} className="bg-white/5 border border-white/10 rounded-xl px-4 py-3 focus:outline-none focus:border-gold-500 text-ivory" />
-                  <input type="text" placeholder="Zone" value={formData.area || ""} onChange={(e) => setFormData({ ...formData, area: e.target.value })} className="bg-white/5 border border-white/10 rounded-xl px-4 py-3 focus:outline-none focus:border-gold-500 text-ivory" />
-                  <select value={formData.status || "active"} onChange={(e) => setFormData({ ...formData, status: e.target.value })} className="bg-white/5 border border-white/10 rounded-xl px-4 py-3 focus:outline-none focus:border-gold-500 text-ivory">
-                    <option value="active">Actif</option>
-                    <option value="occasional">Occasionnel</option>
-                    <option value="pending">En attente</option>
-                  </select>
-                  <input type="tel" placeholder="Téléphone" value={formData.phone || ""} onChange={(e) => setFormData({ ...formData, phone: e.target.value })} className="bg-white/5 border border-white/10 rounded-xl px-4 py-3 focus:outline-none focus:border-gold-500 text-ivory" />
-                  <textarea placeholder="Notes" value={formData.notes || ""} onChange={(e) => setFormData({ ...formData, notes: e.target.value })} className="bg-white/5 border border-white/10 rounded-xl px-4 py-3 focus:outline-none focus:border-gold-500 text-ivory md:col-span-2" rows={2} />
-                </>
-              )}
-            </div>
-            
-            <div className="flex gap-3 mt-6">
-              <button onClick={saveItem} className="bg-gold-500 text-midnight px-6 py-2 rounded-full font-medium hover:bg-gold-400 transition-colors">
-                {editingId ? "Mettre à jour" : "Enregistrer"}
-              </button>
-              <button onClick={resetForm} className="bg-white/10 px-6 py-2 rounded-full hover:bg-white/20 transition-colors">Annuler</button>
-            </div>
-          </motion.div>
+        {/* LISTES PAR TAB */}
+        {isLoading ? (
+          <LoadingSpinner />
+        ) : (
+          <>
+            {activeTab === "infrastructure" && renderInfrastructure()}
+            {activeTab === "production" && renderProduction()}
+            {activeTab === "spending" && renderSpending()}
+            {activeTab === "team" && renderTeam()}
+          </>
         )}
-      </AnimatePresence>
-
-      {/* LISTES PAR TAB */}
-      {isLoading ? (
-        <LoadingSpinner />
-      ) : (
-        <>
-          {activeTab === "infrastructure" && renderInfrastructure()}
-          {activeTab === "production" && renderProduction()}
-          {activeTab === "spending" && renderSpending()}
-          {activeTab === "team" && renderTeam()}
-        </>
-      )}
+      </div>
     </div>
   );
 }
