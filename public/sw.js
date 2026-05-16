@@ -1,9 +1,9 @@
-// public/sw.js - Version avec cache offline
-const CACHE_NAME = 'sovereign-v3';
-const API_CACHE_NAME = 'sovereign-api-v3';
+// public/sw.js - Service Worker SOVEREIGN
+const CACHE_NAME = 'sovereign-v4';
+const API_CACHE_NAME = 'sovereign-api-v4';
 const OFFLINE_PAGE = '/offline';
 
-// Fichiers à mettre en cache (statiques)
+// Fichiers statiques à mettre en cache
 const STATIC_ASSETS = [
   '/',
   '/offline',
@@ -13,7 +13,7 @@ const STATIC_ASSETS = [
   '/sounds/notification.mp3'
 ];
 
-// URLs API à mettre en cache (GET uniquement)
+// URLs API à mettre en cache
 const API_CACHE_URLS = [
   '/api/dashboard/today',
   '/api/life-map',
@@ -21,25 +21,27 @@ const API_CACHE_URLS = [
   '/api/calendar/events'
 ];
 
-// Installation - cache des assets statiques
+// Installation
 self.addEventListener('install', (event) => {
-  console.log('🔧 Installation SW avec offline support');
+  console.log('🔧 Service Worker installation...');
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
+      console.log('📦 Cache des assets statiques');
       return cache.addAll(STATIC_ASSETS);
     })
   );
   self.skipWaiting();
 });
 
-// Activation - nettoyage des anciens caches
+// Activation
 self.addEventListener('activate', (event) => {
-  console.log('✅ Activation SW offline');
+  console.log('✅ Service Worker activé');
   event.waitUntil(
     caches.keys().then((keyList) => {
       return Promise.all(
         keyList.map((key) => {
           if (key !== CACHE_NAME && key !== API_CACHE_NAME) {
+            console.log('🗑️ Suppression ancien cache:', key);
             return caches.delete(key);
           }
         })
@@ -53,31 +55,27 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
   
-  // Requêtes API (GET)
-  if (url.pathname.startsWith('/api/') && event.request.method === 'GET') {
+  // Ignorer les requêtes non-GET
+  if (event.request.method !== 'GET') return;
+  
+  // Ignorer les requêtes d'analyse (évite les erreurs)
+  if (url.pathname.includes('sentry') || url.pathname.includes('analytics')) return;
+  
+  // Requêtes API (mode stale-while-revalidate)
+  if (url.pathname.startsWith('/api/')) {
     event.respondWith(
-      fetch(event.request)
-        .then((response) => {
-          // Mettre en cache la réponse
-          const responseClone = response.clone();
-          caches.open(API_CACHE_NAME).then((cache) => {
-            cache.put(event.request, responseClone);
+      caches.open(API_CACHE_NAME).then((cache) => {
+        return cache.match(event.request).then((cachedResponse) => {
+          const fetchPromise = fetch(event.request).then((networkResponse) => {
+            cache.put(event.request, networkResponse.clone());
+            return networkResponse;
+          }).catch(() => {
+            console.log('⚠️ Offline - retour du cache pour:', url.pathname);
+            return cachedResponse;
           });
-          return response;
-        })
-        .catch(() => {
-          // Offline - retourner le cache
-          return caches.match(event.request).then((cachedResponse) => {
-            if (cachedResponse) {
-              return cachedResponse;
-            }
-            // Pas de cache, retourner une réponse d'erreur
-            return new Response(
-              JSON.stringify({ offline: true, message: 'Mode offline - données non disponibles' }),
-              { status: 200, headers: { 'Content-Type': 'application/json' } }
-            );
-          });
-        })
+          return cachedResponse || fetchPromise;
+        });
+      })
     );
     return;
   }
@@ -86,11 +84,11 @@ self.addEventListener('fetch', (event) => {
   event.respondWith(
     caches.match(event.request).then((cachedResponse) => {
       return cachedResponse || fetch(event.request).catch(() => {
-        // Si offline et page demandée, retourner la page offline
+        console.log('📴 Offline - page demandée:', url.pathname);
         if (event.request.mode === 'navigate') {
           return caches.match(OFFLINE_PAGE);
         }
-        return new Response('Mode offline', { status: 200 });
+        return new Response('Mode hors ligne', { status: 200 });
       });
     })
   );
