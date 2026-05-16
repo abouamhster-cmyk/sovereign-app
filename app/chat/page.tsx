@@ -1,6 +1,7 @@
 "use client";
 import "regenerator-runtime/runtime";
 import { useState, useRef, useEffect } from "react";
+import { useUserId } from "@/hooks/useUserId";
 import { ExecutionGuide } from "@/components/ExecutionGuide";
 import { ReadyToSend } from "@/components/ReadyToSend";
 import { DecisionMode } from "@/components/DecisionMode";
@@ -190,6 +191,9 @@ export default function ChatPage() {
   const [currentReplyTo, setCurrentReplyTo] = useState("");
   const [replyMessage, setReplyMessage] = useState("");
 
+  const { userId, loading: userIdLoading } = useUserId();
+
+
   // ========== EFFETS ==========
   useEffect(() => {
     if (transcript) { setInput(prev => prev + " " + transcript); resetTranscript(); }
@@ -202,7 +206,11 @@ export default function ChatPage() {
     return () => window.removeEventListener("resize", checkMobile);
   }, []);
 
-  useEffect(() => { fetchConversations(); }, []);
+  useEffect(() => { 
+    if (userId) {
+      fetchConversations();
+    }
+  }, [userId]);  
   useEffect(() => { if (currentConversationId) fetchMessages(currentConversationId); }, [currentConversationId]);
   useEffect(() => {
     if (searchTerm.trim() === "") setFilteredConversations(conversations);
@@ -234,14 +242,20 @@ export default function ChatPage() {
   }
 
   // ========== GESTION DES CONVERSATIONS ==========
-  async function fetchConversations() {
-    const { data } = await supabase.from("conversations").select("*").eq("user_id", "rebecca").order("updated_at", { ascending: false });
-    setConversations(data || []);
-    setFilteredConversations(data || []);
-    if (!data || data.length === 0) createNewConversation();
-    else if (!currentConversationId) setCurrentConversationId(data[0].id);
-  }
-
+ async function fetchConversations() {
+  if (!userId) return;  
+  
+  const { data } = await supabase
+    .from("conversations")
+    .select("*")
+    .eq("user_id", userId)   
+    .order("updated_at", { ascending: false });
+    
+  setConversations(data || []);
+  setFilteredConversations(data || []);
+  if (!data || data.length === 0) createNewConversation();
+  else if (!currentConversationId) setCurrentConversationId(data[0].id);
+}
   async function fetchMessages(conversationId: string) {
     const { data, error } = await supabase.from("conversation_messages").select("*").eq("conversation_id", conversationId).order("created_at", { ascending: true });
     if (error) { console.error("❌ Erreur fetchMessages:", error); return; }
@@ -271,11 +285,13 @@ export default function ChatPage() {
     }
   }
 
-   async function createNewConversation() {
+  async function createNewConversation() {
+  if (!userId) return; // ← AJOUTER CETTE LIGNE
+  
   const title = "Nouvelle conversation...";
   const { data, error } = await supabase
     .from("conversations")
-    .insert({ title, user_id: "rebecca" })
+    .insert({ title, user_id: userId })  // ← Remplacer "rebecca" par userId
     .select()
     .single();
   
@@ -284,17 +300,13 @@ export default function ChatPage() {
     setFilteredConversations(prev => [data, ...prev]);
     setCurrentConversationId(data.id);
     
-    // Message d'accueil
     const welcomeMessage = "Salut. Je suis là.";
     setMessages([{ role: "assistant", content: welcomeMessage }]);
-    
-    // 🔥 AJOUTER : Sauvegarder le message d'accueil en base
     await saveMessage(data.id, "assistant", welcomeMessage);
     
     if (isMobile) setIsSidebarOpen(false);
   }
 }
-
 
   async function updateConversationTitleAfterFirstMessage(conversationId: string, userMessage: string) {
   try {
