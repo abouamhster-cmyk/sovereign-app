@@ -10,7 +10,7 @@ import {
   CheckCircle, Clock, AlertCircle, Droplets, 
   Shield, Users as UsersIcon, Building2,
   Package, Truck, Leaf, Download, Activity, Pause,
-  Home
+  Home, Loader2
 } from "lucide-react";
 import { exportFarmToPDF } from "@/lib/exportPDF";
 
