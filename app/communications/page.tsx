@@ -1,6 +1,3 @@
-Voici le code complet et propre de `app/communications/page.tsx` avec l'intégration de `useUserId` :
-
-```tsx
 "use client";
 import { useEffect, useState, useCallback } from "react";
 import { supabase } from "@/lib/supabase";
@@ -611,4 +608,3 @@ export default function CommunicationsPage() {
     </div>
   );
 }
-```
