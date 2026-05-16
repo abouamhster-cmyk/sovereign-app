@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
+import { useUserId } from "@/hooks/useUserId";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import { motion, AnimatePresence } from "framer-motion";
 import { 
@@ -78,6 +79,7 @@ const childrenList = [
 // =====================================================
 
 export default function FamilyPage() {
+  const { userId, loading: userIdLoading } = useUserId();
   const [activeTab, setActiveTab] = useState<"overview" | "events" | "records">("overview");
   
   // Événements
@@ -120,24 +122,33 @@ export default function FamilyPage() {
   // CHARGEMENT DES DONNÉES
   // =====================================================
 
-  useEffect(() => {
-    fetchAllData();
-    
-    const eventsChannel = supabase
-      .channel('family_events_changes')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'family_events' }, () => fetchEvents())
-      .subscribe();
-    
-    const kidsChannel = supabase
-      .channel('kids_records_changes')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'kids_records' }, () => fetchKidsRecords())
-      .subscribe();
-    
-    return () => {
-      eventsChannel.unsubscribe();
-      kidsChannel.unsubscribe();
-    };
-  }, []);
+useEffect(() => {
+  if (!userId) return;
+  
+  fetchAllData();
+  
+  const eventsChannel = supabase
+    .channel('family_events_changes')
+    .on('postgres_changes', 
+      { event: '*', schema: 'public', table: 'family_events', filter: `user_id=eq.${userId}` }, 
+      () => fetchEvents()
+    )
+    .subscribe();
+  
+  const kidsChannel = supabase
+    .channel('kids_records_changes')
+    .on('postgres_changes', 
+      { event: '*', schema: 'public', table: 'kids_records', filter: `user_id=eq.${userId}` }, 
+      () => fetchKidsRecords()
+    )
+    .subscribe();
+  
+  return () => {
+    eventsChannel.unsubscribe();
+    kidsChannel.unsubscribe();
+  };
+}, [userId]);
+  
 
   async function fetchAllData() {
     setIsLoading(true);
@@ -145,18 +156,24 @@ export default function FamilyPage() {
     setIsLoading(false);
   }
 
-  async function fetchEvents() {
-    const { data } = await supabase
-      .from("family_events")
-      .select("*")
-      .order("date", { ascending: true, nullsFirst: false });
-    setEvents(data || []);
-  }
-
-  async function fetchKidsRecords() {
+async function fetchEvents() {
+  if (!userId) return;
+  
+  const { data } = await supabase
+    .from("family_events")
+    .select("*")
+    .eq("user_id", userId)
+    .order("date", { ascending: true, nullsFirst: false });
+  setEvents(data || []);
+}
+  
+   async function fetchKidsRecords() {
+    if (!userId) return;
+    
     const { data } = await supabase
       .from("kids_records")
       .select("*")
+      .eq("user_id", userId)
       .order("created_at", { ascending: false });
     setRecords(data || []);
   }
@@ -165,16 +182,17 @@ export default function FamilyPage() {
   // GESTION DES ÉVÉNEMENTS
   // =====================================================
 
-  async function saveEvent() {
-    const data = {
-      title: eventForm.title,
-      child_name: eventForm.child_name || null,
-      category: eventForm.category,
-      priority: eventForm.priority,
-      status: eventForm.status,
-      date: eventForm.date || null,
-      notes: eventForm.notes || null
-    };
+ async function saveEvent() {
+  const data = {
+    title: eventForm.title,
+    child_name: eventForm.child_name || null,
+    category: eventForm.category,
+    priority: eventForm.priority,
+    status: eventForm.status,
+    date: eventForm.date || null,
+    notes: eventForm.notes || null,
+    user_id: userId  
+  };
     
     let error;
     if (editingEventId) {
@@ -238,14 +256,15 @@ export default function FamilyPage() {
   // GESTION DES DOSSIERS ENFANTS
   // =====================================================
 
-  async function saveRecord() {
+   async function saveRecord() {
     const data = {
       name: recordForm.name,
       child_name: recordForm.child_name || null,
       type: recordForm.type,
       status: recordForm.status,
       expiry_date: recordForm.expiry_date || null,
-      notes: recordForm.notes || null
+      notes: recordForm.notes || null,
+      user_id: userId 
     };
     
     let error;
@@ -374,6 +393,22 @@ export default function FamilyPage() {
   // RENDU
   // =====================================================
 
+    if (userIdLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <Loader2 className="w-8 h-8 text-gold-500 animate-spin" />
+      </div>
+    );
+  }
+  
+  if (!userId) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <p className="text-gray-500">Veuillez vous connecter</p>
+      </div>
+    );
+  }
+    
   if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
