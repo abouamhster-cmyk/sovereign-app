@@ -9,7 +9,7 @@ import {
   Trophy, Target, Calendar, DollarSign, FileText, 
   CheckCircle, Clock, AlertCircle, Plus, TrendingUp,
   Building2, Users, Mail, Phone, Edit2, Trash2, X,
-  Check, ChevronRight, Sparkles
+  Check, ChevronRight, Sparkles, Loader2
 } from "lucide-react";
 import { toast } from "sonner";
 
