@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
+import { useUserId } from "@/hooks/useUserId";
 import { motion, AnimatePresence } from "framer-motion";
 import { 
   Brain, Plus, Trash2, Edit2, X, Check, 
@@ -32,6 +33,7 @@ const categoryConfig: Record<string, { label: string; icon: any; color: string }
 };
 
 export default function MemoryPage() {
+  const { userId, loading: userIdLoading } = useUserId();
   const router = useRouter();
   const searchParams = useSearchParams();
   const editId = searchParams.get("edit");
@@ -51,24 +53,29 @@ export default function MemoryPage() {
   });
 
   useEffect(() => {
-    fetchMemories();
-  }, []);
+    if (userId) {
+      fetchMemories();
+    }
+  }, [userId]);
 
   // Ouvrir le formulaire d'édition si un ID est passé dans l'URL
-  useEffect(() => {
-    if (editId && memories.length > 0) {
-      const memoryToEdit = memories.find(m => m.id === editId);
-      if (memoryToEdit) {
-        editMemory(memoryToEdit);
-      }
+useEffect(() => {
+  if (editId && memories.length > 0 && userId) {
+    const memoryToEdit = memories.find(m => m.id === editId);
+    if (memoryToEdit) {
+      editMemory(memoryToEdit);
     }
-  }, [editId, memories]);
+  }
+}, [editId, memories, userId]);
 
-  async function fetchMemories() {
+    async function fetchMemories() {
+    if (!userId) return;
+    
     setIsLoading(true);
     const { data } = await supabase
       .from("user_memory")
       .select("*")
+      .eq("user_id", userId)
       .order("created_at", { ascending: false });
     setMemories(data || []);
     setIsLoading(false);
@@ -80,13 +87,12 @@ export default function MemoryPage() {
       return;
     }
 
-    const data = {
+   const data = {
       category: formData.category,
       key: formData.key,
       value: formData.value,
-      user_id: "rebecca"
+      user_id: userId
     };
-
     let error;
     if (editingId) {
       const result = await supabase
@@ -117,7 +123,8 @@ export default function MemoryPage() {
       const { error } = await supabase
         .from("user_memory")
         .delete()
-        .eq("id", id);
+        .eq("id", id)
+        .eq("user_id", userId);
       if (!error) {
         toast.success("Souvenir supprimé");
         fetchMemories();
@@ -164,6 +171,22 @@ export default function MemoryPage() {
 
   const totalCount = filteredMemories.length;
   const categoryKeys = Object.keys(memoriesByCategory);
+
+  if (userIdLoading) {
+  return (
+    <div className="flex items-center justify-center min-h-[400px]">
+      <Loader2 className="w-8 h-8 text-gold-500 animate-spin" />
+    </div>
+  );
+}
+
+if (!userId) {
+  return (
+    <div className="flex items-center justify-center min-h-[400px]">
+      <p className="text-gray-500">Veuillez vous connecter</p>
+    </div>
+  );
+}
 
   return (
     <div className="h-full flex flex-col overflow-y-auto bg-midnight p-4 md:p-6 lg:p-8">
