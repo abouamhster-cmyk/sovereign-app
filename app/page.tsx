@@ -135,29 +135,42 @@ export default function DashboardPage() {
     setIsLoading(false);
   }
 
-async function fetchUserName() {
-  // D'abord, essayer de récupérer le preferred_name depuis le profil
-  const { data: profile } = await supabase
-    .from("user_profile")
-    .select("preferred_name")
-    .eq("user_id", "rebecca")
-    .single();
-  
-  if (profile?.preferred_name) {
-    setUserName(profile.preferred_name);
-  } else {
-    // Fallback : utiliser l'email
+  async function fetchUserName() {
+    // Récupérer l'utilisateur connecté
     const { data: { user } } = await supabase.auth.getUser();
-    if (user?.email) {
+    
+    if (!user) {
+      setUserName("Rebecca");
+      return;
+    }
+    
+    // Utiliser l'ID réel de l'utilisateur
+    const userId = user.id;
+    
+    // Récupérer le preferred_name depuis le profil avec le bon user_id
+    const { data: profile } = await supabase
+      .from("user_profile")
+      .select("preferred_name")
+      .eq("user_id", userId)
+      .single();
+    
+    if (profile?.preferred_name) {
+      setUserName(profile.preferred_name);
+    } else if (user.email) {
       const name = user.email.split('@')[0];
       setUserName(name.charAt(0).toUpperCase() + name.slice(1));
     }
   }
-}
 
   // Message de bienvenue
   async function fetchWelcomeMessage() {
     try {
+      // Récupérer l'utilisateur connecté
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (!user) return;
+      
+      const userId = user.id;
       const lastVisit = localStorage.getItem("lastVisitDate");
       const today = new Date().toISOString().split('T')[0];
       
@@ -175,7 +188,7 @@ async function fetchUserName() {
       const { data: profile } = await supabase
         .from("user_profile")
         .select("preferred_name")
-        .eq("user_id", "rebecca")
+        .eq("user_id", userId)
         .single();
       
       if (profile?.preferred_name) {
@@ -206,12 +219,17 @@ async function fetchUserName() {
   // Suggestion prochaine action
   async function fetchNextActionSuggestion() {
     try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      
+      const userId = user.id;
       const lastCompleted = localStorage.getItem("lastCompletedTask");
       const lastArea = localStorage.getItem("lastArea");
       
       const { data: recentTasksData } = await supabase
         .from("tasks")
         .select("title")
+        .eq("user_id", userId)
         .eq("status", "done")
         .order("updated_at", { ascending: false })
         .limit(3);
@@ -221,6 +239,7 @@ async function fetchUserName() {
       const { data: missionsData } = await supabase
         .from("missions")
         .select("name")
+        .eq("user_id", userId)
         .eq("status", "active")
         .limit(3);
       
@@ -337,14 +356,18 @@ async function fetchUserName() {
 
   async function generateDynamicGreeting() {
     try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      
+      const userId = user.id;
       const today = new Date().toISOString().split('T')[0];
       
       const [tasksRes, overdueRes, winsRes, missionsRes, moodRes] = await Promise.all([
-        supabase.from("tasks").select("*").eq("due_date", today).neq("status", "done"),
-        supabase.from("tasks").select("*").lt("due_date", today).neq("status", "done"),
-        supabase.from("wins").select("*").gte("date", today),
-        supabase.from("missions").select("*").eq("status", "active"),
-        supabase.from("mood_entries").select("mood").eq("date", today).maybeSingle()
+        supabase.from("tasks").select("*").eq("user_id", userId).eq("due_date", today).neq("status", "done"),
+        supabase.from("tasks").select("*").eq("user_id", userId).lt("due_date", today).neq("status", "done"),
+        supabase.from("wins").select("*").eq("user_id", userId).gte("date", today),
+        supabase.from("missions").select("*").eq("user_id", userId).eq("status", "active"),
+        supabase.from("mood_entries").select("mood").eq("user_id", userId).eq("date", today).maybeSingle()
       ]);
       
       const tasksCount = tasksRes.data?.length || 0;
@@ -383,28 +406,28 @@ async function fetchUserName() {
     let greeting = hour < 12 ? "Bonjour" : hour < 18 ? "Bon après-midi" : "Bonsoir";
     
     if (mood === "fatiguée") {
-      return `${greeting} Rebecca. Je sens que tu es fatiguée. On y va doucement aujourd'hui. 🌿`;
+      return `${greeting} ${userName}. Je sens que tu es fatiguée. On y va doucement aujourd'hui. 🌿`;
     }
     if (mood === "stressée") {
-      return `${greeting} Rebecca. Je sens que tu es stressée. On respire et on priorise l'essentiel. 💖`;
+      return `${greeting} ${userName}. Je sens que tu es stressée. On respire et on priorise l'essentiel. 💖`;
     }
     if (overdueCount > 0) {
-      return `${greeting} Rebecca. Tu as ${overdueCount} tâche(s) en retard. On regarde ça ensemble ? 👑`;
+      return `${greeting} ${userName}. Tu as ${overdueCount} tâche(s) en retard. On regarde ça ensemble ? 👑`;
     }
     if (tasksCount > 0) {
-      return `${greeting} Rebecca. Tu as ${tasksCount} chose(s) à faire aujourd'hui. Je suis là si tu veux. ✨`;
+      return `${greeting} ${userName}. Tu as ${tasksCount} chose(s) à faire aujourd'hui. Je suis là si tu veux. ✨`;
     }
     if (winsCount > 0) {
-      return `${greeting} Rebecca. ${winsCount} victoire(s) récente(s) ! C'est bien. Continue comme ça. 🏆`;
+      return `${greeting} ${userName}. ${winsCount} victoire(s) récente(s) ! C'est bien. Continue comme ça. 🏆`;
     }
     if (missionsCount > 0) {
-      return `${greeting} Rebecca. ${missionsCount} mission(s) active(s). Tu veux qu'on avance sur l'une d'elles ? 🎯`;
+      return `${greeting} ${userName}. ${missionsCount} mission(s) active(s). Tu veux qu'on avance sur l'une d'elles ? 🎯`;
     }
     
     const naturalGreetings = [
-      `${greeting} Rebecca. Rien de prévu aujourd'hui. Tu veux qu'on avance sur un projet ou tu préfères souffler ? 🌱`,
-      `${greeting} Rebecca. Journée calme. Profites-en pour respirer ou pour prendre de l'avance. 🌸`,
-      `${greeting} Rebecca. Tout est calme. Besoin de quoi ? 💫`
+      `${greeting} ${userName}. Rien de prévu aujourd'hui. Tu veux qu'on avance sur un projet ou tu préfères souffler ? 🌱`,
+      `${greeting} ${userName}. Journée calme. Profites-en pour respirer ou pour prendre de l'avance. 🌸`,
+      `${greeting} ${userName}. Tout est calme. Besoin de quoi ? 💫`
     ];
     return naturalGreetings[Math.floor(Math.random() * naturalGreetings.length)];
   }
@@ -453,7 +476,10 @@ async function fetchUserName() {
   async function fetchRecentMemories() {
     setIsLoadingMemories(true);
     try {
-      const response = await fetch(`${API_URL}/api/memory/get?limit=5`);
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      
+      const response = await fetch(`${API_URL}/api/memory/get?user_id=${user.id}&limit=5`);
       const data = await response.json();
       if (data.success && data.data) {
         setRecentMemories(data.data.slice(0, 5));
@@ -466,6 +492,9 @@ async function fetchUserName() {
   }
 
   async function saveMood(selectedMood: string) {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    
     const today = new Date().toISOString().split('T')[0];
     setMood(selectedMood);
     localStorage.setItem("todayMood", selectedMood);
@@ -474,7 +503,7 @@ async function fetchUserName() {
     await fetch(`${API_URL}/api/mood/save`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ mood: selectedMood })
+      body: JSON.stringify({ mood: selectedMood, user_id: user.id })
     });
 
     window.dispatchEvent(new CustomEvent('moodChange', { detail: { mood: selectedMood } }));
