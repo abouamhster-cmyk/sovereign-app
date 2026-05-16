@@ -1,6 +1,10 @@
+Voici le code complet et propre de `app/sante-plus-benin/page.tsx` :
+
+```tsx
 "use client";
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
+import { useUserId } from "@/hooks/useUserId";
 import { motion, AnimatePresence } from "framer-motion";
 import { 
   Heart, Users, Calendar, DollarSign, Briefcase, 
@@ -73,6 +77,7 @@ type BeninOpportunity = {
 };
 
 export default function SantePlusBeninPage() {
+  const { userId, loading: userIdLoading } = useUserId();
   const [activeTab, setActiveTab] = useState<"clients" | "visits" | "staff" | "benin-projects" | "benin-opportunities">("clients");
   const [isLoading, setIsLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -89,8 +94,10 @@ export default function SantePlusBeninPage() {
   const [formData, setFormData] = useState<any>({});
 
   useEffect(() => {
-    fetchAllData();
-  }, []);
+    if (userId) {
+      fetchAllData();
+    }
+  }, [userId]);
 
   async function fetchAllData() {
     setIsLoading(true);
@@ -105,32 +112,62 @@ export default function SantePlusBeninPage() {
   }
 
   async function fetchClients() {
-    const { data } = await supabase.from("sante_plus_clients").select("*").order("name");
+    if (!userId) return;
+    const { data } = await supabase
+      .from("sante_plus_clients")
+      .select("*")
+      .eq("user_id", userId)
+      .order("name");
     setClients(data || []);
   }
 
   async function fetchVisits() {
-    const { data } = await supabase.from("sante_plus_visits").select("*").order("date", { ascending: false });
+    if (!userId) return;
+    const { data } = await supabase
+      .from("sante_plus_visits")
+      .select("*")
+      .eq("user_id", userId)
+      .order("date", { ascending: false });
+    
     // Enrichir avec les noms des clients
     const enriched = await Promise.all((data || []).map(async (visit) => {
-      const { data: client } = await supabase.from("sante_plus_clients").select("name").eq("id", visit.client_id).single();
+      const { data: client } = await supabase
+        .from("sante_plus_clients")
+        .select("name")
+        .eq("id", visit.client_id)
+        .single();
       return { ...visit, client_name: client?.name || "Inconnu" };
     }));
     setVisits(enriched);
   }
 
   async function fetchStaff() {
-    const { data } = await supabase.from("sante_plus_staff").select("*").order("name");
+    if (!userId) return;
+    const { data } = await supabase
+      .from("sante_plus_staff")
+      .select("*")
+      .eq("user_id", userId)
+      .order("name");
     setStaff(data || []);
   }
 
   async function fetchBeninProjects() {
-    const { data } = await supabase.from("benin_projects").select("*").order("created_at", { ascending: false });
+    if (!userId) return;
+    const { data } = await supabase
+      .from("benin_projects")
+      .select("*")
+      .eq("user_id", userId)
+      .order("created_at", { ascending: false });
     setBeninProjects(data || []);
   }
 
   async function fetchBeninOpportunities() {
-    const { data } = await supabase.from("benin_opportunities").select("*").order("created_at", { ascending: false });
+    if (!userId) return;
+    const { data } = await supabase
+      .from("benin_opportunities")
+      .select("*")
+      .eq("user_id", userId)
+      .order("created_at", { ascending: false });
     setBeninOpportunities(data || []);
   }
 
@@ -147,7 +184,8 @@ export default function SantePlusBeninPage() {
         address: formData.address,
         status: formData.status || "active",
         service_type: formData.service_type,
-        notes: formData.notes
+        notes: formData.notes,
+        user_id: userId
       };
     } else if (activeTab === "visits") {
       table = "sante_plus_visits";
@@ -157,7 +195,8 @@ export default function SantePlusBeninPage() {
         duration: formData.duration,
         service: formData.service,
         notes: formData.notes,
-        status: formData.status || "scheduled"
+        status: formData.status || "scheduled",
+        user_id: userId
       };
     } else if (activeTab === "staff") {
       table = "sante_plus_staff";
@@ -168,7 +207,8 @@ export default function SantePlusBeninPage() {
         email: formData.email,
         status: formData.status || "active",
         hourly_rate: formData.hourly_rate,
-        notes: formData.notes
+        notes: formData.notes,
+        user_id: userId
       };
     } else if (activeTab === "benin-projects") {
       table = "benin_projects";
@@ -181,7 +221,8 @@ export default function SantePlusBeninPage() {
         budget: formData.budget,
         spent: formData.spent || 0,
         next_action: formData.next_action,
-        notes: formData.notes
+        notes: formData.notes,
+        user_id: userId
       };
     } else if (activeTab === "benin-opportunities") {
       table = "benin_opportunities";
@@ -195,7 +236,8 @@ export default function SantePlusBeninPage() {
         priority: formData.priority || "medium",
         estimated_value: formData.estimated_value,
         next_action: formData.next_action,
-        notes: formData.notes
+        notes: formData.notes,
+        user_id: userId
       };
     }
     
@@ -290,6 +332,30 @@ export default function SantePlusBeninPage() {
     real_estate: { label: "🏠 Immobilier", color: "bg-orange-500/20 text-orange-400" },
     other: { label: "📁 Autre", color: "bg-gray-500/20 text-gray-400" }
   };
+
+  if (userIdLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <Loader2 className="w-8 h-8 text-gold-500 animate-spin" />
+      </div>
+    );
+  }
+
+  if (!userId) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <p className="text-gray-500">Veuillez vous connecter</p>
+      </div>
+    );
+  }
+
+  if (isLoading) {
+    return (
+      <div className="flex justify-center py-12">
+        <Loader2 className="w-8 h-8 text-gold-500 animate-spin" />
+      </div>
+    );
+  }
 
   return (
     <div className="h-full flex flex-col overflow-y-auto bg-midnight p-4 md:p-6 lg:p-8">
@@ -540,162 +606,183 @@ export default function SantePlusBeninPage() {
         </AnimatePresence>
 
         {/* LISTES */}
-        {isLoading ? (
-          <div className="flex justify-center py-12"><Loader2 className="w-8 h-8 text-gold-500 animate-spin" /></div>
-        ) : (
-          <div className="space-y-3">
-            {/* CLIENTS */}
-            {activeTab === "clients" && clients.map(client => (
-              <div key={client.id} className="bg-white/5 border border-white/10 rounded-xl p-4 hover:bg-white/10 transition-colors">
+        <div className="space-y-3">
+          {/* CLIENTS */}
+          {activeTab === "clients" && clients.map(client => (
+            <div key={client.id} className="bg-white/5 border border-white/10 rounded-xl p-4 hover:bg-white/10 transition-colors">
+              <div className="flex justify-between items-start">
+                <div className="flex-1">
+                  <div className="flex items-center gap-3 flex-wrap">
+                    <h3 className="text-ivory font-medium">{client.name}</h3>
+                    <span className={`text-xs px-2 py-0.5 rounded-full ${getStatusColor(client.status)}`}>
+                      {client.status === "active" ? "Actif" : "Inactif"}
+                    </span>
+                  </div>
+                  <div className="flex flex-wrap gap-4 mt-2 text-xs text-gray-500">
+                    {client.phone && <span className="flex items-center gap-1"><Phone className="w-3 h-3" /> {client.phone}</span>}
+                    {client.email && <span className="flex items-center gap-1"><Mail className="w-3 h-3" /> {client.email}</span>}
+                    {client.address && <span className="flex items-center gap-1"><MapPin className="w-3 h-3" /> {client.address}</span>}
+                  </div>
+                  {client.service_type && <p className="text-xs text-gray-400 mt-2">Service: {client.service_type}</p>}
+                  {client.notes && <p className="text-xs text-gray-500 mt-1 italic">{client.notes}</p>}
+                </div>
+                <div className="flex gap-2">
+                  <button onClick={() => editItem(client, "clients")} className="text-gray-500 hover:text-gold-500"><Edit2 className="w-4 h-4" /></button>
+                  <button onClick={() => deleteItem("sante_plus_clients", client.id)} className="text-gray-500 hover:text-red-400"><Trash2 className="w-4 h-4" /></button>
+                </div>
+              </div>
+            </div>
+          ))}
+
+          {/* VISITES */}
+          {activeTab === "visits" && visits.map(visit => (
+            <div key={visit.id} className="bg-white/5 border border-white/10 rounded-xl p-4 hover:bg-white/10 transition-colors">
+              <div className="flex justify-between items-start">
+                <div className="flex-1">
+                  <div className="flex items-center gap-3 flex-wrap">
+                    <h3 className="text-ivory font-medium">{visit.client_name}</h3>
+                    <span className={`text-xs px-2 py-0.5 rounded-full ${getStatusColor(visit.status)}`}>
+                      {visit.status === "scheduled" ? "Planifiée" : visit.status === "completed" ? "Réalisée" : "Annulée"}
+                    </span>
+                  </div>
+                  <div className="flex flex-wrap gap-4 mt-2 text-xs text-gray-500">
+                    <span className="flex items-center gap-1"><Calendar className="w-3 h-3" /> {formatDate(visit.date)}</span>
+                    {visit.duration && <span className="flex items-center gap-1"><Clock className="w-3 h-3" /> {visit.duration} min</span>}
+                    {visit.service && <span>{visit.service}</span>}
+                  </div>
+                  {visit.notes && <p className="text-xs text-gray-500 mt-1 italic">{visit.notes}</p>}
+                </div>
+                <div className="flex gap-2">
+                  <button onClick={() => editItem(visit, "visits")} className="text-gray-500 hover:text-gold-500"><Edit2 className="w-4 h-4" /></button>
+                  <button onClick={() => deleteItem("sante_plus_visits", visit.id)} className="text-gray-500 hover:text-red-400"><Trash2 className="w-4 h-4" /></button>
+                </div>
+              </div>
+            </div>
+          ))}
+
+          {/* STAFF */}
+          {activeTab === "staff" && staff.map(member => (
+            <div key={member.id} className="bg-white/5 border border-white/10 rounded-xl p-4 hover:bg-white/10 transition-colors">
+              <div className="flex justify-between items-start">
+                <div className="flex-1">
+                  <div className="flex items-center gap-3 flex-wrap">
+                    <h3 className="text-ivory font-medium">{member.name}</h3>
+                    <span className="text-xs text-gold-500">{member.role}</span>
+                    <span className={`text-xs px-2 py-0.5 rounded-full ${getStatusColor(member.status)}`}>
+                      {member.status === "active" ? "Actif" : "Inactif"}
+                    </span>
+                  </div>
+                  <div className="flex flex-wrap gap-4 mt-2 text-xs text-gray-500">
+                    {member.phone && <span className="flex items-center gap-1"><Phone className="w-3 h-3" /> {member.phone}</span>}
+                    {member.email && <span className="flex items-center gap-1"><Mail className="w-3 h-3" /> {member.email}</span>}
+                    {member.hourly_rate && <span>{member.hourly_rate.toLocaleString()} CFA/h</span>}
+                  </div>
+                  {member.notes && <p className="text-xs text-gray-500 mt-1 italic">{member.notes}</p>}
+                </div>
+                <div className="flex gap-2">
+                  <button onClick={() => editItem(member, "staff")} className="text-gray-500 hover:text-gold-500"><Edit2 className="w-4 h-4" /></button>
+                  <button onClick={() => deleteItem("sante_plus_staff", member.id)} className="text-gray-500 hover:text-red-400"><Trash2 className="w-4 h-4" /></button>
+                </div>
+              </div>
+            </div>
+          ))}
+
+          {/* PROJETS BÉNIN */}
+          {activeTab === "benin-projects" && beninProjects.length === 0 && (
+            <div className="text-center py-12 text-gray-500">
+              <Building2 className="w-12 h-12 mx-auto mb-4 opacity-30" />
+              <p>Aucun projet Bénin</p>
+              <p className="text-sm mt-2">Clique sur "Ajouter" pour commencer</p>
+            </div>
+          )}
+          {activeTab === "benin-projects" && beninProjects.map(project => {
+            const categoryConf = categoriesBenin[project.category as keyof typeof categoriesBenin] || categoriesBenin.other;
+            return (
+              <div key={project.id} className="bg-white/5 border border-white/10 rounded-xl p-4 hover:bg-white/10 transition-colors">
                 <div className="flex justify-between items-start">
                   <div className="flex-1">
                     <div className="flex items-center gap-3 flex-wrap">
-                      <h3 className="text-ivory font-medium">{client.name}</h3>
-                      <span className={`text-xs px-2 py-0.5 rounded-full ${getStatusColor(client.status)}`}>
-                        {client.status === "active" ? "Actif" : "Inactif"}
+                      <h3 className="text-ivory font-medium">{project.name}</h3>
+                      <span className={`text-xs px-2 py-0.5 rounded-full ${categoryConf.color}`}>{categoryConf.label}</span>
+                      <span className={`text-xs px-2 py-0.5 rounded-full ${getPriorityColor(project.priority)}`}>
+                        {project.priority === "critical" ? "Critique" : project.priority === "high" ? "Haute" : project.priority === "normal" ? "Normale" : "Basse"}
                       </span>
                     </div>
                     <div className="flex flex-wrap gap-4 mt-2 text-xs text-gray-500">
-                      {client.phone && <span className="flex items-center gap-1"><Phone className="w-3 h-3" /> {client.phone}</span>}
-                      {client.email && <span className="flex items-center gap-1"><Mail className="w-3 h-3" /> {client.email}</span>}
-                      {client.address && <span className="flex items-center gap-1"><MapPin className="w-3 h-3" /> {client.address}</span>}
+                      {project.deadline && <span className="flex items-center gap-1"><Calendar className="w-3 h-3" /> {new Date(project.deadline).toLocaleDateString('fr-FR')}</span>}
+                      {project.budget > 0 && <span>💰 Budget: {project.budget.toLocaleString()} CFA</span>}
+                      {project.spent > 0 && <span>💸 Dépensé: {project.spent.toLocaleString()} CFA</span>}
                     </div>
-                    {client.service_type && <p className="text-xs text-gray-400 mt-2">Service: {client.service_type}</p>}
-                    {client.notes && <p className="text-xs text-gray-500 mt-1 italic">{client.notes}</p>}
+                    {project.next_action && <p className="text-xs text-gold-500 mt-2">🎯 {project.next_action}</p>}
+                    {project.notes && <p className="text-xs text-gray-500 mt-1 italic">{project.notes}</p>}
                   </div>
                   <div className="flex gap-2">
-                    <button onClick={() => editItem(client, "clients")} className="text-gray-500 hover:text-gold-500"><Edit2 className="w-4 h-4" /></button>
-                    <button onClick={() => deleteItem("sante_plus_clients", client.id)} className="text-gray-500 hover:text-red-400"><Trash2 className="w-4 h-4" /></button>
+                    <button onClick={() => editItem(project, "benin-projects")} className="text-gray-500 hover:text-gold-500"><Edit2 className="w-4 h-4" /></button>
+                    <button onClick={() => deleteItem("benin_projects", project.id)} className="text-gray-500 hover:text-red-400"><Trash2 className="w-4 h-4" /></button>
                   </div>
                 </div>
               </div>
-            ))}
+            );
+          })}
 
-            {/* VISITES */}
-            {activeTab === "visits" && visits.map(visit => (
-              <div key={visit.id} className="bg-white/5 border border-white/10 rounded-xl p-4 hover:bg-white/10 transition-colors">
-                <div className="flex justify-between items-start">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-3 flex-wrap">
-                      <h3 className="text-ivory font-medium">{visit.client_name}</h3>
-                      <span className={`text-xs px-2 py-0.5 rounded-full ${getStatusColor(visit.status)}`}>
-                        {visit.status === "scheduled" ? "Planifiée" : visit.status === "completed" ? "Réalisée" : "Annulée"}
-                      </span>
-                    </div>
-                    <div className="flex flex-wrap gap-4 mt-2 text-xs text-gray-500">
-                      <span className="flex items-center gap-1"><Calendar className="w-3 h-3" /> {formatDate(visit.date)}</span>
-                      {visit.duration && <span className="flex items-center gap-1"><Clock className="w-3 h-3" /> {visit.duration} min</span>}
-                      {visit.service && <span>{visit.service}</span>}
-                    </div>
-                    {visit.notes && <p className="text-xs text-gray-500 mt-1 italic">{visit.notes}</p>}
+          {/* OPPORTUNITÉS BÉNIN */}
+          {activeTab === "benin-opportunities" && beninOpportunities.length === 0 && (
+            <div className="text-center py-12 text-gray-500">
+              <Handshake className="w-12 h-12 mx-auto mb-4 opacity-30" />
+              <p>Aucune opportunité Bénin</p>
+              <p className="text-sm mt-2">Clique sur "Ajouter" pour commencer</p>
+            </div>
+          )}
+          {activeTab === "benin-opportunities" && beninOpportunities.map(opp => (
+            <div key={opp.id} className="bg-white/5 border border-white/10 rounded-xl p-4 hover:bg-white/10 transition-colors">
+              <div className="flex justify-between items-start">
+                <div className="flex-1">
+                  <div className="flex items-center gap-3 flex-wrap">
+                    <h3 className="text-ivory font-medium">{opp.title}</h3>
+                    <span className={`text-xs px-2 py-0.5 rounded-full ${getPriorityColor(opp.priority)}`}>
+                      {opp.priority === "high" ? "Haute" : opp.priority === "medium" ? "Moyenne" : "Basse"}
+                    </span>
                   </div>
-                  <div className="flex gap-2">
-                    <button onClick={() => editItem(visit, "visits")} className="text-gray-500 hover:text-gold-500"><Edit2 className="w-4 h-4" /></button>
-                    <button onClick={() => deleteItem("sante_plus_visits", visit.id)} className="text-gray-500 hover:text-red-400"><Trash2 className="w-4 h-4" /></button>
+                  <div className="flex flex-wrap gap-4 mt-2 text-xs text-gray-500">
+                    {opp.contact_name && <span className="flex items-center gap-1"><Users className="w-3 h-3" /> {opp.contact_name}</span>}
+                    {opp.estimated_value > 0 && <span className="text-emerald-400">{opp.estimated_value.toLocaleString()} CFA</span>}
                   </div>
+                  {opp.next_action && <p className="text-xs text-gold-500 mt-2">🎯 {opp.next_action}</p>}
+                  {opp.notes && <p className="text-xs text-gray-500 mt-1 italic">{opp.notes}</p>}
+                </div>
+                <div className="flex gap-2">
+                  <button onClick={() => editItem(opp, "benin-opportunities")} className="text-gray-500 hover:text-gold-500"><Edit2 className="w-4 h-4" /></button>
+                  <button onClick={() => deleteItem("benin_opportunities", opp.id)} className="text-gray-500 hover:text-red-400"><Trash2 className="w-4 h-4" /></button>
                 </div>
               </div>
-            ))}
+            </div>
+          ))}
+        </div>
 
-            {/* STAFF */}
-            {activeTab === "staff" && staff.map(member => (
-              <div key={member.id} className="bg-white/5 border border-white/10 rounded-xl p-4 hover:bg-white/10 transition-colors">
-                <div className="flex justify-between items-start">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-3 flex-wrap">
-                      <h3 className="text-ivory font-medium">{member.name}</h3>
-                      <span className="text-xs text-gold-500">{member.role}</span>
-                      <span className={`text-xs px-2 py-0.5 rounded-full ${getStatusColor(member.status)}`}>
-                        {member.status === "active" ? "Actif" : "Inactif"}
-                      </span>
-                    </div>
-                    <div className="flex flex-wrap gap-4 mt-2 text-xs text-gray-500">
-                      {member.phone && <span className="flex items-center gap-1"><Phone className="w-3 h-3" /> {member.phone}</span>}
-                      {member.email && <span className="flex items-center gap-1"><Mail className="w-3 h-3" /> {member.email}</span>}
-                      {member.hourly_rate && <span>{member.hourly_rate.toLocaleString()} CFA/h</span>}
-                    </div>
-                    {member.notes && <p className="text-xs text-gray-500 mt-1 italic">{member.notes}</p>}
-                  </div>
-                  <div className="flex gap-2">
-                    <button onClick={() => editItem(member, "staff")} className="text-gray-500 hover:text-gold-500"><Edit2 className="w-4 h-4" /></button>
-                    <button onClick={() => deleteItem("sante_plus_staff", member.id)} className="text-gray-500 hover:text-red-400"><Trash2 className="w-4 h-4" /></button>
-                  </div>
-                </div>
-              </div>
-            ))}
-
-            {/* PROJETS BÉNIN */}
-            {activeTab === "benin-projects" && beninProjects.map(project => {
-              const categoryConf = categoriesBenin[project.category as keyof typeof categoriesBenin] || categoriesBenin.other;
-              return (
-                <div key={project.id} className="bg-white/5 border border-white/10 rounded-xl p-4 hover:bg-white/10 transition-colors">
-                  <div className="flex justify-between items-start">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-3 flex-wrap">
-                        <h3 className="text-ivory font-medium">{project.name}</h3>
-                        <span className={`text-xs px-2 py-0.5 rounded-full ${categoryConf.color}`}>{categoryConf.label}</span>
-                        <span className={`text-xs px-2 py-0.5 rounded-full ${getPriorityColor(project.priority)}`}>
-                          {project.priority === "critical" ? "Critique" : project.priority === "high" ? "Haute" : project.priority === "normal" ? "Normale" : "Basse"}
-                        </span>
-                      </div>
-                      <div className="flex flex-wrap gap-4 mt-2 text-xs text-gray-500">
-                        {project.deadline && <span className="flex items-center gap-1"><Calendar className="w-3 h-3" /> {new Date(project.deadline).toLocaleDateString('fr-FR')}</span>}
-                        {project.budget > 0 && <span>💰 Budget: {project.budget.toLocaleString()} CFA</span>}
-                        {project.spent > 0 && <span>💸 Dépensé: {project.spent.toLocaleString()} CFA</span>}
-                      </div>
-                      {project.next_action && <p className="text-xs text-gold-500 mt-2">🎯 {project.next_action}</p>}
-                      {project.notes && <p className="text-xs text-gray-500 mt-1 italic">{project.notes}</p>}
-                    </div>
-                    <div className="flex gap-2">
-                      <button onClick={() => editItem(project, "benin-projects")} className="text-gray-500 hover:text-gold-500"><Edit2 className="w-4 h-4" /></button>
-                      <button onClick={() => deleteItem("benin_projects", project.id)} className="text-gray-500 hover:text-red-400"><Trash2 className="w-4 h-4" /></button>
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-
-            {/* OPPORTUNITÉS BÉNIN */}
-            {activeTab === "benin-opportunities" && beninOpportunities.map(opp => (
-              <div key={opp.id} className="bg-white/5 border border-white/10 rounded-xl p-4 hover:bg-white/10 transition-colors">
-                <div className="flex justify-between items-start">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-3 flex-wrap">
-                      <h3 className="text-ivory font-medium">{opp.title}</h3>
-                      <span className={`text-xs px-2 py-0.5 rounded-full ${getPriorityColor(opp.priority)}`}>
-                        {opp.priority === "high" ? "Haute" : opp.priority === "medium" ? "Moyenne" : "Basse"}
-                      </span>
-                    </div>
-                    <div className="flex flex-wrap gap-4 mt-2 text-xs text-gray-500">
-                      {opp.contact_name && <span className="flex items-center gap-1"><Users className="w-3 h-3" /> {opp.contact_name}</span>}
-                      {opp.estimated_value > 0 && <span className="text-emerald-400">{opp.estimated_value.toLocaleString()} CFA</span>}
-                    </div>
-                    {opp.next_action && <p className="text-xs text-gold-500 mt-2">🎯 {opp.next_action}</p>}
-                    {opp.notes && <p className="text-xs text-gray-500 mt-1 italic">{opp.notes}</p>}
-                  </div>
-                  <div className="flex gap-2">
-                    <button onClick={() => editItem(opp, "benin-opportunities")} className="text-gray-500 hover:text-gold-500"><Edit2 className="w-4 h-4" /></button>
-                    <button onClick={() => deleteItem("benin_opportunities", opp.id)} className="text-gray-500 hover:text-red-400"><Trash2 className="w-4 h-4" /></button>
-                  </div>
-                </div>
-              </div>
-            ))}
-
-            {/* Message vide */}
-            {(activeTab === "clients" && clients.length === 0) ||
-             (activeTab === "visits" && visits.length === 0) ||
-             (activeTab === "staff" && staff.length === 0) ||
-             (activeTab === "benin-projects" && beninProjects.length === 0) ||
-             (activeTab === "benin-opportunities" && beninOpportunities.length === 0) && (
-              <div className="text-center py-12 text-gray-500">
-                <Heart className="w-12 h-12 mx-auto mb-4 opacity-30" />
-                <p>Aucune donnée</p>
-                <p className="text-sm mt-2">Clique sur "Ajouter" pour commencer</p>
-              </div>
-            )}
+        {/* Messages vides pour les autres onglets */}
+        {activeTab === "clients" && clients.length === 0 && (
+          <div className="text-center py-12 text-gray-500">
+            <Users className="w-12 h-12 mx-auto mb-4 opacity-30" />
+            <p>Aucun client</p>
+            <p className="text-sm mt-2">Clique sur "Ajouter" pour commencer</p>
+          </div>
+        )}
+        {activeTab === "visits" && visits.length === 0 && (
+          <div className="text-center py-12 text-gray-500">
+            <Calendar className="w-12 h-12 mx-auto mb-4 opacity-30" />
+            <p>Aucune visite</p>
+            <p className="text-sm mt-2">Clique sur "Ajouter" pour commencer</p>
+          </div>
+        )}
+        {activeTab === "staff" && staff.length === 0 && (
+          <div className="text-center py-12 text-gray-500">
+            <Briefcase className="w-12 h-12 mx-auto mb-4 opacity-30" />
+            <p>Aucun membre du personnel</p>
+            <p className="text-sm mt-2">Clique sur "Ajouter" pour commencer</p>
           </div>
         )}
       </div>
     </div>
   );
 }
+```
