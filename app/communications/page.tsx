@@ -8,7 +8,7 @@ import {
   FileText, Clock, CheckCircle, AlertCircle, Filter, Search, 
   ExternalLink, Plus, Edit2, Trash2, X, Upload, Download,
   FolderOpen, Tag, Calendar, File, Image, FileArchive, FileSpreadsheet,
-  Send, Loader2, Mail, LayoutGrid
+  Send, Loader2, Mail, LayoutGrid,  RefreshCw
 } from "lucide-react";
 import { toast } from "sonner";
 import { exportDocumentsToPDF } from "@/lib/exportPDF";
