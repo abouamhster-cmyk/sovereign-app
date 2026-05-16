@@ -73,13 +73,14 @@ export default function RelocationPage() {
   async function saveTask() {
     const data = {
       title: formData.title,
+      category: formData.category,        
       status: formData.status,
       priority: formData.priority,
       project: "Bénin Relocation",
       due_date: formData.due_date || null,
       notes: formData.notes || null
     };
-    
+      
     let error;
     if (editingTask) {
       const result = await supabase.from("tasks").update(data).eq("id", editingTask.id);
