@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Volume2, VolumeX, Mic, Heart, Sparkles, Brain, Coffee, Moon, Sun, AlertCircle } from "lucide-react";
+import { Volume2, VolumeX, Sparkles, Heart, Moon, AlertCircle } from "lucide-react";
 
 type AvatarState = "idle" | "listening" | "thinking" | "speaking" | "happy" | "tired" | "stressed" | "excited";
 
@@ -14,7 +14,7 @@ interface SovereignAvatarProps {
   isVoiceActive?: boolean;
   isVoiceListening?: boolean;
   isVoiceSpeaking?: boolean;
-  mood?: string | null;  // "excellent", "bien", "neutre", "fatiguée", "stressée"
+  mood?: string | null;
 }
 
 // Bulles de pensée aléatoires
@@ -59,17 +59,16 @@ export default function SovereignAvatar({
   const [showBubble, setShowBubble] = useState(false);
   const [animationFrame, setAnimationFrame] = useState(0);
   const [internalState, setInternalState] = useState<AvatarState>(state);
-  const [randomThinking, setRandomThinking] = useState("");
   const [idleTimer, setIdleTimer] = useState<NodeJS.Timeout | null>(null);
+  const [bubbleTimeout, setBubbleTimeout] = useState<NodeJS.Timeout | null>(null);
 
-  // Dimensions selon la taille
   const dimensions = {
-    sm: "w-12 h-12",
-    md: "w-20 h-20",
-    lg: "w-28 h-28"
+    sm: "w-10 h-10",
+    md: "w-14 h-14",
+    lg: "w-20 h-20"
   };
 
-  // Animation de clignement des yeux
+  // Animation des yeux
   useEffect(() => {
     const interval = setInterval(() => {
       setAnimationFrame(prev => (prev + 1) % 60);
@@ -77,7 +76,7 @@ export default function SovereignAvatar({
     return () => clearInterval(interval);
   }, []);
 
-  // Synchroniser l'état interne avec les props et l'humeur
+  // Synchroniser l'état interne
   useEffect(() => {
     if (isVoiceListening) {
       setInternalState("listening");
@@ -96,29 +95,37 @@ export default function SovereignAvatar({
     }
   }, [isVoiceListening, isVoiceSpeaking, state, mood]);
 
-  // Apparition aléatoire de bulles de pensée quand inactif
+  // Fonction pour afficher une bulle
+  const showThinkingBubble = (text: string, duration: number = 4000) => {
+    if (bubbleTimeout) clearTimeout(bubbleTimeout);
+    setBubbleText(text);
+    setShowBubble(true);
+    const timer = setTimeout(() => {
+      setShowBubble(false);
+    }, duration);
+    setBubbleTimeout(timer);
+  };
+
+  // Bulle aléatoire toutes les 15-20 secondes quand inactif
   useEffect(() => {
-    if (internalState === "idle" && !showBubble) {
+    if (internalState === "idle") {
       if (idleTimer) clearTimeout(idleTimer);
       const timer = setTimeout(() => {
         const randomIndex = Math.floor(Math.random() * thinkingMessages.length);
-        setRandomThinking(thinkingMessages[randomIndex]);
-        setShowBubble(true);
-        setTimeout(() => setShowBubble(false), 4000);
-      }, 15000 + Math.random() * 10000);
+        showThinkingBubble(thinkingMessages[randomIndex], 4000);
+      }, 15000 + Math.random() * 5000);
       setIdleTimer(timer);
     }
     return () => {
       if (idleTimer) clearTimeout(idleTimer);
     };
-  }, [internalState, showBubble]);
+  }, [internalState]);
 
-  // Afficher une bulle quand un message arrive
+  // Bulle quand un message arrive
   useEffect(() => {
-    if (lastMessage && lastMessage.length > 0 && lastMessage !== bubbleText) {
+    if (lastMessage && lastMessage.length > 0) {
       let message = lastMessage.length > 50 ? lastMessage.substring(0, 50) + "..." : lastMessage;
       
-      // Adapter le message selon l'état
       if (internalState === "happy") {
         const randomHappy = happyMessages[Math.floor(Math.random() * happyMessages.length)];
         message = randomHappy;
@@ -126,49 +133,44 @@ export default function SovereignAvatar({
         const randomTired = tiredMessages[Math.floor(Math.random() * tiredMessages.length)];
         message = randomTired;
       } else if (internalState === "thinking") {
-        message = randomThinking || "🤔 Je réfléchis...";
+        message = thinkingMessages[Math.floor(Math.random() * thinkingMessages.length)];
+      } else {
+        message = "💬 " + message;
       }
       
-      setBubbleText(message);
-      setShowBubble(true);
-      const timer = setTimeout(() => setShowBubble(false), 4000);
-      return () => clearTimeout(timer);
+      showThinkingBubble(message, 3500);
     }
   }, [lastMessage, internalState]);
 
-  // Animation pour l'état stressé
-  const getStressAnimation = () => {
-    if (internalState === "stressed") {
-      return {
-        x: [0, -2, 2, -1, 1, 0],
-        transition: { duration: 0.5, repeat: Infinity, repeatDelay: 2 }
-      };
+  // Bulle quand l'avatar parle
+  useEffect(() => {
+    if (isVoiceSpeaking || isSpeaking) {
+      showThinkingBubble("🔊 Je parle...", 2000);
     }
-    return {};
-  };
+  }, [isVoiceSpeaking, isSpeaking]);
 
-  // Couleur du glow selon l'état
+  // Bulle quand l'avatar écoute
+  useEffect(() => {
+    if (isVoiceListening) {
+      showThinkingBubble("🎤 Je t'écoute...", 2500);
+    }
+  }, [isVoiceListening]);
+
   const getGlowColor = () => {
     if (isVoiceActive) {
       switch(internalState) {
-        case "listening": return "bg-blue-500/40 shadow-blue-500/60";
-        case "speaking": return "bg-emerald-500/40 shadow-emerald-500/60";
-        case "thinking": return "bg-purple-500/30 shadow-purple-500/50";
-        default: return "bg-gold-500/20 shadow-gold-500/30";
+        case "listening": return "ring-2 ring-blue-500 shadow-blue-500/30";
+        case "speaking": return "ring-2 ring-emerald-500 shadow-emerald-500/30";
+        default: return "ring-2 ring-gold-500 shadow-gold-500/30";
       }
     }
     switch(internalState) {
-      case "listening": return "bg-blue-500/30 shadow-blue-500/50";
-      case "thinking": return "bg-purple-500/30 shadow-purple-500/50";
-      case "speaking": return "bg-emerald-500/30 shadow-emerald-500/50";
-      case "happy": return "bg-gold-500/30 shadow-gold-500/50";
-      case "tired": return "bg-gray-500/20 shadow-gray-500/30";
-      case "stressed": return "bg-orange-500/20 shadow-orange-500/30";
-      default: return "bg-gold-500/10 shadow-gold-500/20";
+      case "happy": return "ring-2 ring-gold-500 shadow-gold-500/30";
+      case "thinking": return "ring-2 ring-purple-500 shadow-purple-500/30";
+      default: return "";
     }
   };
 
-  // Yeux selon l'état
   const getEyeState = () => {
     const isBlinking = animationFrame % 30 < 3;
     if (isBlinking) return "closed";
@@ -190,41 +192,33 @@ export default function SovereignAvatar({
   return (
     <div className="relative inline-block">
       {/* Bulle de pensée */}
-        
-        <AnimatePresence>
-          {showBubble && (
-            <motion.div
-              initial={{ opacity: 0, x: -10, scale: 0.9 }}
-              animate={{ opacity: 1, x: 0, scale: 1 }}
-              exit={{ opacity: 0, x: -10, scale: 0.9 }}
-              transition={{ type: "spring", stiffness: 500, damping: 30 }}
-              // Position à droite de l'avatar
-              className="absolute top-1/2 -translate-y-1/2 left-full ml-3 bg-midnight/95 backdrop-blur-lg border border-gold-500/30 rounded-2xl px-4 py-2 max-w-[250px] z-10 shadow-xl"
-            >
-              {/* Triangle pointant vers la gauche */}
-              <div className="absolute -left-1 top-1/2 -translate-y-1/2 w-2 h-2 bg-midnight/95 border-l border-b border-gold-500/30 -rotate-45" />
-              <p className="text-xs text-gold-400 whitespace-pre-wrap break-words">
-                {bubbleText}
-              </p>
-            </motion.div>
-          )}
-        </AnimatePresence>
+      <AnimatePresence>
+        {showBubble && bubbleText && (
+          <motion.div
+            initial={{ opacity: 0, x: -10, scale: 0.9 }}
+            animate={{ opacity: 1, x: 0, scale: 1 }}
+            exit={{ opacity: 0, x: -10, scale: 0.9 }}
+            transition={{ type: "spring", stiffness: 500, damping: 30 }}
+            className="absolute top-1/2 -translate-y-1/2 left-full ml-3 bg-midnight/95 backdrop-blur-lg border border-gold-500/30 rounded-2xl px-4 py-2 max-w-[220px] z-10 shadow-xl"
+          >
+            <div className="absolute -left-1 top-1/2 -translate-y-1/2 w-2 h-2 bg-midnight/95 border-l border-b border-gold-500/30 -rotate-45" />
+            <p className="text-xs text-gold-400 whitespace-nowrap">{bubbleText}</p>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
-      {/* Avatar avec animation */}
+      {/* Avatar */}
       <motion.div
         animate={{
           scale: internalState === "listening" ? [1, 1.05, 1] : 1,
           rotate: internalState === "thinking" ? [0, 5, -5, 0] : 0,
-          ...getStressAnimation()
         }}
         transition={{
           duration: 1.5,
           repeat: internalState === "listening" ? Infinity : 0,
         }}
-        className={`relative ${dimensions[size]} rounded-full bg-gradient-to-br from-gold-500/20 to-gold-500/5 flex items-center justify-center shadow-lg ${getGlowColor()} ${getPulseClass()}`}
+        className={`relative ${dimensions[size]} rounded-full bg-gradient-to-br from-gold-500/20 to-gold-500/5 flex items-center justify-center ${getGlowColor()} ${getPulseClass()}`}
       >
-        <div className={`absolute inset-0 rounded-full ${getGlowColor()} animate-pulse opacity-50`} />
-        
         {isVoiceActive && (
           <motion.div
             animate={{ scale: [1, 1.1, 1] }}
@@ -236,92 +230,75 @@ export default function SovereignAvatar({
         <svg viewBox="0 0 100 100" className="w-3/4 h-3/4">
           <circle cx="50" cy="50" r="45" fill="#D4AF37" opacity="0.15" />
           
-          {/* Yeux */}
-          <g>
-            {/* Œil gauche */}
-            <ellipse cx="35" cy="45" rx="8" ry="10" fill="#D4AF37" opacity="0.8" />
-            {getEyeState() === "closed" ? (
-              <line x1="30" y1="45" x2="40" y2="45" stroke="#D4AF37" strokeWidth="2" />
-            ) : getEyeState() === "tired" ? (
-              <>
-                <path d="M31 46 Q35 44 39 46" stroke="#D4AF37" strokeWidth="1.5" fill="none" />
-                <path d="M31 44 Q35 42 39 44" stroke="#D4AF37" strokeWidth="0.8" fill="none" opacity="0.5" />
-              </>
-            ) : getEyeState() === "stressed" ? (
-              <>
-                <ellipse cx="35" cy="45" rx="5" ry="7" fill="#1a1a2e" />
-                <line x1="30" y1="42" x2="32" y2="44" stroke="#D4AF37" strokeWidth="1" />
-                <line x1="38" y1="42" x2="36" y2="44" stroke="#D4AF37" strokeWidth="1" />
-              </>
-            ) : getEyeState() === "listening" ? (
-              <>
-                <circle cx="35" cy="45" r="4" fill="#1a1a2e" />
-                <circle cx="33" cy="43" r="1.5" fill="white" />
-                <path d="M28 40 Q25 45 28 50" stroke="#D4AF37" strokeWidth="1" fill="none" opacity="0.6">
-                  <animate attributeName="opacity" values="0.2;0.8;0.2" dur="1s" repeatCount="indefinite" />
-                </path>
-              </>
-            ) : getEyeState() === "thinking" ? (
-              <>
-                <circle cx="35" cy="45" r="4" fill="#1a1a2e" />
-                <circle cx="36" cy="43" r="1" fill="white" />
-                <circle cx="34" cy="47" r="0.8" fill="white" opacity="0.5" />
-              </>
-            ) : getEyeState() === "happy" ? (
-              <>
-                <path d="M30 44 Q35 40 40 44" stroke="#D4AF37" strokeWidth="1.5" fill="none" />
-                <circle cx="35" cy="45" r="3" fill="#1a1a2e" />
-              </>
-            ) : (
-              <>
-                <circle cx="35" cy="45" r="4" fill="#1a1a2e" />
-                <circle cx="33" cy="43" r="1.5" fill="white" />
-              </>
-            )}
-            
-            {/* Œil droit */}
-            <ellipse cx="65" cy="45" rx="8" ry="10" fill="#D4AF37" opacity="0.8" />
-            {getEyeState() === "closed" ? (
-              <line x1="60" y1="45" x2="70" y2="45" stroke="#D4AF37" strokeWidth="2" />
-            ) : getEyeState() === "tired" ? (
-              <>
-                <path d="M61 46 Q65 44 69 46" stroke="#D4AF37" strokeWidth="1.5" fill="none" />
-                <path d="M61 44 Q65 42 69 44" stroke="#D4AF37" strokeWidth="0.8" fill="none" opacity="0.5" />
-              </>
-            ) : getEyeState() === "stressed" ? (
-              <>
-                <ellipse cx="65" cy="45" rx="5" ry="7" fill="#1a1a2e" />
-                <line x1="60" y1="42" x2="62" y2="44" stroke="#D4AF37" strokeWidth="1" />
-                <line x1="68" y1="42" x2="66" y2="44" stroke="#D4AF37" strokeWidth="1" />
-              </>
-            ) : getEyeState() === "listening" ? (
-              <>
-                <circle cx="65" cy="45" r="4" fill="#1a1a2e" />
-                <circle cx="63" cy="43" r="1.5" fill="white" />
-                <path d="M58 40 Q55 45 58 50" stroke="#D4AF37" strokeWidth="1" fill="none" opacity="0.6">
-                  <animate attributeName="opacity" values="0.2;0.8;0.2" dur="1s" repeatCount="indefinite" />
-                </path>
-              </>
-            ) : getEyeState() === "thinking" ? (
-              <>
-                <circle cx="65" cy="45" r="4" fill="#1a1a2e" />
-                <circle cx="66" cy="43" r="1" fill="white" />
-                <circle cx="64" cy="47" r="0.8" fill="white" opacity="0.5" />
-              </>
-            ) : getEyeState() === "happy" ? (
-              <>
-                <path d="M60 44 Q65 40 70 44" stroke="#D4AF37" strokeWidth="1.5" fill="none" />
-                <circle cx="65" cy="45" r="3" fill="#1a1a2e" />
-              </>
-            ) : (
-              <>
-                <circle cx="65" cy="45" r="4" fill="#1a1a2e" />
-                <circle cx="63" cy="43" r="1.5" fill="white" />
-              </>
-            )}
-          </g>
+          {/* Œil gauche */}
+          <ellipse cx="35" cy="45" rx="8" ry="10" fill="#D4AF37" opacity="0.8" />
+          {getEyeState() === "closed" ? (
+            <line x1="30" y1="45" x2="40" y2="45" stroke="#D4AF37" strokeWidth="2" />
+          ) : getEyeState() === "tired" ? (
+            <path d="M31 46 Q35 44 39 46" stroke="#D4AF37" strokeWidth="1.5" fill="none" />
+          ) : getEyeState() === "stressed" ? (
+            <>
+              <ellipse cx="35" cy="45" rx="5" ry="7" fill="#1a1a2e" />
+              <line x1="30" y1="42" x2="32" y2="44" stroke="#D4AF37" strokeWidth="1" />
+              <line x1="38" y1="42" x2="36" y2="44" stroke="#D4AF37" strokeWidth="1" />
+            </>
+          ) : getEyeState() === "listening" ? (
+            <>
+              <circle cx="35" cy="45" r="4" fill="#1a1a2e" />
+              <circle cx="33" cy="43" r="1.5" fill="white" />
+              <path d="M28 40 Q25 45 28 50" stroke="#D4AF37" strokeWidth="1" fill="none" opacity="0.6">
+                <animate attributeName="opacity" values="0.2;0.8;0.2" dur="1s" repeatCount="indefinite" />
+              </path>
+            </>
+          ) : getEyeState() === "thinking" ? (
+            <>
+              <circle cx="35" cy="45" r="4" fill="#1a1a2e" />
+              <circle cx="36" cy="43" r="1" fill="white" />
+            </>
+          ) : getEyeState() === "happy" ? (
+            <path d="M30 44 Q35 40 40 44" stroke="#D4AF37" strokeWidth="1.5" fill="none" />
+          ) : (
+            <>
+              <circle cx="35" cy="45" r="4" fill="#1a1a2e" />
+              <circle cx="33" cy="43" r="1.5" fill="white" />
+            </>
+          )}
           
-          {/* Sourire selon l'état */}
+          {/* Œil droit */}
+          <ellipse cx="65" cy="45" rx="8" ry="10" fill="#D4AF37" opacity="0.8" />
+          {getEyeState() === "closed" ? (
+            <line x1="60" y1="45" x2="70" y2="45" stroke="#D4AF37" strokeWidth="2" />
+          ) : getEyeState() === "tired" ? (
+            <path d="M61 46 Q65 44 69 46" stroke="#D4AF37" strokeWidth="1.5" fill="none" />
+          ) : getEyeState() === "stressed" ? (
+            <>
+              <ellipse cx="65" cy="45" rx="5" ry="7" fill="#1a1a2e" />
+              <line x1="60" y1="42" x2="62" y2="44" stroke="#D4AF37" strokeWidth="1" />
+              <line x1="68" y1="42" x2="66" y2="44" stroke="#D4AF37" strokeWidth="1" />
+            </>
+          ) : getEyeState() === "listening" ? (
+            <>
+              <circle cx="65" cy="45" r="4" fill="#1a1a2e" />
+              <circle cx="63" cy="43" r="1.5" fill="white" />
+              <path d="M58 40 Q55 45 58 50" stroke="#D4AF37" strokeWidth="1" fill="none" opacity="0.6">
+                <animate attributeName="opacity" values="0.2;0.8;0.2" dur="1s" repeatCount="indefinite" />
+              </path>
+            </>
+          ) : getEyeState() === "thinking" ? (
+            <>
+              <circle cx="65" cy="45" r="4" fill="#1a1a2e" />
+              <circle cx="66" cy="43" r="1" fill="white" />
+            </>
+          ) : getEyeState() === "happy" ? (
+            <path d="M60 44 Q65 40 70 44" stroke="#D4AF37" strokeWidth="1.5" fill="none" />
+          ) : (
+            <>
+              <circle cx="65" cy="45" r="4" fill="#1a1a2e" />
+              <circle cx="63" cy="43" r="1.5" fill="white" />
+            </>
+          )}
+          
+          {/* Bouche */}
           {internalState === "happy" ? (
             <path d="M35 65 Q50 82 65 65" stroke="#D4AF37" strokeWidth="2.5" fill="none" strokeLinecap="round" />
           ) : internalState === "tired" ? (
@@ -377,8 +354,8 @@ export default function SovereignAvatar({
           )}
         </svg>
 
-        {/* Indicateur d'écoute / réflexion */}
-        {(internalState === "listening" || internalState === "thinking") && (
+        {/* Points de réflexion */}
+        {(internalState === "thinking" || internalState === "listening") && (
           <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 flex gap-1">
             <div className="w-1.5 h-1.5 bg-gold-500 rounded-full animate-bounce" style={{ animationDelay: "0s" }} />
             <div className="w-1.5 h-1.5 bg-gold-500 rounded-full animate-bounce" style={{ animationDelay: "0.2s" }} />
@@ -392,7 +369,7 @@ export default function SovereignAvatar({
         )}
       </motion.div>
 
-      {/* Bouton vocal (optionnel) */}
+      {/* Bouton vocal */}
       {onSpeak && (
         <button
           onClick={() => onSpeak(lastMessage)}
