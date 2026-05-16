@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import { supabase } from "@/lib/supabase";
+import { useUserId } from "@/hooks/useUserId";
 import { motion } from "framer-motion";
 import { 
   Calendar, Sparkles, TrendingUp, AlertCircle, 
@@ -41,6 +42,7 @@ type Spending = {
 };
 
 export default function WeeklyPage() {
+  const { userId, loading: userIdLoading } = useUserId();
   const [lastReview, setLastReview] = useState<WeeklyReview | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -53,14 +55,18 @@ export default function WeeklyPage() {
   });
 
   useEffect(() => {
+    if (!userId) return;
     fetchLastReview();
     fetchStats();
-  }, []);
+  }, [userId]);
 
   async function fetchLastReview() {
+    if (!userId) return;
+    
     const { data } = await supabase
       .from("weekly_reviews")
       .select("*")
+      .eq("user_id", userId)
       .order("week_start", { ascending: false })
       .limit(1)
       .maybeSingle();
@@ -70,15 +76,17 @@ export default function WeeklyPage() {
   }
 
   async function fetchStats() {
+    if (!userId) return;
+    
     const startOfWeek = new Date();
     startOfWeek.setDate(startOfWeek.getDate() - startOfWeek.getDay());
     const startOfWeekStr = startOfWeek.toISOString().split('T')[0];
     
     const [tasksRes, spendingRes, missionsRes, winsRes] = await Promise.all([
-      supabase.from("tasks").select("*"),
-      supabase.from("spending").select("amount, date").gte("date", startOfWeekStr),
-      supabase.from("missions").select("*").eq("status", "active"),
-      supabase.from("wins").select("*").gte("date", startOfWeekStr)
+      supabase.from("tasks").select("*").eq("user_id", userId),
+      supabase.from("spending").select("amount, date").eq("user_id", userId).gte("date", startOfWeekStr),
+      supabase.from("missions").select("*").eq("user_id", userId).eq("status", "active"),
+      supabase.from("wins").select("*").eq("user_id", userId).gte("date", startOfWeekStr)
     ]);
     
     const tasks = tasksRes.data || [];
@@ -97,20 +105,21 @@ export default function WeeklyPage() {
   }
 
   async function generateReview() {
+    if (!userId) return;
+    
     setIsGenerating(true);
     
     try {
-      // Récupérer les données de la semaine
       const startOfWeek = new Date();
       startOfWeek.setDate(startOfWeek.getDate() - startOfWeek.getDay());
       const startOfWeekStr = startOfWeek.toISOString().split('T')[0];
       
       const [tasksRes, missionsRes, docsRes, spendingRes, winsRes] = await Promise.all([
-        supabase.from("tasks").select("*"),
-        supabase.from("missions").select("*"),
-        supabase.from("documents").select("*").neq("status", "approved"),
-        supabase.from("spending").select("amount").gte("date", startOfWeekStr),
-        supabase.from("wins").select("*").gte("date", startOfWeekStr)
+        supabase.from("tasks").select("*").eq("user_id", userId),
+        supabase.from("missions").select("*").eq("user_id", userId),
+        supabase.from("documents").select("*").eq("user_id", userId).neq("status", "approved"),
+        supabase.from("spending").select("amount").eq("user_id", userId).gte("date", startOfWeekStr),
+        supabase.from("wins").select("*").eq("user_id", userId).gte("date", startOfWeekStr)
       ]);
       
       const tasks = tasksRes.data || [];
@@ -122,7 +131,6 @@ export default function WeeklyPage() {
       const completedTasks = tasks.filter(t => t.status === "done" || t.completed_date);
       const stalledTasks = tasks.filter(t => t.status === "waiting");
       
-      // Trouver la mission la plus proche de générer du cash
       const closestToCash = missions
         .filter(m => m.revenue_potential > 3)
         .sort((a, b) => (b.revenue_potential || 0) - (a.revenue_potential || 0))[0];
@@ -137,7 +145,6 @@ export default function WeeklyPage() {
         closestToCashName: closestToCash?.name || "Aucune"
       };
       
-      // Appel à l'IA
       const response = await fetch("https://sovereign-bridge.onrender.com/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -176,7 +183,8 @@ export default function WeeklyPage() {
         what_stalled: parsed.what_stalled,
         closest_to_cash: parsed.closest_to_cash,
         pending_documents: parsed.pending_documents,
-        next_week_priorities: parsed.next_week_priorities
+        next_week_priorities: parsed.next_week_priorities,
+        user_id: userId
       });
       
       if (!error) {
@@ -197,131 +205,149 @@ export default function WeeklyPage() {
     return `${start.toLocaleDateString('fr-FR')} - ${end.toLocaleDateString('fr-FR')}`;
   })();
 
+  if (userIdLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <Loader2 className="w-8 h-8 text-gold-500 animate-spin" />
+      </div>
+    );
+  }
+
+  if (!userId) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <p className="text-gray-500">Veuillez vous connecter</p>
+      </div>
+    );
+  }
+
   return (
-    <div className="h-full flex flex-col overflow-y-auto bg-midnight">
-      {/* HEADER */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
-        <div>
-          <h1 className="text-3xl md:text-4xl font-serif text-gold-500 tracking-tight">Weekly Review</h1>
-          <p className="text-gray-500 mt-1 text-sm">{weekRange}</p>
-        </div>
-        <button
-          onClick={generateReview}
-          disabled={isGenerating}
-          className="bg-gold-500/20 text-gold-500 px-5 py-2 rounded-full text-sm font-medium flex items-center justify-center gap-2 hover:bg-gold-500/30 transition-colors disabled:opacity-50 w-full md:w-auto"
-        >
-          {isGenerating ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
-          {isGenerating ? "Génération..." : "Générer la review"}
-        </button>
-      </div>
-
-      {/* STATS CARDS */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8">
-        <div className="bg-white/5 border border-white/10 rounded-xl p-4 text-center">
-          <CheckCircle className="w-5 h-5 text-emerald-400 mx-auto mb-2" />
-          <div className="text-2xl font-serif text-ivory">{stats.tasksCompleted}</div>
-          <div className="text-xs text-gray-500">Tâches faites</div>
-        </div>
-        <div className="bg-white/5 border border-white/10 rounded-xl p-4 text-center">
-          <Target className="w-5 h-5 text-blue-400 mx-auto mb-2" />
-          <div className="text-2xl font-serif text-ivory">{stats.activeMissions}</div>
-          <div className="text-xs text-gray-500">Missions actives</div>
-        </div>
-        <div className="bg-white/5 border border-white/10 rounded-xl p-4 text-center">
-          <DollarSign className="w-5 h-5 text-red-400 mx-auto mb-2" />
-          <div className="text-2xl font-serif text-red-400">{stats.totalSpent.toLocaleString()} CFA</div>
-          <div className="text-xs text-gray-500">Dépenses semaine</div>
-        </div>
-        <div className="bg-white/5 border border-white/10 rounded-xl p-4 text-center">
-          <Sparkles className="w-5 h-5 text-yellow-400 mx-auto mb-2" />
-          <div className="text-2xl font-serif text-yellow-400">{stats.winsThisWeek}</div>
-          <div className="text-xs text-gray-500">Victoires</div>
-        </div>
-        <div className="bg-white/5 border border-white/10 rounded-xl p-4 text-center">
-          <Clock className="w-5 h-5 text-orange-400 mx-auto mb-2" />
-          <div className="text-2xl font-serif text-orange-400">{stats.tasksTotal - stats.tasksCompleted}</div>
-          <div className="text-xs text-gray-500">Restantes</div>
-        </div>
-      </div>
-
-          {isLoading ? (
-            <LoadingSpinner />
-          ) : !lastReview && !isGenerating ? (
-        <div className="text-center py-12">
-          <Calendar className="w-16 h-16 text-gold-500/30 mx-auto mb-4" />
-          <p className="text-gray-500">Aucune revue pour cette semaine</p>
+    <div className="h-full flex flex-col overflow-y-auto bg-midnight p-4 md:p-6 lg:p-8">
+      <div className="max-w-4xl mx-auto w-full">
+        {/* HEADER */}
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
+          <div>
+            <h1 className="text-3xl md:text-4xl font-serif text-gold-500 tracking-tight">Weekly Review</h1>
+            <p className="text-gray-500 mt-1 text-sm">{weekRange}</p>
+          </div>
           <button
             onClick={generateReview}
-            className="mt-4 bg-gold-500 text-midnight px-6 py-2 rounded-full font-medium"
+            disabled={isGenerating}
+            className="bg-gold-500/20 text-gold-500 px-5 py-2 rounded-full text-sm font-medium flex items-center justify-center gap-2 hover:bg-gold-500/30 transition-colors disabled:opacity-50 w-full md:w-auto"
           >
-            Générer ma review
+            {isGenerating ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
+            {isGenerating ? "Génération..." : "Générer la review"}
           </button>
         </div>
-      ) : (
-        <div className="space-y-6">
-          {/* CE QUI A AVANCÉ */}
-          <div className="bg-gradient-to-r from-emerald-500/10 to-transparent border border-emerald-500/20 rounded-2xl p-6">
-            <h2 className="text-sm font-serif text-emerald-400 mb-3 flex items-center gap-2">
-              <TrendingUp className="w-4 h-4" />
-              ✅ CE QUI A AVANCÉ
-            </h2>
-            <p className="text-ivory">{lastReview?.what_moved || "—"}</p>
-          </div>
 
-          {/* CE QUI A BLOQUÉ */}
-          <div className="bg-gradient-to-r from-red-500/10 to-transparent border border-red-500/20 rounded-2xl p-6">
-            <h2 className="text-sm font-serif text-red-400 mb-3 flex items-center gap-2">
-              <AlertCircle className="w-4 h-4" />
-              ⚠️ CE QUI A BLOQUÉ
-            </h2>
-            <p className="text-ivory">{lastReview?.what_stalled || "—"}</p>
+        {/* STATS CARDS */}
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8">
+          <div className="bg-white/5 border border-white/10 rounded-xl p-4 text-center">
+            <CheckCircle className="w-5 h-5 text-emerald-400 mx-auto mb-2" />
+            <div className="text-2xl font-serif text-ivory">{stats.tasksCompleted}</div>
+            <div className="text-xs text-gray-500">Tâches faites</div>
           </div>
-
-          {/* PRIORITÉS SEMAINE PROCHAINE */}
-          <div className="bg-gradient-to-r from-gold-500/10 to-transparent border border-gold-500/20 rounded-2xl p-6">
-            <h2 className="text-sm font-serif text-gold-500 mb-3 flex items-center gap-2">
-              <Target className="w-4 h-4" />
-              🎯 TOP 3 PRIORITÉS SEMAINE PROCHAINE
-            </h2>
-            <div className="space-y-2">
-              {lastReview?.next_week_priorities?.map((priority, i) => (
-                <div key={i} className="flex items-center gap-3 p-2">
-                  <div className="w-5 h-5 rounded-full bg-gold-500/20 text-gold-500 flex items-center justify-center text-xs font-bold">
-                    {i + 1}
-                  </div>
-                  <span className="text-ivory">{priority}</span>
-                </div>
-              ))}
-            </div>
+          <div className="bg-white/5 border border-white/10 rounded-xl p-4 text-center">
+            <Target className="w-5 h-5 text-blue-400 mx-auto mb-2" />
+            <div className="text-2xl font-serif text-ivory">{stats.activeMissions}</div>
+            <div className="text-xs text-gray-500">Missions actives</div>
           </div>
-
-          {/* GRILLE INFOS */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-            <div className="bg-white/5 border border-white/10 rounded-xl p-5">
-              <div className="flex items-center gap-2 text-emerald-400 mb-2">
-                <DollarSign className="w-4 h-4" />
-                <span className="text-sm font-medium">Plus proche du cash</span>
-              </div>
-              <p className="text-ivory">{lastReview?.closest_to_cash || "—"}</p>
-            </div>
-            
-            <div className="bg-white/5 border border-white/10 rounded-xl p-5">
-              <div className="flex items-center gap-2 text-orange-400 mb-2">
-                <FileText className="w-4 h-4" />
-                <span className="text-sm font-medium">Documents en attente</span>
-              </div>
-              <p className="text-ivory">{lastReview?.pending_documents || "—"}</p>
-            </div>
+          <div className="bg-white/5 border border-white/10 rounded-xl p-4 text-center">
+            <DollarSign className="w-5 h-5 text-red-400 mx-auto mb-2" />
+            <div className="text-2xl font-serif text-red-400">{stats.totalSpent.toLocaleString()} CFA</div>
+            <div className="text-xs text-gray-500">Dépenses semaine</div>
           </div>
-
-          {/* RAPPEL FINAL */}
-          <div className="text-center pt-4">
-            <p className="text-xs text-gray-500">
-              💡 Cette revue a été générée le {lastReview && new Date(lastReview.created_at).toLocaleDateString('fr-FR')}
-            </p>
+          <div className="bg-white/5 border border-white/10 rounded-xl p-4 text-center">
+            <Sparkles className="w-5 h-5 text-yellow-400 mx-auto mb-2" />
+            <div className="text-2xl font-serif text-yellow-400">{stats.winsThisWeek}</div>
+            <div className="text-xs text-gray-500">Victoires</div>
+          </div>
+          <div className="bg-white/5 border border-white/10 rounded-xl p-4 text-center">
+            <Clock className="w-5 h-5 text-orange-400 mx-auto mb-2" />
+            <div className="text-2xl font-serif text-orange-400">{stats.tasksTotal - stats.tasksCompleted}</div>
+            <div className="text-xs text-gray-500">Restantes</div>
           </div>
         </div>
-      )}
+
+        {isLoading ? (
+          <LoadingSpinner />
+        ) : !lastReview && !isGenerating ? (
+          <div className="text-center py-12">
+            <Calendar className="w-16 h-16 text-gold-500/30 mx-auto mb-4" />
+            <p className="text-gray-500">Aucune revue pour cette semaine</p>
+            <button
+              onClick={generateReview}
+              className="mt-4 bg-gold-500 text-midnight px-6 py-2 rounded-full font-medium"
+            >
+              Générer ma review
+            </button>
+          </div>
+        ) : (
+          <div className="space-y-6">
+            {/* CE QUI A AVANCÉ */}
+            <div className="bg-gradient-to-r from-emerald-500/10 to-transparent border border-emerald-500/20 rounded-2xl p-6">
+              <h2 className="text-sm font-serif text-emerald-400 mb-3 flex items-center gap-2">
+                <TrendingUp className="w-4 h-4" />
+                ✅ CE QUI A AVANCÉ
+              </h2>
+              <p className="text-ivory">{lastReview?.what_moved || "—"}</p>
+            </div>
+
+            {/* CE QUI A BLOQUÉ */}
+            <div className="bg-gradient-to-r from-red-500/10 to-transparent border border-red-500/20 rounded-2xl p-6">
+              <h2 className="text-sm font-serif text-red-400 mb-3 flex items-center gap-2">
+                <AlertCircle className="w-4 h-4" />
+                ⚠️ CE QUI A BLOQUÉ
+              </h2>
+              <p className="text-ivory">{lastReview?.what_stalled || "—"}</p>
+            </div>
+
+            {/* PRIORITÉS SEMAINE PROCHAINE */}
+            <div className="bg-gradient-to-r from-gold-500/10 to-transparent border border-gold-500/20 rounded-2xl p-6">
+              <h2 className="text-sm font-serif text-gold-500 mb-3 flex items-center gap-2">
+                <Target className="w-4 h-4" />
+                🎯 TOP 3 PRIORITÉS SEMAINE PROCHAINE
+              </h2>
+              <div className="space-y-2">
+                {lastReview?.next_week_priorities?.map((priority, i) => (
+                  <div key={i} className="flex items-center gap-3 p-2">
+                    <div className="w-5 h-5 rounded-full bg-gold-500/20 text-gold-500 flex items-center justify-center text-xs font-bold">
+                      {i + 1}
+                    </div>
+                    <span className="text-ivory">{priority}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* GRILLE INFOS */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+              <div className="bg-white/5 border border-white/10 rounded-xl p-5">
+                <div className="flex items-center gap-2 text-emerald-400 mb-2">
+                  <DollarSign className="w-4 h-4" />
+                  <span className="text-sm font-medium">Plus proche du cash</span>
+                </div>
+                <p className="text-ivory">{lastReview?.closest_to_cash || "—"}</p>
+              </div>
+              
+              <div className="bg-white/5 border border-white/10 rounded-xl p-5">
+                <div className="flex items-center gap-2 text-orange-400 mb-2">
+                  <FileText className="w-4 h-4" />
+                  <span className="text-sm font-medium">Documents en attente</span>
+                </div>
+                <p className="text-ivory">{lastReview?.pending_documents || "—"}</p>
+              </div>
+            </div>
+
+            {/* RAPPEL FINAL */}
+            <div className="text-center pt-4">
+              <p className="text-xs text-gray-500">
+                💡 Cette revue a été générée le {lastReview && new Date(lastReview.created_at).toLocaleDateString('fr-FR')}
+              </p>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
