@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useRef } from "react";
 import LoadingSpinner from "@/components/LoadingSpinner";
+import "regenerator-runtime/runtime";
 import { supabase } from "@/lib/supabase";
 import { motion, AnimatePresence } from "framer-motion";
 import { 
