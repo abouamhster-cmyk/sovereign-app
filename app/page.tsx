@@ -106,7 +106,13 @@ export default function DashboardPage() {
       const data = await response.json();
       
       if (data.success) {
-        setBecksMessage(data.greeting);
+        // Si le backend renvoie déjà un message, on l'utilise
+        if (data.greeting) {
+          setBecksMessage(data.greeting);
+        } else {
+          // Sinon on génère un message dynamique
+          await generateDynamicGreeting();
+        }
         setIsLoadingMessage(false);
         
         const formattedPriorities = data.top_priorities.map((p: any) => ({
@@ -171,9 +177,83 @@ export default function DashboardPage() {
       }
     } catch (error) {
       console.error("Erreur dashboard:", error);
-      setBecksMessage("Salut Rebecca. Je suis là si tu as besoin.");
+      await generateDynamicGreeting(); // Fallback : générer un message
       setIsLoadingMessage(false);
     }
+  }
+
+  async function generateDynamicGreeting() {
+    try {
+      const today = new Date().toISOString().split('T')[0];
+      
+      const [tasksRes, overdueRes, winsRes, missionsRes, moodRes] = await Promise.all([
+        supabase.from("tasks").select("*").eq("due_date", today).neq("status", "done"),
+        supabase.from("tasks").select("*").lt("due_date", today).neq("status", "done"),
+        supabase.from("wins").select("*").gte("date", today),
+        supabase.from("missions").select("*").eq("status", "active"),
+        supabase.from("mood_entries").select("mood").eq("date", today).maybeSingle()
+      ]);
+      
+      const tasksCount = tasksRes.data?.length || 0;
+      const overdueCount = overdueRes.data?.length || 0;
+      const winsCount = winsRes.data?.length || 0;
+      const missionsCount = missionsRes.data?.length || 0;
+      const currentMood = moodRes.data?.mood || null;
+      
+      const response = await fetch(`${API_URL}/api/generate-greeting`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          tasks_count: tasksCount,
+          overdue_count: overdueCount,
+          wins_count: winsCount,
+          missions_count: missionsCount,
+          mood: currentMood,
+          hour: new Date().getHours()
+        })
+      });
+      
+      const data = await response.json();
+      if (data.success && data.greeting) {
+        setBecksMessage(data.greeting);
+      } else {
+        setBecksMessage(fallbackGreeting(tasksCount, overdueCount, winsCount, missionsCount, currentMood));
+      }
+    } catch (error) {
+      console.error("Erreur génération greeting:", error);
+      setBecksMessage(fallbackGreeting(0, 0, 0, 0, null));
+    }
+  }
+
+  function fallbackGreeting(tasksCount: number, overdueCount: number, winsCount: number, missionsCount: number, mood: string | null): string {
+    const hour = new Date().getHours();
+    let greeting = hour < 12 ? "Bonjour" : hour < 18 ? "Bon après-midi" : "Bonsoir";
+    
+    if (mood === "fatiguée") {
+      return `${greeting} Rebecca. Je sens que tu es fatiguée. On y va doucement aujourd'hui. 🌿`;
+    }
+    if (mood === "stressée") {
+      return `${greeting} Rebecca. Je sens que tu es stressée. On respire et on priorise l'essentiel. 💖`;
+    }
+    if (overdueCount > 0) {
+      return `${greeting} Rebecca. Tu as ${overdueCount} tâche(s) en retard. On regarde ça ensemble ? 👑`;
+    }
+    if (tasksCount > 0) {
+      return `${greeting} Rebecca. Tu as ${tasksCount} chose(s) à faire aujourd'hui. Je suis là si tu veux. ✨`;
+    }
+    if (winsCount > 0) {
+      return `${greeting} Rebecca. ${winsCount} victoire(s) récente(s) ! C'est bien. Continue comme ça. 🏆`;
+    }
+    if (missionsCount > 0) {
+      return `${greeting} Rebecca. ${missionsCount} mission(s) active(s). Tu veux qu'on avance sur l'une d'elles ? 🎯`;
+    }
+    
+    const naturalGreetings = [
+      `${greeting} Rebecca. Rien de prévu aujourd'hui. Tu veux qu'on avance sur un projet ou tu préfères souffler ? 🌱`,
+      `${greeting} Rebecca. Journée calme. Profites-en pour respirer ou pour prendre de l'avance. 🌸`,
+      `${greeting} Rebecca. Tout est calme. Besoin de quoi ? 💫`
+    ];
+    return naturalGreetings[Math.floor(Math.random() * naturalGreetings.length)];
   }
 
   async function fetchFarmStatus() {
