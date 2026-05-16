@@ -6,7 +6,7 @@ import {
   Wallet, TrendingUp, FileText, Target, Briefcase, Sprout, Globe,
   Trophy, Heart, Users, Zap, ShieldAlert, Menu, X, LogOut,
   ChevronDown, ChevronRight, Download, Settings, Mail, Brain, Bell, BellRing, Volume2, VolumeX, Vibrate,
-  Map, Crown, DollarSign, Megaphone, WifiOff, Loader2, Clock
+  Crown, DollarSign, Megaphone
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -14,6 +14,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/lib/supabase";
 import { toast } from "sonner";
 import type { LucideIcon } from "lucide-react";
+import SovereignAvatar from "@/components/SovereignAvatar";
 
 // ============================================
 // TYPES
@@ -320,8 +321,6 @@ function SettingsMenu() {
 // COMPOSANT OFFLINE STATUS
 // ============================================
 function OfflineStatus() {
-  // Note: useOffline sera utilisé quand le hook sera créé
-  // Pour l'instant, version simplifiée
   const [isOnline, setIsOnline] = useState(true);
   
   useEffect(() => {
@@ -546,11 +545,31 @@ function InstallBanner() {
 export default function ClientLayout({ children }: { children: React.ReactNode }) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>(DEFAULT_OPEN_GROUPS);
+  const [currentMood, setCurrentMood] = useState<string | null>(null);
   const pathname = usePathname();
   const router = useRouter();
   const { user, signOut } = useAuth();
 
   const isChatPage = pathname === '/chat';
+
+  // Récupérer l'humeur depuis localStorage au chargement
+  useEffect(() => {
+    const savedMood = localStorage.getItem("todayMood");
+    const savedDate = localStorage.getItem("todayMoodDate");
+    const today = new Date().toISOString().split('T')[0];
+    if (savedMood && savedDate === today) {
+      setCurrentMood(savedMood);
+    }
+  }, []);
+
+  // Écouter les changements d'humeur
+  useEffect(() => {
+    const handleMoodChange = (e: CustomEvent) => {
+      setCurrentMood(e.detail.mood);
+    };
+    window.addEventListener('moodChange', handleMoodChange as EventListener);
+    return () => window.removeEventListener('moodChange', handleMoodChange as EventListener);
+  }, []);
 
   useEffect(() => {
     const saved = localStorage.getItem("sidebar-open-groups");
@@ -694,6 +713,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
             </button>
             
             <div className="flex items-center gap-2">
+              <SovereignAvatar size="sm" mood={currentMood} state="idle" />
               <NotificationBell />
               <button
                 onClick={handleSignOut}
@@ -739,6 +759,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
     );
   }
 
+  // Version Desktop
   return (
     <div className="flex h-screen overflow-hidden bg-midnight">
       <aside className="hidden lg:flex w-64 flex-col border-r border-white/10 bg-black/30 backdrop-blur-sm overflow-y-auto">
@@ -746,6 +767,19 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
       </aside>
 
       <main className="flex-1 overflow-y-auto">
+        {/* Header desktop avec avatar */}
+        <div className="sticky top-0 z-10 bg-midnight/90 backdrop-blur-lg border-b border-white/10 px-6 py-3 flex justify-end items-center gap-4">
+          <SovereignAvatar size="sm" mood={currentMood} state="idle" />
+          <NotificationBell />
+          <button
+            onClick={handleSignOut}
+            className="p-2 text-gray-400 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"
+            title="Déconnexion"
+          >
+            <LogOut className="w-4 h-4" />
+          </button>
+        </div>
+        
         <div className="w-full px-4 md:px-6 py-6 md:py-8">
           {children}
           <InstallBanner />
