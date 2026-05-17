@@ -46,9 +46,6 @@ export default function DashboardPage() {
   const [overloadData, setOverloadData] = useState<any>(null);
   const [isLoadingMemories, setIsLoadingMemories] = useState(true);
   
-  // Message de bienvenue
-  const [welcomeMessage, setWelcomeMessage] = useState("");
-  const [showWelcome, setShowWelcome] = useState(false);
   
   // Suggestion prochaine action
   const [nextActionSuggestion, setNextActionSuggestion] = useState("");
@@ -72,20 +69,7 @@ export default function DashboardPage() {
   const [stabilizationMove, setStabilizationMove] = useState("Prendre 5 minutes");
 
   // Afficher le toast de bienvenue
-  useEffect(() => {
-    if (welcomeMessage && showWelcome) {
-      toast(welcomeMessage, {
-        duration: 5000,
-        icon: "👑",
-        position: "top-center",
-        style: {
-          background: "rgba(212, 175, 55, 0.1)",
-          border: "1px solid rgba(212, 175, 55, 0.3)",
-          color: "#D4AF37"
-        }
-      });
-    }
-  }, [welcomeMessage, showWelcome]);
+
 
   // Afficher la suggestion
   useEffect(() => {
@@ -109,7 +93,6 @@ export default function DashboardPage() {
     else if (hour < 18) setGreeting("Bon après-midi");
     else setGreeting("Bonsoir");
     
-    fetchWelcomeMessage();
     fetchNextActionSuggestion();
     
     const savedMood = localStorage.getItem("todayMood");
