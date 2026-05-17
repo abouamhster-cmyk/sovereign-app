@@ -6,7 +6,7 @@ import {
   Wallet, TrendingUp, FileText, Target, Briefcase, Sprout, Globe,
   Trophy, Heart, Users, Zap, ShieldAlert, Menu, X, LogOut,
   ChevronDown, ChevronRight, Download, Settings, Mail, Brain, Bell, BellRing, Volume2, VolumeX, Vibrate,
-  Crown, DollarSign, Megaphone, WifiOff
+  Crown, DollarSign, Megaphone
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -346,6 +346,8 @@ function OfflineStatus() {
   
   return null;
 }
+
+import { WifiOff } from "lucide-react";
 
 // ============================================
 // COMPOSANT INSTALLATION PWA
@@ -703,6 +705,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
   if (isMobile) {
     return (
       <div className="min-h-screen bg-midnight">
+        {/* Header mobile : ne pas afficher sur la page chat */}
         {!isChatPage && (
           <header className="sticky top-0 z-30 flex items-center justify-between h-12 px-3 bg-midnight/95 backdrop-blur-lg border-b border-white/10">
             <button
@@ -767,18 +770,20 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
       </aside>
 
       <main className="flex-1 overflow-y-auto">
-        {/* Header desktop avec avatar */}
-        <div className="sticky top-0 z-10 bg-midnight/90 backdrop-blur-lg border-b border-white/10 px-6 py-3 flex justify-end items-center gap-4">
-          <SovereignAvatar size="sm" mood={currentMood} state="idle" />
-          <NotificationBell />
-          <button
-            onClick={handleSignOut}
-            className="p-2 text-gray-400 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"
-            title="Déconnexion"
-          >
-            <LogOut className="w-4 h-4" />
-          </button>
-        </div>
+        {/* Header desktop : ne pas afficher sur la page chat */}
+        {!isChatPage && (
+          <div className="sticky top-0 z-10 bg-midnight/90 backdrop-blur-lg border-b border-white/10 px-6 py-3 flex justify-end items-center gap-4">
+            <SovereignAvatar size="sm" mood={currentMood} state="idle" />
+            <NotificationBell />
+            <button
+              onClick={handleSignOut}
+              className="p-2 text-gray-400 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"
+              title="Déconnexion"
+            >
+              <LogOut className="w-4 h-4" />
+            </button>
+          </div>
+        )}
         
         <div className="w-full px-4 md:px-6 py-6 md:py-8">
           {children}
