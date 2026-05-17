@@ -9,7 +9,7 @@ import {
   Crown, Settings, Sparkles, Target, DollarSign, Heart, Sprout, Brain,
   Calendar, AlertCircle, ArrowRight, Loader2, Edit2, Inbox, CheckSquare, 
   Briefcase, Globe, Trophy, Users, Zap, ShieldAlert, Map, Mail, FileText, 
-  TrendingUp, CalendarDays, FolderOpen, Star
+  TrendingUp, CalendarDays, FolderOpen, Star, Sun, Moon
 } from "lucide-react";
 import { toast } from "sonner";
 
