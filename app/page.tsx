@@ -1,18 +1,15 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import SovereignAvatar from "@/components/SovereignAvatar";
 import { supabase } from "@/lib/supabase";
 import { motion } from "framer-motion";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { 
-  Crown, Settings, Bell, User, Sparkles, 
-  Target, DollarSign, Heart, Sprout, Brain,
-  Calendar, AlertCircle, ArrowRight, Smile, Meh, Frown, Sun, Moon,
-  Loader2, Edit2, Inbox, CheckSquare, Briefcase, Globe, Trophy,
-  Users, Zap, ShieldAlert, Map, Mail, FileText, TrendingUp,
-  CalendarDays, FolderOpen, MessageCircle, Star, X
+  Crown, Settings, Sparkles, Target, DollarSign, Heart, Sprout, Brain,
+  Calendar, AlertCircle, ArrowRight, Loader2, Edit2, Inbox, CheckSquare, 
+  Briefcase, Globe, Trophy, Users, Zap, ShieldAlert, Map, Mail, FileText, 
+  TrendingUp, CalendarDays, FolderOpen, Star
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -46,7 +43,6 @@ export default function DashboardPage() {
   const [overloadData, setOverloadData] = useState<any>(null);
   const [isLoadingMemories, setIsLoadingMemories] = useState(true);
   
-  
   // Suggestion prochaine action
   const [nextActionSuggestion, setNextActionSuggestion] = useState("");
   const [showSuggestion, setShowSuggestion] = useState(false);
@@ -61,15 +57,11 @@ export default function DashboardPage() {
   } | null>(null);
   
   // Stats pour les moves
-  const [farmStatus, setFarmStatus] = useState("En cours");
   const [farmNextAction, setFarmNextAction] = useState("Vérifier l'avancement");
   const [moneyMove, setMoneyMove] = useState("Vérifier les finances");
   const [familyMove, setFamilyMove] = useState("Prendre des nouvelles des enfants");
   const [businessMove, setBusinessMove] = useState("Avancer sur une mission");
   const [stabilizationMove, setStabilizationMove] = useState("Prendre 5 minutes");
-
-  // Afficher le toast de bienvenue
-
 
   // Afficher la suggestion
   useEffect(() => {
@@ -119,7 +111,6 @@ export default function DashboardPage() {
   }
 
   async function fetchUserName() {
-    // Récupérer l'utilisateur connecté
     const { data: { user } } = await supabase.auth.getUser();
     
     if (!user) {
@@ -127,10 +118,8 @@ export default function DashboardPage() {
       return;
     }
     
-    // Utiliser l'ID réel de l'utilisateur
     const userId = user.id;
     
-    // Récupérer le preferred_name depuis le profil avec le bon user_id
     const { data: profile } = await supabase
       .from("user_profile")
       .select("preferred_name")
@@ -142,60 +131,6 @@ export default function DashboardPage() {
     } else if (user.email) {
       const name = user.email.split('@')[0];
       setUserName(name.charAt(0).toUpperCase() + name.slice(1));
-    }
-  }
-
-  // Message de bienvenue
-  async function fetchWelcomeMessage() {
-    try {
-      // Récupérer l'utilisateur connecté
-      const { data: { user } } = await supabase.auth.getUser();
-      
-      if (!user) return;
-      
-      const userId = user.id;
-      const lastVisit = localStorage.getItem("lastVisitDate");
-      const today = new Date().toISOString().split('T')[0];
-      
-      let lastVisitDays = 0;
-      if (lastVisit) {
-        const lastDate = new Date(lastVisit);
-        const todayDate = new Date();
-        const diffTime = Math.abs(todayDate.getTime() - lastDate.getTime());
-        lastVisitDays = Math.ceil(diffTime / (1000 * 3600 * 24));
-      }
-      
-      localStorage.setItem("lastVisitDate", today);
-      
-      let userName = "Rebecca";
-      const { data: profile } = await supabase
-        .from("user_profile")
-        .select("preferred_name")
-        .eq("user_id", userId)
-        .single();
-      
-      if (profile?.preferred_name) {
-        userName = profile.preferred_name;
-      }
-      
-      const response = await fetch(`${API_URL}/api/welcome-message`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          user_name: userName,
-          hour: new Date().getHours(),
-          last_visit_days: lastVisitDays
-        })
-      });
-      
-      const data = await response.json();
-      if (data.success && data.message) {
-        setWelcomeMessage(data.message);
-        setShowWelcome(true);
-        setTimeout(() => setShowWelcome(false), 5000);
-      }
-    } catch (error) {
-      console.error("Erreur message bienvenue:", error);
     }
   }
 
@@ -250,11 +185,6 @@ export default function DashboardPage() {
     } catch (error) {
       console.error("Erreur suggestion:", error);
     }
-  }
-
-  function recordLastAction(actionTitle: string, area: string) {
-    localStorage.setItem("lastCompletedTask", actionTitle);
-    localStorage.setItem("lastArea", area);
   }
 
   async function fetchDashboardData() {
@@ -386,31 +316,31 @@ export default function DashboardPage() {
 
   function fallbackGreeting(tasksCount: number, overdueCount: number, winsCount: number, missionsCount: number, mood: string | null): string {
     const hour = new Date().getHours();
-    let greeting = hour < 12 ? "Bonjour" : hour < 18 ? "Bon après-midi" : "Bonsoir";
+    let greetingText = hour < 12 ? "Bonjour" : hour < 18 ? "Bon après-midi" : "Bonsoir";
     
     if (mood === "fatiguée") {
-      return `${greeting} ${userName}. Je sens que tu es fatiguée. On y va doucement aujourd'hui. 🌿`;
+      return `${greetingText} ${userName}. Je sens que tu es fatiguée. On y va doucement aujourd'hui. 🌿`;
     }
     if (mood === "stressée") {
-      return `${greeting} ${userName}. Je sens que tu es stressée. On respire et on priorise l'essentiel. 💖`;
+      return `${greetingText} ${userName}. Je sens que tu es stressée. On respire et on priorise l'essentiel. 💖`;
     }
     if (overdueCount > 0) {
-      return `${greeting} ${userName}. Tu as ${overdueCount} tâche(s) en retard. On regarde ça ensemble ? 👑`;
+      return `${greetingText} ${userName}. Tu as ${overdueCount} tâche(s) en retard. On regarde ça ensemble ? 👑`;
     }
     if (tasksCount > 0) {
-      return `${greeting} ${userName}. Tu as ${tasksCount} chose(s) à faire aujourd'hui. Je suis là si tu veux. ✨`;
+      return `${greetingText} ${userName}. Tu as ${tasksCount} chose(s) à faire aujourd'hui. Je suis là si tu veux. ✨`;
     }
     if (winsCount > 0) {
-      return `${greeting} ${userName}. ${winsCount} victoire(s) récente(s) ! C'est bien. Continue comme ça. 🏆`;
+      return `${greetingText} ${userName}. ${winsCount} victoire(s) récente(s) ! C'est bien. Continue comme ça. 🏆`;
     }
     if (missionsCount > 0) {
-      return `${greeting} ${userName}. ${missionsCount} mission(s) active(s). Tu veux qu'on avance sur l'une d'elles ? 🎯`;
+      return `${greetingText} ${userName}. ${missionsCount} mission(s) active(s). Tu veux qu'on avance sur l'une d'elles ? 🎯`;
     }
     
     const naturalGreetings = [
-      `${greeting} ${userName}. Rien de prévu aujourd'hui. Tu veux qu'on avance sur un projet ou tu préfères souffler ? 🌱`,
-      `${greeting} ${userName}. Journée calme. Profites-en pour respirer ou pour prendre de l'avance. 🌸`,
-      `${greeting} ${userName}. Tout est calme. Besoin de quoi ? 💫`
+      `${greetingText} ${userName}. Rien de prévu aujourd'hui. Tu veux qu'on avance sur un projet ou tu préfères souffler ? 🌱`,
+      `${greetingText} ${userName}. Journée calme. Profites-en pour respirer ou pour prendre de l'avance. 🌸`,
+      `${greetingText} ${userName}. Tout est calme. Besoin de quoi ? 💫`
     ];
     return naturalGreetings[Math.floor(Math.random() * naturalGreetings.length)];
   }
@@ -427,13 +357,11 @@ export default function DashboardPage() {
       const pendingCount = infra.length + production.length;
       
       if (pendingCount > 0) {
-        setFarmStatus(`${pendingCount} chantier(s) en cours`);
         const nextItem = production[0] || infra[0];
         if (nextItem) {
           setFarmNextAction(`Finaliser ${nextItem.name}`);
         }
       } else {
-        setFarmStatus("En bonne voie");
         setFarmNextAction("Vérifier l'avancement");
       }
     } catch (error) {
@@ -540,7 +468,7 @@ export default function DashboardPage() {
           </Link>
         </div>
       
-        {/* Message Becks (sans avatar, car déjà dans le header) */}
+        {/* Message Becks */}
         <div className="bg-gradient-to-r from-gold-500/10 to-transparent border-l-4 border-gold-500 rounded-xl p-4">
           {isLoadingMessage ? (
             <div className="flex items-center gap-2">
@@ -852,98 +780,39 @@ export default function DashboardPage() {
         </div>
         
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
-          {/* GESTION */}
-          <Link href="/inbox" className="flex items-center gap-2 p-2 rounded-lg bg-white/5 hover:bg-white/10 transition-all group">
+          <Link href="/inbox" className="flex items-center gap-2 p-2 rounded-lg bg-white/5 hover:bg-white/10 transition-all">
             <Inbox className="w-4 h-4 text-blue-400" />
             <span className="text-xs text-gray-300">Brain Dump</span>
           </Link>
-          <Link href="/agenda" className="flex items-center gap-2 p-2 rounded-lg bg-white/5 hover:bg-white/10 transition-all group">
+          <Link href="/agenda" className="flex items-center gap-2 p-2 rounded-lg bg-white/5 hover:bg-white/10 transition-all">
             <CheckSquare className="w-4 h-4 text-blue-400" />
             <span className="text-xs text-gray-300">Agenda</span>
           </Link>
-          <Link href="/agenda?tab=calendar" className="flex items-center gap-2 p-2 rounded-lg bg-white/5 hover:bg-white/10 transition-all group">
-            <CalendarDays className="w-4 h-4 text-blue-400" />
-            <span className="text-xs text-gray-300">Calendar</span>
-          </Link>
-
-          {/* FINANCES */}
-          <Link href="/money-opportunities" className="flex items-center gap-2 p-2 rounded-lg bg-white/5 hover:bg-white/10 transition-all group">
+          <Link href="/money-opportunities" className="flex items-center gap-2 p-2 rounded-lg bg-white/5 hover:bg-white/10 transition-all">
             <DollarSign className="w-4 h-4 text-emerald-400" />
             <span className="text-xs text-gray-300">Money</span>
           </Link>
-
-          {/* CONTENU & DOCS */}
-          <Link href="/content-studio" className="flex items-center gap-2 p-2 rounded-lg bg-white/5 hover:bg-white/10 transition-all group">
-            <FileText className="w-4 h-4 text-purple-400" />
-            <span className="text-xs text-gray-300">Content</span>
-          </Link>
-          <Link href="/communications" className="flex items-center gap-2 p-2 rounded-lg bg-white/5 hover:bg-white/10 transition-all group">
+          <Link href="/communications" className="flex items-center gap-2 p-2 rounded-lg bg-white/5 hover:bg-white/10 transition-all">
             <FolderOpen className="w-4 h-4 text-orange-400" />
             <span className="text-xs text-gray-300">Documents</span>
           </Link>
-          <Link href="/communications?tab=email" className="flex items-center gap-2 p-2 rounded-lg bg-white/5 hover:bg-white/10 transition-all group">
-            <Mail className="w-4 h-4 text-purple-400" />
-            <span className="text-xs text-gray-300">Email</span>
-          </Link>
-
-          {/* PROJETS */}
-          <Link href="/missions-business" className="flex items-center gap-2 p-2 rounded-lg bg-white/5 hover:bg-white/10 transition-all group">
+          <Link href="/missions-business" className="flex items-center gap-2 p-2 rounded-lg bg-white/5 hover:bg-white/10 transition-all">
             <Target className="w-4 h-4 text-gold-500" />
             <span className="text-xs text-gray-300">Missions</span>
           </Link>
-          <Link href="/love-fire-sport" className="flex items-center gap-2 p-2 rounded-lg bg-white/5 hover:bg-white/10 transition-all group">
-            <Trophy className="w-4 h-4 text-emerald-400" />
-            <span className="text-xs text-gray-300">Love & Fire</span>
-          </Link>
-          <Link href="/farm" className="flex items-center gap-2 p-2 rounded-lg bg-white/5 hover:bg-white/10 transition-all group">
+          <Link href="/farm" className="flex items-center gap-2 p-2 rounded-lg bg-white/5 hover:bg-white/10 transition-all">
             <Sprout className="w-4 h-4 text-green-400" />
             <span className="text-xs text-gray-300">Ifè Farm</span>
           </Link>
-          <Link href="/sante-plus-benin" className="flex items-center gap-2 p-2 rounded-lg bg-white/5 hover:bg-white/10 transition-all group">
-            <Heart className="w-4 h-4 text-pink-400" />
-            <span className="text-xs text-gray-300">Santé Plus</span>
-          </Link>
-          <Link href="/relocation" className="flex items-center gap-2 p-2 rounded-lg bg-white/5 hover:bg-white/10 transition-all group">
-            <Globe className="w-4 h-4 text-cyan-400" />
-            <span className="text-xs text-gray-300">Relocation</span>
-          </Link>
-
-          {/* VIE */}
-          <Link href="/family" className="flex items-center gap-2 p-2 rounded-lg bg-white/5 hover:bg-white/10 transition-all group">
+          <Link href="/family" className="flex items-center gap-2 p-2 rounded-lg bg-white/5 hover:bg-white/10 transition-all">
             <Users className="w-4 h-4 text-pink-400" />
             <span className="text-xs text-gray-300">Family</span>
           </Link>
-          <Link href="/rescue-wins" className="flex items-center gap-2 p-2 rounded-lg bg-white/5 hover:bg-white/10 transition-all group">
+          <Link href="/rescue-wins" className="flex items-center gap-2 p-2 rounded-lg bg-white/5 hover:bg-white/10 transition-all">
             <Trophy className="w-4 h-4 text-yellow-400" />
             <span className="text-xs text-gray-300">Wins</span>
           </Link>
-          <Link href="/alignment" className="flex items-center gap-2 p-2 rounded-lg bg-white/5 hover:bg-white/10 transition-all group">
-            <Zap className="w-4 h-4 text-purple-400" />
-            <span className="text-xs text-gray-300">Alignment</span>
-          </Link>
-          <Link href="/rescue-wins" className="flex items-center gap-2 p-2 rounded-lg bg-white/5 hover:bg-white/10 transition-all group">
-            <ShieldAlert className="w-4 h-4 text-red-400" />
-            <span className="text-xs text-gray-300">Rescue</span>
-          </Link>
-
-          {/* STRATÉGIE & SYSTÈME */}
-          <Link href="/vision-strategy" className="flex items-center gap-2 p-2 rounded-lg bg-white/5 hover:bg-white/10 transition-all group">
-            <Map className="w-4 h-4 text-gold-500" />
-            <span className="text-xs text-gray-300">Life Map</span>
-          </Link>
-          <Link href="/vision-strategy?tab=weekly" className="flex items-center gap-2 p-2 rounded-lg bg-white/5 hover:bg-white/10 transition-all group">
-            <Crown className="w-4 h-4 text-gold-500" />
-            <span className="text-xs text-gray-300">Weekly CEO</span>
-          </Link>
-          <Link href="/content-studio?tab=calendar" className="flex items-center gap-2 p-2 rounded-lg bg-white/5 hover:bg-white/10 transition-all group">
-            <Calendar className="w-4 h-4 text-gold-500" />
-            <span className="text-xs text-gray-300">Content Cal.</span>
-          </Link>
-          <Link href="/memory" className="flex items-center gap-2 p-2 rounded-lg bg-white/5 hover:bg-white/10 transition-all group">
-            <Brain className="w-4 h-4 text-gold-500" />
-            <span className="text-xs text-gray-300">Mémoire</span>
-          </Link>
-          <Link href="/settings" className="flex items-center gap-2 p-2 rounded-lg bg-white/5 hover:bg-white/10 transition-all group">
+          <Link href="/settings" className="flex items-center gap-2 p-2 rounded-lg bg-white/5 hover:bg-white/10 transition-all">
             <Settings className="w-4 h-4 text-gray-400" />
             <span className="text-xs text-gray-300">Settings</span>
           </Link>
