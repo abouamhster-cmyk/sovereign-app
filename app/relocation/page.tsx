@@ -7,7 +7,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { 
   Globe, Plane, CheckCircle, Clock, AlertCircle, 
   Calendar, Home, FileText, Building2, Truck, 
-  TrendingUp, Shield, Plus, Edit2, Trash2, X
+  TrendingUp, Shield, Plus, Edit2, Trash2, X, Loader2
 } from "lucide-react";
 import { Users } from "lucide-react";
 
