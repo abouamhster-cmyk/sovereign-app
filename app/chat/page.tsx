@@ -2,6 +2,7 @@
 import "regenerator-runtime/runtime";
 import { useState, useRef, useEffect } from "react";
 import { useUserId } from "@/hooks/useUserId";
+import { useVoiceConversation } from "@/hooks/useVoiceConversation";
 import { ExecutionGuide } from "@/components/ExecutionGuide";
 import { ReadyToSend } from "@/components/ReadyToSend";
 import { DecisionMode } from "@/components/DecisionMode";
@@ -459,6 +460,31 @@ export default function ChatPage() {
   const [currentReplyTo, setCurrentReplyTo] = useState("");
   const [replyMessage, setReplyMessage] = useState("");
 
+  // ========== VOICE CONVERSATION ==========
+  const { 
+    isActive: isVoiceActive, 
+    isListening: isVoiceListening, 
+    isSpeaking: isVoiceSpeaking,
+    activate: activateVoice,
+    deactivate: deactivateVoice,
+    triggerManual: triggerVoiceManual,
+    speak: speakVoice
+  } = useVoiceConversation({
+    onUserSpeech: (text) => {
+      setInput(text);
+      setTimeout(() => {
+        if (text.trim() && !isSending && !isLoading) {
+          sendMessage();
+        }
+      }, 500);
+    },
+    isProcessing: isLoading || isSending,
+    lastResponse: lastAssistantMessage,
+    wakeWords: ["hey becks", "dis becks", "becks", "sovereign", "hey sovereign"],
+    autoListenAfterResponse: true,
+    silenceTimeout: 2000
+  });
+
   const { userId, loading: userIdLoading } = useUserId();
 
   // ========== EFFETS ==========
@@ -914,8 +940,57 @@ Coche les étapes au fur et à mesure. Une chose à la fois. ✨`;
           <Menu className="w-4 h-4" />
         </button>
         
-        {/* Contrôle vocal TTS */}
+        {/* Contrôle vocal TTS + Mode mains libres */}
         <div className="flex items-center gap-2">
+          {/* Mode mains libres */}
+          <button
+            onClick={() => {
+              if (isVoiceActive) {
+                deactivateVoice();
+                toast.info("Mode mains libres désactivé");
+              } else {
+                activateVoice();
+                toast.success("Mode mains libres activé - Dis 'Hey Becks'", {
+                  duration: 3000
+                });
+              }
+            }}
+            className={`p-1.5 rounded-full transition-all ${
+              isVoiceActive 
+                ? "bg-emerald-500/20 text-emerald-400 ring-1 ring-emerald-500/50" 
+                : "bg-white/10 text-gray-400 hover:bg-white/20"
+            }`}
+            title={isVoiceActive ? "Mode vocal activé" : "Activer le mode mains libres"}
+          >
+            {isVoiceActive ? (
+              <div className="relative">
+                <Volume2 className="w-3.5 h-3.5" />
+                <span className="absolute -top-1 -right-1 w-2 h-2 bg-emerald-500 rounded-full animate-pulse" />
+              </div>
+            ) : (
+              <Mic className="w-3.5 h-3.5" />
+            )}
+          </button>
+
+          {/* Push-to-talk */}
+          <button
+            onMouseDown={triggerVoiceManual}
+            onTouchStart={triggerVoiceManual}
+            className={`p-1.5 rounded-full transition-all ${
+              isVoiceListening && !isVoiceActive
+                ? "bg-red-500 text-white animate-pulse"
+                : "bg-gold-500/20 text-gold-500 hover:bg-gold-500/30"
+            }`}
+            title="Appuyer pour parler (push-to-talk)"
+          >
+            {isVoiceListening ? (
+              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+            ) : (
+              <Mic className="w-3.5 h-3.5" />
+            )}
+          </button>
+
+          {/* Sélecteur de voix TTS */}
           <select
             value={selectedVoice}
             onChange={(e) => setSelectedVoice(e.target.value)}
@@ -926,22 +1001,24 @@ Coche les étapes au fur et à mesure. Une chose à la fois. ✨`;
               <option key={voice.id} value={voice.id}>{voice.name} - {voice.description}</option>
             ))}
           </select>
+
+          {/* Stop/Play TTS */}
           <button
             onClick={isSpeaking ? stop : () => speak(lastAssistantMessage)}
             disabled={isTTSLoading}
             className={`p-1.5 rounded-full transition-all ${
-              isSpeaking 
+              (isSpeaking || isVoiceSpeaking)
                 ? "bg-red-500/20 text-red-400 animate-pulse" 
                 : "bg-gold-500/20 text-gold-500 hover:bg-gold-500/30"
             } disabled:opacity-50`}
-            title={isSpeaking ? "Arrêter" : "Faire parler Becks"}
+            title={isSpeaking || isVoiceSpeaking ? "Arrêter" : "Faire parler Becks"}
           >
             {isTTSLoading ? (
-              <Loader2 className="w-3 h-3 animate-spin" />
-            ) : isSpeaking ? (
-              <VolumeX className="w-3 h-3" />
+              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+            ) : (isSpeaking || isVoiceSpeaking) ? (
+              <VolumeX className="w-3.5 h-3.5" />
             ) : (
-              <Volume2 className="w-3 h-3" />
+              <Volume2 className="w-3.5 h-3.5" />
             )}
           </button>
         </div>
@@ -1144,6 +1221,20 @@ Coche les étapes au fur et à mesure. Une chose à la fois. ✨`;
 
       {/* INPUT AREA */}
       <div className="shrink-0 border-t border-white/10 bg-midnight/90 backdrop-blur-lg p-3">
+        {/* Indicateur vocal */}
+        {(isVoiceListening || isVoiceActive) && (
+          <div className="text-center text-xs text-emerald-400 animate-pulse mb-2 flex items-center justify-center gap-2">
+            <div className="w-2 h-2 bg-emerald-400 rounded-full animate-ping" />
+            <span>
+              {isVoiceActive 
+                ? "🎤 Mode mains libres actif - Dis 'Hey Becks'" 
+                : isVoiceListening 
+                  ? "🎤 Je t'écoute... parle maintenant"
+                  : ""}
+            </span>
+          </div>
+        )}
+
         <div className="relative mb-2">
           <button onClick={() => setIsModeSelectorOpen(!isModeSelectorOpen)} className="flex items-center gap-2 px-3 py-1.5 rounded-full text-xs transition-colors hover:bg-white/5">
             {CurrentIcon && <CurrentIcon className={`w-3.5 h-3.5 ${currentModeConfig?.color}`} />}
