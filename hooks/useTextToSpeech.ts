@@ -14,8 +14,34 @@ export const VOICE_OPTIONS = [
 export function useTextToSpeech() {
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [isAudioUnlocked, setIsAudioUnlocked] = useState(false);
   const [selectedVoice, setSelectedVoice] = useState(VOICE_OPTIONS[0].id);
   const currentAudioRef = useRef<HTMLAudioElement | null>(null);
+
+  // 🔓 DÉBLOQUER L'AUDIO AU PREMIER CLIC UTILISATEUR
+  useEffect(() => {
+    const unlockAudio = () => {
+      if (!isAudioUnlocked) {
+        // Créer un contexte audio silencieux pour débloquer
+        try {
+          const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+          if (audioContext.state === 'suspended') {
+            audioContext.resume();
+          }
+          console.log("🔓 Audio débloqué");
+        } catch (e) {}
+        setIsAudioUnlocked(true);
+      }
+    };
+    
+    window.addEventListener('click', unlockAudio);
+    window.addEventListener('touchstart', unlockAudio);
+    
+    return () => {
+      window.removeEventListener('click', unlockAudio);
+      window.removeEventListener('touchstart', unlockAudio);
+    };
+  }, [isAudioUnlocked]);
 
   const stop = useCallback(() => {
     if (currentAudioRef.current) {
@@ -36,7 +62,6 @@ export function useTextToSpeech() {
   const speak = useCallback(async (text: string, onEnd?: () => void) => {
     if (!text || text.length === 0) return;
     
-    // Nettoyer le texte
     const cleanText = text
       .replace(/\[ACTION:[^\]]*\]/g, '')
       .replace(/\*\*/g, '')
@@ -52,10 +77,7 @@ export function useTextToSpeech() {
       const response = await fetch(`${API_URL}/api/tts/deepgram`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ 
-          text: cleanText, 
-          voice: selectedVoice
-        })
+        body: JSON.stringify({ text: cleanText, voice: selectedVoice })
       });
       
       const data = await response.json();
@@ -79,11 +101,11 @@ export function useTextToSpeech() {
           setIsLoading(false);
         };
         
-        // JOUER L'AUDIO
+        // Forcer la lecture
         const playPromise = audio.play();
         if (playPromise !== undefined) {
           playPromise.catch((error) => {
-            console.error("Lecture audio bloquée:", error);
+            console.error("Lecture bloquée, fallback:", error);
             fallbackSpeak(cleanText, onEnd);
           });
         }
