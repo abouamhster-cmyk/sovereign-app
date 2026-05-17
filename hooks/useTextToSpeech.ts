@@ -33,81 +33,70 @@ export function useTextToSpeech() {
     };
   }, []);
 
-const speak = useCallback(async (text: string, onEnd?: () => void) => {
-  if (!text || text.length === 0) return;
-  
-  // Nettoyer le texte
-  const cleanText = text
-    .replace(/\[ACTION:[^\]]*\]/g, '')
-    .replace(/\*\*/g, '')
-    .replace(/✅|🎯|✨|⚠️|📋|🎉/g, '')
-    .trim();
-  
-  if (cleanText.length === 0) return;
-  
-  stop();
-  setIsLoading(true);
-  
-  // 🔥 ESSAI DE DÉVERROUILLER L'AUDIO : créer un contexte audio silencieux
-  try {
-    // Cela "réveille" l'audio sur certains navigateurs
-    const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
-    if (audioContext.state === 'suspended') {
-      await audioContext.resume();
-    }
-  } catch (e) {
-    console.log("AudioContext non supporté");
-  }
-  
-  try {
-    const response = await fetch(`${API_URL}/api/tts/deepgram`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ text: cleanText, voice: selectedVoice })
-    });
+  const speak = useCallback(async (text: string, onEnd?: () => void) => {
+    if (!text || text.length === 0) return;
     
-    const data = await response.json();
+    // Nettoyer le texte
+    const cleanText = text
+      .replace(/\[ACTION:[^\]]*\]/g, '')
+      .replace(/\*\*/g, '')
+      .replace(/✅|🎯|✨|⚠️|📋|🎉/g, '')
+      .trim();
     
-    if (data.success && data.audio) {
-      const audio = new Audio(`data:audio/mp3;base64,${data.audio}`);
-      currentAudioRef.current = audio;
+    if (cleanText.length === 0) return;
+    
+    stop();
+    setIsLoading(true);
+    
+    try {
+      const response = await fetch(`${API_URL}/api/tts/deepgram`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ 
+          text: cleanText, 
+          voice: selectedVoice
+        })
+      });
       
-      audio.onplay = () => {
-        setIsSpeaking(true);
-        setIsLoading(false);
-      };
-      audio.onended = () => {
-        setIsSpeaking(false);
-        currentAudioRef.current = null;
-        onEnd?.();
-      };
-      audio.onerror = (err) => {
-        console.error("Erreur lecture audio:", err);
-        fallbackSpeak(cleanText, onEnd);
-        setIsLoading(false);
-      };
+      const data = await response.json();
       
-      // 🔥 AJOUTE UN TRY/CATCH POUR LA LECTURE
-      try {
-        await audio.play();
-      } catch (playError) {
-        console.error("Lecture audio bloquée:", playError);
-        // Message visible pour l'utilisateur
-        toast.info("🔊 Clique quelque part sur la page pour activer le son", {
-          duration: 3000
-        });
+      if (data.success && data.audio) {
+        const audio = new Audio(`data:audio/mp3;base64,${data.audio}`);
+        currentAudioRef.current = audio;
+        
+        audio.onplay = () => {
+          setIsSpeaking(true);
+          setIsLoading(false);
+        };
+        audio.onended = () => {
+          setIsSpeaking(false);
+          currentAudioRef.current = null;
+          onEnd?.();
+        };
+        audio.onerror = (err) => {
+          console.error("Erreur lecture audio:", err);
+          fallbackSpeak(cleanText, onEnd);
+          setIsLoading(false);
+        };
+        
+        // JOUER L'AUDIO
+        const playPromise = audio.play();
+        if (playPromise !== undefined) {
+          playPromise.catch((error) => {
+            console.error("Lecture audio bloquée:", error);
+            fallbackSpeak(cleanText, onEnd);
+          });
+        }
+      } else {
         fallbackSpeak(cleanText, onEnd);
       }
-    } else {
+    } catch (error) {
+      console.error("Erreur TTS:", error);
       fallbackSpeak(cleanText, onEnd);
+    } finally {
+      setIsLoading(false);
     }
-  } catch (error) {
-    console.error("Erreur TTS:", error);
-    fallbackSpeak(cleanText, onEnd);
-  } finally {
-    setIsLoading(false);
-  }
-}, [selectedVoice, stop]);
+  }, [selectedVoice, stop]);
 
   const fallbackSpeak = useCallback((text: string, onEnd?: () => void) => {
     if (!window.speechSynthesis) return;
