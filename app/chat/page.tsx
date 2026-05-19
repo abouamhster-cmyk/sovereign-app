@@ -697,7 +697,7 @@ export default function ChatPage() {
       const response = await fetch(`${API_URL}/api/execute/step-by-step`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ query })
+        body: JSON.stringify({ query, user_id: userId })
       });
       const data = await response.json();
       if (data.success && data.plan) {
@@ -730,16 +730,16 @@ export default function ChatPage() {
   }
 
   // ========== ENVOI DE MESSAGE ==========
-  const sendRegularMessage = async (allMessages: any[]) => {
-    const response = await fetch(`${API_URL}/chat`, { 
-      method: "POST", 
-      headers: { "Content-Type": "application/json" }, 
-      body: JSON.stringify({ messages: allMessages }) 
-    });
-    if (!response.ok) throw new Error(`Erreur ${response.status}`);
-    const data = await response.json();
-    return data.reply;
-  };
+ const sendRegularMessage = async (allMessages: any[]) => {
+  const response = await fetch(`${API_URL}/chat`, { 
+    method: "POST", 
+    headers: { "Content-Type": "application/json" }, 
+    body: JSON.stringify({ messages: allMessages, user_id: userId }) 
+  });
+  if (!response.ok) throw new Error(`Erreur ${response.status}`);
+  const data = await response.json();
+  return data.reply;
+};
 
   const sendMessage = async () => {
     if (isSending || (!input.trim() && uploadedFiles.length === 0) || isLoading || !currentConversationId) return;
