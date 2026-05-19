@@ -149,28 +149,41 @@ export default function ChatPage() {
   const [morningReportSentToday, setMorningReportSentToday] = useState(false);
 
   const checkAndSendMorningReport = async () => {
-    if (!currentConversationId) return false;
-    if (morningReportSentToday) return false;
-    
-    try {
-      const response = await fetch(`${API_URL}/api/morning-greeting?user_id=${userId}`);
-      const data = await response.json();
-      
-      if (data.success && data.message && !data.already_sent) {
-        const reportMessage: Message = { role: "assistant", content: data.message };
-        setMessages(prev => [reportMessage, ...prev]);
-        await saveMessage(currentConversationId, "assistant", data.message);
-        setMorningReportSentToday(true);
-        return true;
-      } else if (data.already_sent) {
-        setMorningReportSentToday(true);
-      }
-    } catch (error) {
-      console.error("Erreur rapport matinal:", error);
-    }
+  console.log("🔍 checkAndSendMorningReport - DEBUT");
+  console.log("   currentConversationId:", currentConversationId);
+  console.log("   morningReportSentToday:", morningReportSentToday);
+  
+  if (!currentConversationId) {
+    console.log("   ❌ Pas de conversation ID");
     return false;
-  };
-
+  }
+  if (morningReportSentToday) {
+    console.log("   ❌ Déjà envoyé aujourd'hui");
+    return false;
+  }
+  
+  try {
+    console.log("   📡 Appel API morning-greeting...");
+    const response = await fetch(`${API_URL}/api/morning-greeting?user_id=${userId}`);
+    const data = await response.json();
+    console.log("   📡 Réponse:", data);
+    
+    if (data.success && data.message && !data.already_sent) {
+      console.log("   ✅ Ajout du rapport");
+      const reportMessage: Message = { role: "assistant", content: data.message };
+      setMessages(prev => [reportMessage, ...prev]);
+      await saveMessage(currentConversationId, "assistant", data.message);
+      setMorningReportSentToday(true);
+      return true;
+    } else if (data.already_sent) {
+      console.log("   ⏭️ Rapport déjà envoyé aujourd'hui (backend)");
+      setMorningReportSentToday(true);
+    }
+  } catch (error) {
+    console.error("Erreur rapport matinal:", error);
+  }
+  return false;
+};
   // ========== EFFETS ==========
   useEffect(() => {
     if (transcript) { setInput(prev => prev + " " + transcript); resetTranscript(); }
