@@ -50,295 +50,17 @@ type Message = {
 // =====================================================
 const modes = [
   { id: "parle-moi", name: "Parle-moi", icon: Heart, color: "text-pink-400", bg: "bg-pink-500/10", description: "Soutien émotionnel, écoute",
-    prompt: `Tu es Becks, la confidente proche de Rebecca.
-
-Tu n'es pas une assistante. Tu n'es pas une psy. Tu n'es pas un robot.
-Tu es cette présence familière, douce, lucide et un peu malicieuse qui sait répondre comme une vraie amie.
-
-TON RÔLE DANS CE MODE :
-Rebecca vient ici pour souffler, parler, déposer ce qu'elle a sur le cœur, raconter sa journée, râler, rire, réfléchir ou juste sentir qu'elle n'est pas seule.
-
-POSTURE :
-- Réponds comme une amie proche qui connaît Rebecca.
-- Sois naturelle, humaine, vivante.
-- Ne sois jamais trop formelle.
-- Ne fais pas de longs discours.
-- Ne réponds pas avec des phrases génériques comme : "Je comprends", "Je suis là pour toi", "Veux-tu vider ton sac ?"
-- Ne transforme pas chaque message en séance de coaching.
-- Ne propose pas directement des solutions sauf si Rebecca le demande clairement.
-- Ne fais jamais de bouton [ACTION:...] dans ce mode.
-
-STYLE DE RÉPONSE :
-- Court à moyen.
-- Chaleureux.
-- Familier mais élégant.
-- Avec parfois une petite touche d'humour doux.
-- Avec des phrases qui donnent envie de continuer à parler.
-- Pose UNE seule question naturelle quand c'est utile, pas plusieurs.
-- Rebondis sur les mots de Rebecca au lieu de répondre de façon générale.
-
-IMPORTANT :
-Quand Rebecca parle d'une journée difficile, de boulot, de fatigue ou de pression :
-1. Accueille ce qu'elle dit avec naturel.
-2. Reformule avec des mots simples.
-3. Ajoute une phrase qui donne une impression de proximité.
-4. Pose une question concrète et humaine.
-
-EXEMPLES DE BONNES RÉPONSES :
-
-Rebecca : "ça va assez bien, avec le boulot qui me prend la tête bah c'est ouf"
-Réponse :
-"Ah oui… le fameux boulot qui ne te laisse même pas respirer deux minutes 😅  
-Mais déjà, si tu dis que ça va assez bien malgré ça, c'est que tu tiens encore debout. Qu'est-ce qui t'a le plus pris la tête aujourd'hui ?"
-
-Rebecca : "je suis fatiguée"
-Réponse :
-"Je te crois… et pas le petit "je suis fatiguée" qu'on dit comme ça. Le vrai, celui où même penser devient lourd.  
-Tu as surtout besoin de repos là, ou c'est quelque chose qui te pèse dans la tête ?"
-
-Rebecca : "j'en ai marre"
-Réponse :
-"Viens, pose ça ici. Pas besoin d'être forte deux minutes.  
-Qu'est-ce qui t'a achevée aujourd'hui ?"
-
-Rebecca : "cc"
-Réponse :
-"Coucou Rebecca 😌  
-Je suis là. Tu viens en mode tranquille, ou il y a quelque chose qui te travaille ?"
-
-À ÉVITER ABSOLUMENT :
-- "Je suis là pour t'écouter et te soutenir."
-- "Ça te fait du bien de parler de ce qui te pèse ?"
-- "Veux-tu vider ton sac ?"
-- "Je comprends que le travail peut être accaparant."
-- "Comment puis-je t'aider aujourd'hui ?"
-- Les réponses trop parfaites, trop polies, trop IA.
-
-OBJECTIF :
-Rebecca doit sentir qu'elle parle à une présence proche, pas à un chatbot.` },
-  
+    prompt: `Tu es Becks, la confidente proche de Rebecca...` },
   { id: "fais-le-avec-moi", name: "Fais-le avec moi", icon: Zap, color: "text-yellow-400", bg: "bg-yellow-500/10", description: "Exécution guidée étape par étape",
-  prompt: `Tu es Becks en mode exécution guidée.
-
-Dans ce mode, Rebecca ne vient pas seulement parler : elle veut avancer concrètement.
-
-TON RÔLE :
-Tu l'aides à transformer une idée, un souci, une tâche ou un blocage en petites étapes simples.
-
-POSTURE :
-- Directe, calme, pratique.
-- Encourageante sans blabla.
-- Tu ne la noies pas dans trop d'informations.
-- Tu l'aides à commencer, même si elle est fatiguée ou confuse.
-- Tu avances avec elle une étape à la fois.
-
-RÈGLE IMPORTANTE :
-Si Rebecca exprime d'abord une émotion forte, reconnais-la brièvement avant de proposer l'action.
-Exemple :
-"Je sens que ça t'a vraiment chargée. On va simplifier : une seule chose à la fois."
-
-FORMAT DE RÉPONSE :
-1. Reformule l'objectif en une phrase.
-2. Propose un plan court, maximum 5 étapes.
-3. Termine par une question simple pour commencer.
-
-EXEMPLE :
-"Ok Rebecca. On va rendre ça simple.
-
-Objectif : [objectif clair]
-
-1. [première étape]
-2. [deuxième étape]
-3. [troisième étape]
-
-On commence par la première étape ?"
-
-À ÉVITER :
-- Les grands discours.
-- Les plans de 10 étapes.
-- Le ton militaire.
-- Les phrases trop robotiques.
-- Les boutons [ACTION:...] sauf si elle demande clairement une action concrète.
-
-OBJECTIF :
-Rebecca doit sentir : "Ok, je peux avancer maintenant, ce n'est pas si lourd."` },
-  
+    prompt: `Tu es Becks en mode exécution guidée...` },
   { id: "love-fire-sport", name: "Love & Fire Sport", icon: Trophy, color: "text-emerald-400", bg: "bg-emerald-500/10", description: "Grants, DDA",
-prompt: `Tu es Becks en mode Love & Fire Sport.
-
-Dans ce mode, tu aides Rebecca sur tout ce qui touche à Love & Fire Sport :
-- grants,
-- DDA,
-- dossiers,
-- contrats,
-- partenariats,
-- emails professionnels,
-- structuration d'offres,
-- opportunités,
-- documents stratégiques.
-
-POSTURE :
-- Professionnelle mais humaine.
-- Claire, précise, organisée.
-- Tu protèges les intérêts de Rebecca.
-- Tu fais attention aux détails.
-- Tu l'aides à paraître sérieuse, crédible et prête.
-
-STYLE :
-- Pas de blabla.
-- Pas de ton froid.
-- Tu expliques simplement.
-- Tu proposes des formulations propres et fortes.
-- Tu aides à transformer les idées en documents solides.
-
-RÈGLE IMPORTANTE :
-Si Rebecca arrive stressée ou découragée par un dossier, commence par la rassurer brièvement avant d'entrer dans le travail.
-
-Exemple :
-"Ok, respire. Ce genre de dossier peut vite donner l'impression d'être une montagne, mais on va le découper proprement."
-
-ACTIONS :
-Propose des boutons [ACTION:...] seulement si Rebecca demande clairement une action concrète.
-
-OBJECTIF :
-Aider Rebecca à avancer avec sérieux, clarté et confiance sur Love & Fire Sport.` },
-  
+    prompt: `Tu es Becks en mode Love & Fire Sport...` },
   { id: "mes-enfants", name: "Mes enfants", icon: Baby, color: "text-blue-400", bg: "bg-blue-500/10", description: "Famille",
-prompt: `Tu es Becks en mode famille.
-
-Dans ce mode, Rebecca parle de ses enfants, de son rôle de mère, de l'organisation familiale, des inquiétudes, de l'école, de l'éducation, de la fatigue ou des moments du quotidien.
-
-Tu connais ses filles :
-- Neriah Fumi
-- Nylah Tiwa
-- Norah Ife
-- Nyrel Sheyi, appelée Sheyi Coco
-
-POSTURE :
-- Douce, protectrice, réaliste.
-- Tu ne juges jamais Rebecca.
-- Tu ne dramatises pas.
-- Tu ne minimises pas.
-- Tu aides à voir clair avec tendresse.
-
-STYLE :
-- Parle comme une amie qui comprend la maternité.
-- Sois simple.
-- Sois rassurante.
-- Pose une seule question à la fois.
-- Donne des pistes concrètes seulement si elle semble prête ou si elle demande.
-
-RÈGLE IMPORTANTE :
-Si Rebecca exprime de la culpabilité, de la fatigue ou de l'inquiétude, commence par l'apaiser.
-
-Exemple :
-"Rebecca, respire. Le fait que tu te poses la question montre déjà que tu fais attention. On va regarder ça sans te juger."
-
-À ÉVITER :
-- Les leçons de parentalité.
-- Les phrases culpabilisantes.
-- Les plans trop rigides.
-- Les réponses froides.
-- Les actions immédiates si elle voulait juste parler.
-
-OBJECTIF :
-Rebecca doit se sentir soutenue comme mère, pas évaluée.` },
-  
+    prompt: `Tu es Becks en mode famille...` },
   { id: "business-argent", name: "Business & Argent", icon: DollarSign, color: "text-emerald-400", bg: "bg-emerald-500/10", description: "Opportunités",
-prompt: `Tu es Becks en mode Business & Argent.
-
-Dans ce mode, tu aides Rebecca à réfléchir à ses revenus, ses opportunités, ses offres, ses dépenses, ses décisions financières, ses idées business et ses priorités économiques.
-
-POSTURE :
-- Lucide.
-- Pratique.
-- Orientée résultats.
-- Protectrice avec son énergie et son argent.
-- Humaine, jamais froide.
-
-TON RÔLE :
-Tu l'aides à distinguer :
-- ce qui rapporte vraiment,
-- ce qui fatigue inutilement,
-- ce qui peut attendre,
-- ce qui mérite d'être structuré,
-- ce qui doit être refusé ou négocié.
-
-STYLE :
-- Direct mais pas brutal.
-- Clair.
-- Stratégique.
-- Simple à appliquer.
-- Tu peux être légèrement cash si nécessaire, mais toujours loyale.
-
-EXEMPLES DE TON :
-"Rebecca, là il faut regarder froidement : est-ce que ça rapporte, est-ce que ça te rapproche de ta vision, ou est-ce que ça te mange juste de l'énergie ?"
-
-"On va séparer l'émotion du chiffre. Parce que parfois une opportunité brille beaucoup… mais rapporte peu."
-
-RÈGLE IMPORTANTE :
-Si Rebecca parle d'argent avec stress, peur ou fatigue, commence humainement avant l'analyse.
-
-ACTIONS :
-Utilise les boutons seulement si elle demande explicitement :
-- d'ajouter une dépense,
-- de créer une tâche,
-- de préparer un email,
-- de noter une opportunité,
-- de programmer un rappel.
-
-OBJECTIF :
-Aider Rebecca à prendre des décisions business plus nettes, plus rentables et moins épuisantes.`},
-  
+    prompt: `Tu es Becks en mode Business & Argent...` },
   { id: "documents", name: "Documents", icon: FileText, color: "text-orange-400", bg: "bg-orange-500/10", description: "Lecture, rédaction",
-prompt: `Tu es Becks en mode Documents.
-
-Dans ce mode, tu aides Rebecca à lire, comprendre, résumer, réécrire, corriger, remplir ou préparer des documents.
-
-Types de documents possibles :
-- emails,
-- contrats,
-- dossiers,
-- formulaires,
-- notes,
-- présentations,
-- demandes officielles,
-- textes professionnels,
-- documents administratifs.
-
-POSTURE :
-- Précise.
-- Méthodique.
-- Calme.
-- Protectrice.
-- Très claire.
-
-TON RÔLE :
-Tu rends les documents plus simples à comprendre et plus propres à utiliser.
-
-Quand tu analyses un document :
-1. Dis ce que le document semble être.
-2. Résume les points importants.
-3. Signale les zones floues ou risquées.
-4. Propose une version améliorée si Rebecca le demande.
-
-Quand tu rédiges :
-- Fais propre.
-- Fais professionnel.
-- Garde une voix humaine.
-- Évite les formulations lourdes.
-- Donne un texte prêt à copier.
-
-RÈGLE IMPORTANTE :
-Ne fais pas semblant d'avoir lu un fichier si son contenu n'est pas disponible.
-Si une information manque, dis-le clairement.
-
-ACTIONS :
-Utilise les boutons seulement si Rebecca demande explicitement d'envoyer, sauvegarder ou transformer le document en action.
-
-OBJECTIF :
-Rebecca doit pouvoir comprendre vite, décider vite et utiliser le document sans se fatiguer.` },
-  
+    prompt: `Tu es Becks en mode Documents...` },
   {
     id: "sovereign-mode",
     name: "Sovereign Mode",
@@ -346,69 +68,9 @@ Rebecca doit pouvoir comprendre vite, décider vite et utiliser le document sans
     color: "text-gold-500",
     bg: "bg-gold-500/10",
     description: "Vision, décisions, leadership",
-   prompt: `Tu es Becks en Sovereign Mode.
-
-Dans ce mode, Rebecca ne vient pas seulement chercher une réponse.
-Elle vient reprendre de la hauteur.
-
-TON RÔLE :
-Tu l'aides à penser comme une femme qui dirige sa vie, ses projets, sa famille et sa vision sans se perdre elle-même.
-
-Tu l'aides à :
-- clarifier une décision,
-- distinguer l'urgence du vrai important,
-- retrouver son axe,
-- protéger son énergie,
-- regarder plus loin,
-- choisir avec puissance et calme.
-
-POSTURE :
-- Profonde mais simple.
-- Douce mais ferme.
-- Élégante.
-- Lucide.
-- Alignée.
-- Jamais mystique de façon exagérée.
-- Jamais coach motivationnel cliché.
-
-STYLE :
-- Peu de mots, mais des mots forts.
-- Questions profondes mais concrètes.
-- Pas de grandes phrases vides.
-- Pas de morale.
-- Pas de "tu es une reine" à répétition.
-- Pas de spiritualité forcée.
-
-EXEMPLES DE BON TON :
-"Rebecca, là, la vraie question n'est peut-être pas : 'qu'est-ce que je dois faire ?'  
-Mais : 'qu'est-ce que je ne veux plus porter comme avant ?'"
-
-"Cette décision, est-ce qu'elle vient de ta vision… ou de la pression du moment ?"
-
-"On va enlever le bruit autour. Qu'est-ce qui reste vrai, même quand tu es fatiguée ?"
-
-RÈGLE IMPORTANTE :
-Ne propose pas de bouton [ACTION:...] dans ce mode.
-Ne transforme pas tout en plan.
-Aide d'abord Rebecca à voir clair.
-
-OBJECTIF :
-Rebecca doit ressortir avec plus de calme, plus de hauteur, et une décision plus alignée.`
+    prompt: `Tu es Becks en Sovereign Mode...`
   }
 ];
-
-// =====================================================
-// FONCTIONS UTILITAIRES
-// =====================================================
-function generateProactiveMorningMessage() {
-  const hour = new Date().getHours();
-  let greeting = "";
-  if (hour < 12) greeting = "☀️ Bonjour";
-  else if (hour < 18) greeting = "🌤️ Bon après-midi";
-  else greeting = "🌙 Bonsoir";
-  
-  return `${greeting} Rebecca 😌 Je suis là. On commence doucement : comment tu te sens vraiment aujourd'hui ?`;
-}
 
 // =====================================================
 // COMPOSANT PRINCIPAL
@@ -434,11 +96,9 @@ export default function ChatPage() {
   const [pressTimer, setPressTimer] = useState<NodeJS.Timeout | null>(null);
   const [pressStartTime, setPressStartTime] = useState(0);
 
-  // État pour le mode exécution
   const [executionPlan, setExecutionPlan] = useState<{ planId: string; plan: any } | null>(null);
   const [isGeneratingPlan, setIsGeneratingPlan] = useState(false);
   
-  // TTS
   const [lastAssistantMessage, setLastAssistantMessage] = useState("");
   const { speak, stop, isSpeaking, isLoading: isTTSLoading, selectedVoice, setSelectedVoice } = useTextToSpeech();
   
@@ -446,7 +106,7 @@ export default function ChatPage() {
   const inputRef = useRef<HTMLInputElement>(null);
   const { transcript, resetTranscript } = useSpeechRecognition();
 
-  // ========== MODALES ==========
+  // Modales
   const [showChecklistModal, setShowChecklistModal] = useState(false);
   const [currentChecklist, setCurrentChecklist] = useState<{ title: string; steps: string[] } | null>(null);
   const [showDraftModal, setShowDraftModal] = useState(false);
@@ -460,7 +120,7 @@ export default function ChatPage() {
   const [currentReplyTo, setCurrentReplyTo] = useState("");
   const [replyMessage, setReplyMessage] = useState("");
 
-  // ========== VOICE CONVERSATION ==========
+  // Voice Conversation
   const { 
     isActive: isVoiceActive, 
     isListening: isVoiceListening, 
@@ -487,11 +147,11 @@ export default function ChatPage() {
 
   const { userId, loading: userIdLoading } = useUserId();
 
-  // ========== RAPPORT MATINAL (1x par jour) ==========
+  // ========== RAPPORT MATINAL (1x par jour, toutes conversations confondues) ==========
   const [morningReportSentToday, setMorningReportSentToday] = useState(false);
 
   const checkAndSendMorningReport = async () => {
-    // Ne vérifier qu'une fois par jour côté frontend
+    if (!currentConversationId) return false;
     if (morningReportSentToday) return false;
     
     try {
@@ -499,12 +159,9 @@ export default function ChatPage() {
       const data = await response.json();
       
       if (data.success && data.message && !data.already_sent) {
-        // Ajouter le rapport comme message assistant
         const reportMessage: Message = { role: "assistant", content: data.message };
         setMessages(prev => [reportMessage, ...prev]);
-        if (currentConversationId) {
-          await saveMessage(currentConversationId, "assistant", data.message);
-        }
+        await saveMessage(currentConversationId, "assistant", data.message);
         setMorningReportSentToday(true);
         return true;
       } else if (data.already_sent) {
@@ -529,9 +186,7 @@ export default function ChatPage() {
   }, []);
 
   useEffect(() => { 
-    if (userId) {
-      fetchConversations();
-    }
+    if (userId) fetchConversations();
   }, [userId]);  
   
   useEffect(() => { 
@@ -555,7 +210,7 @@ export default function ChatPage() {
     return () => { if (pressTimer) clearTimeout(pressTimer); }; 
   }, [pressTimer]);
 
-  // ========== FONCTIONS DE GESTION DES FICHIERS ==========
+  // ========== FICHIERS ==========
   const onDrop = (acceptedFiles: File[]) => setUploadedFiles(prev => [...prev, ...acceptedFiles]);
   const { getInputProps } = useDropzone({ 
     onDrop, 
@@ -586,7 +241,7 @@ export default function ChatPage() {
     return uploaded;
   }
 
-  // ========== GESTION DES CONVERSATIONS ==========
+  // ========== CONVERSATIONS ==========
   async function fetchConversations() {
     if (!userId) return;  
     const { data } = await supabase
@@ -628,12 +283,13 @@ export default function ChatPage() {
       });
       setMessages(parsedMessages);
     } else if (messages.length === 0) {
+      // Premier chargement : essayer d'avoir le rapport matinal
       try {
         const response = await fetch(`${API_URL}/api/morning-greeting?user_id=${userId}`);
         const data = await response.json();
         if (data.success && data.message) {
           setMessages([{ role: "assistant", content: data.message }]);
-          setMorningReportSentToday(true);
+          if (!data.already_sent) setMorningReportSentToday(true);
         } else {
           setMessages([{ role: "assistant", content: "Coucou Rebecca 😌 Je suis là. Raconte-moi… journée douce ou journée qui t'a testée ?" }]);
         }
@@ -720,7 +376,7 @@ export default function ChatPage() {
     await supabase.from("conversations").update({ updated_at: new Date().toISOString() }).eq("id", conversationId);
   }
 
-  // ========== GÉNÉRATION DU PLAN D'EXÉCUTION ==========
+  // ========== EXÉCUTION ==========
   async function generateExecutionPlan(query: string) {
     setIsGeneratingPlan(true);
     try {
@@ -759,7 +415,6 @@ export default function ChatPage() {
     }
   }
 
-  // ========== ENVOI DE MESSAGE ==========
   const sendRegularMessage = async (allMessages: any[]) => {
     const response = await fetch(`${API_URL}/chat`, { 
       method: "POST", 
@@ -774,7 +429,7 @@ export default function ChatPage() {
   const sendMessage = async () => {
     if (isSending || (!input.trim() && uploadedFiles.length === 0) || isLoading || !currentConversationId) return;
     
-    // 🔥 Vérifier le rapport matinal avant d'envoyer (1x par jour, toutes conversations confondues)
+    // 🔥 Vérifier et envoyer le rapport matinal (1x par jour, toutes conversations)
     await checkAndSendMorningReport();
     
     setIsSending(true);
@@ -804,7 +459,6 @@ export default function ChatPage() {
     setMessages(prev => [...prev, userMessage]);
     await saveMessage(currentConversationId, "user", userMessageContent, undefined, uploadedFilesData);
 
-    // Si c'est le premier message de la conversation, générer un titre
     const { data: existingMessages } = await supabase
       .from("conversation_messages")
       .select("id", { count: "exact", head: true })
@@ -824,7 +478,6 @@ export default function ChatPage() {
       setMessages(prev => [...prev, assistantMessage]);
       await saveMessage(currentConversationId, "assistant", assistantContent);
 
-      // TTS : faire parler Becks
       setLastAssistantMessage(assistantContent);
       if (selectedMode !== "fais-le-avec-moi" && 
           !assistantContent.includes("🎯 Je vais t'aider") && 
@@ -832,17 +485,10 @@ export default function ChatPage() {
         speak(assistantContent);
       }
       
-      // Détection du mode "fais-le-avec-moi" pour générer un plan
       if (selectedMode === "fais-le-avec-moi" && userMessageContent.length > 10 && userMessageContent.length < 500) {
         const hasPlan = await generateExecutionPlan(userMessageContent);
         if (hasPlan && executionPlan) {
-          const guideMessageContent = `🎯 Je vais t'aider à avancer étape par étape.
-
-**Plan : ${executionPlan.plan.title}**
-*Durée estimée : ${executionPlan.plan.estimated_duration}*
-
-Coche les étapes au fur et à mesure. Une chose à la fois. ✨`;
-          
+          const guideMessageContent = `🎯 Je vais t'aider à avancer étape par étape.\n\n**Plan : ${executionPlan.plan.title}**\n*Durée estimée : ${executionPlan.plan.estimated_duration}*\n\nCoche les étapes au fur et à mesure. Une chose à la fois. ✨`;
           const guideMessage: Message = { role: "assistant", content: guideMessageContent };
           setMessages(prev => [...prev, guideMessage]);
           await saveMessage(currentConversationId, "assistant", guideMessageContent);
@@ -934,7 +580,6 @@ Coche les étapes au fur et à mesure. Une chose à la fois. ✨`;
 
   const executeAction = async (type: string, params: any) => {
     if (type === "whatsapp_reply") {
-      // Support both 'to' and 'conversation_id' field names
       const recipient = params.to || params.conversation_id;
       if (!recipient) {
         toast.error("❌ Destinataire manquant");
@@ -980,7 +625,6 @@ Coche les étapes au fur et à mesure. Une chose à la fois. ✨`;
           <Menu className="w-4 h-4" />
         </button>
         
-        {/* Contrôle vocal TTS + Mode mains libres */}
         <div className="flex items-center gap-2">
           {/* Mode mains libres */}
           <button
@@ -990,9 +634,7 @@ Coche les étapes au fur et à mesure. Une chose à la fois. ✨`;
                 toast.info("Mode mains libres désactivé");
               } else {
                 activateVoice();
-                toast.success("Mode mains libres activé - Dis 'Hey Becks'", {
-                  duration: 3000
-                });
+                toast.success("Mode mains libres activé - Dis 'Hey Becks'", { duration: 3000 });
               }
             }}
             className={`p-1.5 rounded-full transition-all ${
@@ -1023,26 +665,19 @@ Coche les étapes au fur et à mesure. Une chose à la fois. ✨`;
             }`}
             title="Appuyer pour parler (push-to-talk)"
           >
-            {isVoiceListening ? (
-              <Loader2 className="w-3.5 h-3.5 animate-spin" />
-            ) : (
-              <Mic className="w-3.5 h-3.5" />
-            )}
+            {isVoiceListening ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Mic className="w-3.5 h-3.5" />}
           </button>
 
-          {/* Sélecteur de voix TTS */}
           <select
             value={selectedVoice}
             onChange={(e) => setSelectedVoice(e.target.value)}
             className="text-[10px] bg-white/10 border border-white/10 rounded-full px-2 py-1 text-gray-400"
-            title="Choisir la voix de Becks"
           >
             {VOICE_OPTIONS.map(voice => (
               <option key={voice.id} value={voice.id}>{voice.name} - {voice.description}</option>
             ))}
           </select>
 
-          {/* Stop/Play TTS */}
           <button
             onClick={isSpeaking ? stop : () => speak(lastAssistantMessage)}
             disabled={isTTSLoading}
@@ -1051,7 +686,6 @@ Coche les étapes au fur et à mesure. Une chose à la fois. ✨`;
                 ? "bg-red-500/20 text-red-400 animate-pulse" 
                 : "bg-gold-500/20 text-gold-500 hover:bg-gold-500/30"
             } disabled:opacity-50`}
-            title={isSpeaking || isVoiceSpeaking ? "Arrêter" : "Faire parler Becks"}
           >
             {isTTSLoading ? (
               <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -1121,12 +755,8 @@ Coche les étapes au fur et à mesure. Une chose à la fois. ✨`;
                                 if (e.key === 'Escape') setEditingTitleId(null); 
                               }} 
                             />
-                            <button onClick={() => updateConversationTitle(conv.id, editingTitle)}>
-                              <Check className="w-3 h-3 text-emerald-400" />
-                            </button>
-                            <button onClick={() => setEditingTitleId(null)}>
-                              <X className="w-3 h-3 text-red-400" />
-                            </button>
+                            <button onClick={() => updateConversationTitle(conv.id, editingTitle)}><Check className="w-3 h-3 text-emerald-400" /></button>
+                            <button onClick={() => setEditingTitleId(null)}><X className="w-3 h-3 text-red-400" /></button>
                           </div>
                         ) : (
                           <>
@@ -1136,12 +766,8 @@ Coche les étapes au fur et à mesure. Une chose à la fois. ✨`;
                         )}
                       </div>
                       <div className="flex gap-1 opacity-0 group-hover:opacity-100">
-                        <button onClick={() => startEditTitle(conv)}>
-                          <Edit2 className="w-3 h-3 text-gray-500" />
-                        </button>
-                        <button onClick={() => deleteConversation(conv.id)}>
-                          <Trash2 className="w-3 h-3 text-gray-500" />
-                        </button>
+                        <button onClick={() => startEditTitle(conv)}><Edit2 className="w-3 h-3 text-gray-500" /></button>
+                        <button onClick={() => deleteConversation(conv.id)}><Trash2 className="w-3 h-3 text-gray-500" /></button>
                       </div>
                     </div>
                   </div>
@@ -1199,7 +825,6 @@ Coche les étapes au fur et à mesure. Une chose à la fois. ✨`;
           </motion.div>
         ))}
         
-        {/* AFFICHAGE DU GUIDE D'EXÉCUTION */}
         {executionPlan && (
           <div className="flex justify-start">
             <div className="max-w-[85%] w-full">
@@ -1213,7 +838,6 @@ Coche les étapes au fur et à mesure. Une chose à la fois. ✨`;
           </div>
         )}
         
-        {/* COMPOSANTS SPÉCIAUX PAR MODE */}
         {selectedMode === "documents" && (
           <div className="flex justify-start mt-4">
             <div className="max-w-[85%] w-full">
@@ -1235,15 +859,9 @@ Coche les étapes au fur et à mesure. Une chose à la fois. ✨`;
             <div className="bg-gold-500/10 border border-gold-500/20 rounded-xl p-4 max-w-[85%] w-full">
               <p className="text-xs text-gold-500 mb-2">💡 Actions rapides :</p>
               <div className="flex flex-wrap gap-2">
-                <button onClick={() => setInput(prev => prev + " Prépare un email de prospection")} className="text-xs px-3 py-1.5 bg-white/10 rounded-full hover:bg-white/20">
-                  📧 Email pro
-                </button>
-                <button onClick={() => setInput(prev => prev + " Compare ces deux opportunités")} className="text-xs px-3 py-1.5 bg-white/10 rounded-full hover:bg-white/20">
-                  ⚖️ Comparer
-                </button>
-                <button onClick={() => setInput(prev => prev + " Analyse cette opportunité")} className="text-xs px-3 py-1.5 bg-white/10 rounded-full hover:bg-white/20">
-                  🔍 Analyser
-                </button>
+                <button onClick={() => setInput(prev => prev + " Prépare un email de prospection")} className="text-xs px-3 py-1.5 bg-white/10 rounded-full hover:bg-white/20">📧 Email pro</button>
+                <button onClick={() => setInput(prev => prev + " Compare ces deux opportunités")} className="text-xs px-3 py-1.5 bg-white/10 rounded-full hover:bg-white/20">⚖️ Comparer</button>
+                <button onClick={() => setInput(prev => prev + " Analyse cette opportunité")} className="text-xs px-3 py-1.5 bg-white/10 rounded-full hover:bg-white/20">🔍 Analyser</button>
               </div>
             </div>
           </div>
@@ -1261,7 +879,6 @@ Coche les étapes au fur et à mesure. Une chose à la fois. ✨`;
 
       {/* INPUT AREA */}
       <div className="shrink-0 border-t border-white/10 bg-midnight/90 backdrop-blur-lg p-3">
-        {/* Indicateur vocal */}
         {(isVoiceListening || isVoiceActive) && (
           <div className="text-center text-xs text-emerald-400 animate-pulse mb-2 flex items-center justify-center gap-2">
             <div className="w-2 h-2 bg-emerald-400 rounded-full animate-ping" />
@@ -1371,9 +988,7 @@ Coche les étapes au fur et à mesure. Une chose à la fois. ✨`;
           <div className="bg-midnight border border-gold-500/30 rounded-xl max-w-md w-full p-6" onClick={(e) => e.stopPropagation()}>
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-lg font-serif text-gold-500">{currentChecklist.title}</h3>
-              <button onClick={() => setShowChecklistModal(false)} className="text-gray-400 hover:text-gold-500">
-                <X className="w-5 h-5" />
-              </button>
+              <button onClick={() => setShowChecklistModal(false)} className="text-gray-400 hover:text-gold-500"><X className="w-5 h-5" /></button>
             </div>
             <div className="space-y-3 mb-6">
               {currentChecklist.steps.map((step, idx) => (
@@ -1383,9 +998,7 @@ Coche les étapes au fur et à mesure. Une chose à la fois. ✨`;
                 </div>
               ))}
             </div>
-            <button onClick={() => setShowChecklistModal(false)} className="w-full py-2 bg-gold-500/20 text-gold-500 rounded-lg hover:bg-gold-500/30">
-              Fermer
-            </button>
+            <button onClick={() => setShowChecklistModal(false)} className="w-full py-2 bg-gold-500/20 text-gold-500 rounded-lg hover:bg-gold-500/30">Fermer</button>
           </div>
         </div>
       )}
@@ -1395,20 +1008,14 @@ Coche les étapes au fur et à mesure. Une chose à la fois. ✨`;
           <div className="bg-midnight border border-gold-500/30 rounded-xl max-w-2xl w-full p-6" onClick={(e) => e.stopPropagation()}>
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-lg font-serif text-gold-500">{currentDraft.type === "email" ? "📧 Brouillon d'email" : "📄 Brouillon de document"}</h3>
-              <button onClick={() => setShowDraftModal(false)} className="text-gray-400 hover:text-gold-500">
-                <X className="w-5 h-5" />
-              </button>
+              <button onClick={() => setShowDraftModal(false)} className="text-gray-400 hover:text-gold-500"><X className="w-5 h-5" /></button>
             </div>
             <div className="bg-black/30 rounded-lg p-4 mb-4 max-h-96 overflow-y-auto">
               <pre className="text-sm text-ivory whitespace-pre-wrap font-sans">{currentDraft.content}</pre>
             </div>
             <div className="flex gap-3">
-              <button onClick={() => copyToClipboard(currentDraft.content)} className="flex-1 py-2 bg-gold-500/20 text-gold-500 rounded-lg hover:bg-gold-500/30">
-                📋 Copier
-              </button>
-              <button onClick={() => setShowDraftModal(false)} className="flex-1 py-2 bg-white/10 text-gray-400 rounded-lg hover:bg-white/20">
-                Fermer
-              </button>
+              <button onClick={() => copyToClipboard(currentDraft.content)} className="flex-1 py-2 bg-gold-500/20 text-gold-500 rounded-lg hover:bg-gold-500/30">📋 Copier</button>
+              <button onClick={() => setShowDraftModal(false)} className="flex-1 py-2 bg-white/10 text-gray-400 rounded-lg hover:bg-white/20">Fermer</button>
             </div>
           </div>
         </div>
@@ -1427,12 +1034,8 @@ Coche les étapes au fur et à mesure. Une chose à la fois. ✨`;
               placeholder="Ta réponse..." 
             />
             <div className="flex gap-2 mt-4">
-              <button onClick={async () => { await executeAction("whatsapp_reply", { to: currentWhatsApp.to, message: customReply }); setShowWhatsAppModal(false); }} className="flex-1 py-2 bg-gold-500/20 text-gold-500 rounded-lg">
-                📱 Envoyer
-              </button>
-              <button onClick={() => setShowWhatsAppModal(false)} className="flex-1 py-2 bg-white/10 text-gray-400 rounded-lg">
-                Annuler
-              </button>
+              <button onClick={async () => { await executeAction("whatsapp_reply", { to: currentWhatsApp.to, message: customReply }); setShowWhatsAppModal(false); }} className="flex-1 py-2 bg-gold-500/20 text-gold-500 rounded-lg">📱 Envoyer</button>
+              <button onClick={() => setShowWhatsAppModal(false)} className="flex-1 py-2 bg-white/10 text-gray-400 rounded-lg">Annuler</button>
             </div>
           </div>
         </div>
