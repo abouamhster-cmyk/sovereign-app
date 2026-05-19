@@ -14,7 +14,8 @@ import {
   FileText, Crown, ChevronDown, Sparkles, Volume2, VolumeX,
   Image as ImageIcon, Video, Music, Phone, MessageCircle, Clock, MapPin, Calendar, Mail, ListTodo
 } from "lucide-react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";const checkAndSendMorningReport = async () => {
+
 import Link from "next/link";
 import { toast } from "sonner";
 import { supabase } from "@/lib/supabase";
@@ -150,28 +151,35 @@ export default function ChatPage() {
   // ========== RAPPORT MATINAL (1x par jour, toutes conversations confondues) ==========
   const [morningReportSentToday, setMorningReportSentToday] = useState(false);
 
-  const checkAndSendMorningReport = async () => {
-    if (!currentConversationId) return false;
-    if (morningReportSentToday) return false;
+ const checkAndSendMorningReport = async () => {
+  console.log("🔍 checkAndSendMorningReport appelé");
+  console.log("   morningReportSentToday:", morningReportSentToday);
+  console.log("   currentConversationId:", currentConversationId);
+  
+  if (!currentConversationId) return false;
+  if (morningReportSentToday) return false;
+  
+  try {
+    const response = await fetch(`${API_URL}/api/morning-greeting?user_id=${userId}`);
+    const data = await response.json();
+    console.log("   Réponse API:", data);
     
-    try {
-      const response = await fetch(`${API_URL}/api/morning-greeting?user_id=${userId}`);
-      const data = await response.json();
-      
-      if (data.success && data.message && !data.already_sent) {
-        const reportMessage: Message = { role: "assistant", content: data.message };
-        setMessages(prev => [reportMessage, ...prev]);
-        await saveMessage(currentConversationId, "assistant", data.message);
-        setMorningReportSentToday(true);
-        return true;
-      } else if (data.already_sent) {
-        setMorningReportSentToday(true);
-      }
-    } catch (error) {
-      console.error("Erreur rapport matinal:", error);
+    if (data.success && data.message && !data.already_sent) {
+      console.log("   ✅ Ajout du rapport");
+      const reportMessage: Message = { role: "assistant", content: data.message };
+      setMessages(prev => [reportMessage, ...prev]);
+      await saveMessage(currentConversationId, "assistant", data.message);
+      setMorningReportSentToday(true);
+      return true;
+    } else if (data.already_sent) {
+      console.log("   ⏭️ Rapport déjà envoyé aujourd'hui");
+      setMorningReportSentToday(true);
     }
-    return false;
-  };
+  } catch (error) {
+    console.error("Erreur rapport matinal:", error);
+  }
+  return false;
+};
 
   // ========== EFFETS ==========
   useEffect(() => {
@@ -427,9 +435,11 @@ export default function ChatPage() {
   };
 
   const sendMessage = async () => {
+    console.log("📤 sendMessage appelé");
     if (isSending || (!input.trim() && uploadedFiles.length === 0) || isLoading || !currentConversationId) return;
     
     // 🔥 Vérifier et envoyer le rapport matinal (1x par jour, toutes conversations)
+    console.log("📤 Appel de checkAndSendMorningReport");
     await checkAndSendMorningReport();
     
     setIsSending(true);
