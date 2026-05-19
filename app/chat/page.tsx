@@ -487,6 +487,35 @@ export default function ChatPage() {
 
   const { userId, loading: userIdLoading } = useUserId();
 
+  // ========== RAPPORT MATINAL (1x par jour) ==========
+  const [morningReportSentToday, setMorningReportSentToday] = useState(false);
+
+  const checkAndSendMorningReport = async () => {
+    // Ne vérifier qu'une fois par jour côté frontend
+    if (morningReportSentToday) return false;
+    
+    try {
+      const response = await fetch(`${API_URL}/api/morning-greeting?user_id=${userId}`);
+      const data = await response.json();
+      
+      if (data.success && data.message && !data.already_sent) {
+        // Ajouter le rapport comme message assistant
+        const reportMessage: Message = { role: "assistant", content: data.message };
+        setMessages(prev => [reportMessage, ...prev]);
+        if (currentConversationId) {
+          await saveMessage(currentConversationId, "assistant", data.message);
+        }
+        setMorningReportSentToday(true);
+        return true;
+      } else if (data.already_sent) {
+        setMorningReportSentToday(true);
+      }
+    } catch (error) {
+      console.error("Erreur rapport matinal:", error);
+    }
+    return false;
+  };
+
   // ========== EFFETS ==========
   useEffect(() => {
     if (transcript) { setInput(prev => prev + " " + transcript); resetTranscript(); }
@@ -600,10 +629,11 @@ export default function ChatPage() {
       setMessages(parsedMessages);
     } else if (messages.length === 0) {
       try {
-        const response = await fetch(`${API_URL}/api/morning-greeting`);
+        const response = await fetch(`${API_URL}/api/morning-greeting?user_id=${userId}`);
         const data = await response.json();
         if (data.success && data.message) {
           setMessages([{ role: "assistant", content: data.message }]);
+          setMorningReportSentToday(true);
         } else {
           setMessages([{ role: "assistant", content: "Coucou Rebecca 😌 Je suis là. Raconte-moi… journée douce ou journée qui t'a testée ?" }]);
         }
@@ -730,19 +760,23 @@ export default function ChatPage() {
   }
 
   // ========== ENVOI DE MESSAGE ==========
- const sendRegularMessage = async (allMessages: any[]) => {
-  const response = await fetch(`${API_URL}/chat`, { 
-    method: "POST", 
-    headers: { "Content-Type": "application/json" }, 
-    body: JSON.stringify({ messages: allMessages, user_id: userId }) 
-  });
-  if (!response.ok) throw new Error(`Erreur ${response.status}`);
-  const data = await response.json();
-  return data.reply;
-};
+  const sendRegularMessage = async (allMessages: any[]) => {
+    const response = await fetch(`${API_URL}/chat`, { 
+      method: "POST", 
+      headers: { "Content-Type": "application/json" }, 
+      body: JSON.stringify({ messages: allMessages, user_id: userId }) 
+    });
+    if (!response.ok) throw new Error(`Erreur ${response.status}`);
+    const data = await response.json();
+    return data.reply;
+  };
 
   const sendMessage = async () => {
     if (isSending || (!input.trim() && uploadedFiles.length === 0) || isLoading || !currentConversationId) return;
+    
+    // 🔥 Vérifier le rapport matinal avant d'envoyer (1x par jour, toutes conversations confondues)
+    await checkAndSendMorningReport();
+    
     setIsSending(true);
     setIsLoading(true);
     
@@ -900,14 +934,20 @@ Coche les étapes au fur et à mesure. Une chose à la fois. ✨`;
 
   const executeAction = async (type: string, params: any) => {
     if (type === "whatsapp_reply") {
+      // Support both 'to' and 'conversation_id' field names
+      const recipient = params.to || params.conversation_id;
+      if (!recipient) {
+        toast.error("❌ Destinataire manquant");
+        return;
+      }
       const response = await fetch(`${API_URL}/api/whatsapp/reply`, { 
         method: "POST", 
         headers: { "Content-Type": "application/json" }, 
-        body: JSON.stringify(params) 
+        body: JSON.stringify({ to: recipient, message: params.message, message_id: params.message_id }) 
       });
       const result = await response.json();
       if (result.success) {
-        toast.success(`✅ Réponse envoyée à ${params.to}`);
+        toast.success(`✅ Réponse envoyée à ${recipient}`);
       } else {
         toast.error("❌ Erreur d'envoi");
       }
