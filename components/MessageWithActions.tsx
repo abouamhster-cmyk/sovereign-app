@@ -362,16 +362,26 @@ const executeActionFn = async (action: Action): Promise<{ success: boolean; data
         return { success: true };
 
       // ========== WHATSAPP RÉPONSES ==========
-      case "whatsapp_reply":
+     case "whatsapp_reply":
+        // Support both 'to' and 'conversation_id' field names
+        const recipient = params.to || params.conversation_id;
+        if (!recipient) {
+          toast.error("❌ Destinataire manquant");
+          return { success: false };
+        }
+        
         const replyResponse = await fetch(`${API_URL}/api/whatsapp/reply`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ to: params.to, message: params.message, message_id: params.message_id })
+          body: JSON.stringify({ to: recipient, message: params.message, message_id: params.message_id })
         });
         const replyResult = await replyResponse.json();
         if (replyResult.success) {
-          toast.success(`📱 Réponse envoyée à ${params.to}`);
+          toast.success(`📱 Réponse envoyée à ${recipient}`);
           return { success: true };
+        } else {
+          toast.error(`❌ Échec de l'envoi: ${replyResult.error || "erreur inconnue"}`);
+          return { success: false };
         }
         break;
       
