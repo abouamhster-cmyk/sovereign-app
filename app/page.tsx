@@ -98,7 +98,7 @@ export default function DashboardPage() {
     fetchAllData();
   }, []);
 
-  async function fetchAllData() {
+async function fetchAllData() {
     setIsLoading(true);
     await Promise.all([
       fetchUserName(),
@@ -108,7 +108,7 @@ export default function DashboardPage() {
       fetchOverloadDetection(), 
     ]);
     setIsLoading(false);
-  }
+}
 
   async function fetchUserName() {
     const { data: { user } } = await supabase.auth.getUser();
@@ -172,7 +172,8 @@ export default function DashboardPage() {
           recent_tasks: recentTasks,
           active_missions: activeMissionsList,
           hour: new Date().getHours(),
-          last_area: lastArea
+          last_area: lastArea,
+          user_id: userId
         })
       });
       
@@ -189,7 +190,7 @@ export default function DashboardPage() {
 
   async function fetchDashboardData() {
     try {
-      const response = await fetch(`${API_URL}/api/dashboard/today`);
+      const response = await fetch(`${API_URL}/api/dashboard/today?user_id=${userId}`);
       const data = await response.json();
       
       if (data.success) {
@@ -298,7 +299,8 @@ export default function DashboardPage() {
           wins_count: winsCount,
           missions_count: missionsCount,
           mood: currentMood,
-          hour: new Date().getHours()
+          hour: new Date().getHours(),
+          user_id: userId,
         })
       });
       
@@ -371,9 +373,10 @@ export default function DashboardPage() {
 
   async function fetchOverloadDetection() {
     try {
-      const response = await fetch(`${API_URL}/api/rescue/detect-overload`, {  
+     const response = await fetch(`${API_URL}/api/rescue/detect-overload`, {  
         method: "POST",   
-        headers: { "Content-Type": "application/json" } 
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ user_id: userId })  
       });
       const data = await response.json();
       if (data.success) {
@@ -414,7 +417,7 @@ export default function DashboardPage() {
     await fetch(`${API_URL}/api/mood/save`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ mood: selectedMood, user_id: user.id })
+      body: JSON.stringify({ mood: selectedMood, user_id: userId })  // ← user_id déjà présent ✅
     });
 
     window.dispatchEvent(new CustomEvent('moodChange', { detail: { mood: selectedMood } }));
