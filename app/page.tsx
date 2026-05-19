@@ -32,6 +32,7 @@ export default function DashboardPage() {
   const [greeting, setGreeting] = useState("");
   const [userName, setUserName] = useState("Rebecca");
   const [isLoading, setIsLoading] = useState(true);
+  const [userId, setUserId] = useState<string | null>(null);
   
   // Données
   const [priorities, setPriorities] = useState<Priority[]>([]);
@@ -62,6 +63,17 @@ export default function DashboardPage() {
   const [familyMove, setFamilyMove] = useState("Prendre des nouvelles des enfants");
   const [businessMove, setBusinessMove] = useState("Avancer sur une mission");
   const [stabilizationMove, setStabilizationMove] = useState("Prendre 5 minutes");
+
+  // Récupérer l'utilisateur au chargement
+  useEffect(() => {
+    const fetchUser = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        setUserId(user.id);
+      }
+    };
+    fetchUser();
+  }, []);
 
   // Afficher la suggestion
   useEffect(() => {
@@ -98,7 +110,8 @@ export default function DashboardPage() {
     fetchAllData();
   }, []);
 
-async function fetchAllData() {
+  async function fetchAllData() {
+    if (!userId) return;
     setIsLoading(true);
     await Promise.all([
       fetchUserName(),
@@ -108,7 +121,7 @@ async function fetchAllData() {
       fetchOverloadDetection(), 
     ]);
     setIsLoading(false);
-}
+  }
 
   async function fetchUserName() {
     const { data: { user } } = await supabase.auth.getUser();
@@ -118,12 +131,12 @@ async function fetchAllData() {
       return;
     }
     
-    const userId = user.id;
+    const uid = user.id;
     
     const { data: profile } = await supabase
       .from("user_profile")
       .select("preferred_name")
-      .eq("user_id", userId)
+      .eq("user_id", uid)
       .single();
     
     if (profile?.preferred_name) {
@@ -140,14 +153,14 @@ async function fetchAllData() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
       
-      const userId = user.id;
+      const uid = user.id;
       const lastCompleted = localStorage.getItem("lastCompletedTask");
       const lastArea = localStorage.getItem("lastArea");
       
       const { data: recentTasksData } = await supabase
         .from("tasks")
         .select("title")
-        .eq("user_id", userId)
+        .eq("user_id", uid)
         .eq("status", "done")
         .order("updated_at", { ascending: false })
         .limit(3);
@@ -157,7 +170,7 @@ async function fetchAllData() {
       const { data: missionsData } = await supabase
         .from("missions")
         .select("name")
-        .eq("user_id", userId)
+        .eq("user_id", uid)
         .eq("status", "active")
         .limit(3);
       
@@ -173,7 +186,7 @@ async function fetchAllData() {
           active_missions: activeMissionsList,
           hour: new Date().getHours(),
           last_area: lastArea,
-          user_id: userId
+          user_id: uid
         })
       });
       
@@ -189,6 +202,7 @@ async function fetchAllData() {
   }
 
   async function fetchDashboardData() {
+    if (!userId) return;
     try {
       const response = await fetch(`${API_URL}/api/dashboard/today?user_id=${userId}`);
       const data = await response.json();
@@ -201,12 +215,12 @@ async function fetchAllData() {
         }
         setIsLoadingMessage(false);
         
-        const formattedPriorities = data.top_priorities.map((p: any) => ({
+        const formattedPriorities = data.top_priorities?.map((p: any) => ({
           id: p.id,
           title: p.title,
           priority_reason: p.reason,
           score: p.score
-        }));
+        })) || [];
         setPriorities(formattedPriorities);
         
         const allTasks = [...(data.overdue_tasks || []), ...(data.tasks_today || [])];
@@ -273,15 +287,15 @@ async function fetchAllData() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
       
-      const userId = user.id;
+      const uid = user.id;
       const today = new Date().toISOString().split('T')[0];
       
       const [tasksRes, overdueRes, winsRes, missionsRes, moodRes] = await Promise.all([
-        supabase.from("tasks").select("*").eq("user_id", userId).eq("due_date", today).neq("status", "done"),
-        supabase.from("tasks").select("*").eq("user_id", userId).lt("due_date", today).neq("status", "done"),
-        supabase.from("wins").select("*").eq("user_id", userId).gte("date", today),
-        supabase.from("missions").select("*").eq("user_id", userId).eq("status", "active"),
-        supabase.from("mood_entries").select("mood").eq("user_id", userId).eq("date", today).maybeSingle()
+        supabase.from("tasks").select("*").eq("user_id", uid).eq("due_date", today).neq("status", "done"),
+        supabase.from("tasks").select("*").eq("user_id", uid).lt("due_date", today).neq("status", "done"),
+        supabase.from("wins").select("*").eq("user_id", uid).gte("date", today),
+        supabase.from("missions").select("*").eq("user_id", uid).eq("status", "active"),
+        supabase.from("mood_entries").select("mood").eq("user_id", uid).eq("date", today).maybeSingle()
       ]);
       
       const tasksCount = tasksRes.data?.length || 0;
@@ -300,7 +314,7 @@ async function fetchAllData() {
           missions_count: missionsCount,
           mood: currentMood,
           hour: new Date().getHours(),
-          user_id: userId,
+          user_id: uid,
         })
       });
       
@@ -372,8 +386,9 @@ async function fetchAllData() {
   }
 
   async function fetchOverloadDetection() {
+    if (!userId) return;
     try {
-     const response = await fetch(`${API_URL}/api/rescue/detect-overload`, {  
+      const response = await fetch(`${API_URL}/api/rescue/detect-overload`, {  
         method: "POST",   
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ user_id: userId })  
@@ -406,8 +421,7 @@ async function fetchAllData() {
   }
 
   async function saveMood(selectedMood: string) {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
+    if (!userId) return;
     
     const today = new Date().toISOString().split('T')[0];
     setMood(selectedMood);
@@ -417,7 +431,7 @@ async function fetchAllData() {
     await fetch(`${API_URL}/api/mood/save`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ mood: selectedMood, user_id: userId })  // ← user_id déjà présent ✅
+      body: JSON.stringify({ mood: selectedMood, user_id: userId })
     });
 
     window.dispatchEvent(new CustomEvent('moodChange', { detail: { mood: selectedMood } }));
