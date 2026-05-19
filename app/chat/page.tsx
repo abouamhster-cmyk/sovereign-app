@@ -14,8 +14,7 @@ import {
   FileText, Crown, ChevronDown, Sparkles, Volume2, VolumeX,
   Image as ImageIcon, Video, Music, Phone, MessageCircle, Clock, MapPin, Calendar, Mail, ListTodo
 } from "lucide-react";
-import { motion, AnimatePresence } from "framer-motion";const checkAndSendMorningReport = async () => {
-
+import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
 import { toast } from "sonner";
 import { supabase } from "@/lib/supabase";
@@ -47,21 +46,21 @@ type Message = {
 };
 
 // =====================================================
-// MODES DE CONVERSATION
+// MODES DE CONVERSATION (version raccourcie pour build)
 // =====================================================
 const modes = [
   { id: "parle-moi", name: "Parle-moi", icon: Heart, color: "text-pink-400", bg: "bg-pink-500/10", description: "Soutien émotionnel, écoute",
-    prompt: `Tu es Becks, la confidente proche de Rebecca...` },
+    prompt: `Tu es Becks, la confidente proche de Rebecca. Tu réponds avec douceur et présence.` },
   { id: "fais-le-avec-moi", name: "Fais-le avec moi", icon: Zap, color: "text-yellow-400", bg: "bg-yellow-500/10", description: "Exécution guidée étape par étape",
-    prompt: `Tu es Becks en mode exécution guidée...` },
+    prompt: `Tu es Becks en mode exécution guidée. Tu aides Rebecca à avancer étape par étape.` },
   { id: "love-fire-sport", name: "Love & Fire Sport", icon: Trophy, color: "text-emerald-400", bg: "bg-emerald-500/10", description: "Grants, DDA",
-    prompt: `Tu es Becks en mode Love & Fire Sport...` },
+    prompt: `Tu es Becks en mode Love & Fire Sport. Tu aides Rebecca sur les grants et contrats.` },
   { id: "mes-enfants", name: "Mes enfants", icon: Baby, color: "text-blue-400", bg: "bg-blue-500/10", description: "Famille",
-    prompt: `Tu es Becks en mode famille...` },
+    prompt: `Tu es Becks en mode famille. Tu aides Rebecca avec ses enfants.` },
   { id: "business-argent", name: "Business & Argent", icon: DollarSign, color: "text-emerald-400", bg: "bg-emerald-500/10", description: "Opportunités",
-    prompt: `Tu es Becks en mode Business & Argent...` },
+    prompt: `Tu es Becks en mode Business & Argent.` },
   { id: "documents", name: "Documents", icon: FileText, color: "text-orange-400", bg: "bg-orange-500/10", description: "Lecture, rédaction",
-    prompt: `Tu es Becks en mode Documents...` },
+    prompt: `Tu es Becks en mode Documents.` },
   {
     id: "sovereign-mode",
     name: "Sovereign Mode",
@@ -69,7 +68,7 @@ const modes = [
     color: "text-gold-500",
     bg: "bg-gold-500/10",
     description: "Vision, décisions, leadership",
-    prompt: `Tu es Becks en Sovereign Mode...`
+    prompt: `Tu es Becks en Sovereign Mode.`
   }
 ];
 
@@ -107,7 +106,6 @@ export default function ChatPage() {
   const inputRef = useRef<HTMLInputElement>(null);
   const { transcript, resetTranscript } = useSpeechRecognition();
 
-  // Modales
   const [showChecklistModal, setShowChecklistModal] = useState(false);
   const [currentChecklist, setCurrentChecklist] = useState<{ title: string; steps: string[] } | null>(null);
   const [showDraftModal, setShowDraftModal] = useState(false);
@@ -121,7 +119,6 @@ export default function ChatPage() {
   const [currentReplyTo, setCurrentReplyTo] = useState("");
   const [replyMessage, setReplyMessage] = useState("");
 
-  // Voice Conversation
   const { 
     isActive: isVoiceActive, 
     isListening: isVoiceListening, 
@@ -148,38 +145,31 @@ export default function ChatPage() {
 
   const { userId, loading: userIdLoading } = useUserId();
 
-  // ========== RAPPORT MATINAL (1x par jour, toutes conversations confondues) ==========
+  // ========== RAPPORT MATINAL ==========
   const [morningReportSentToday, setMorningReportSentToday] = useState(false);
 
- const checkAndSendMorningReport = async () => {
-  console.log("🔍 checkAndSendMorningReport appelé");
-  console.log("   morningReportSentToday:", morningReportSentToday);
-  console.log("   currentConversationId:", currentConversationId);
-  
-  if (!currentConversationId) return false;
-  if (morningReportSentToday) return false;
-  
-  try {
-    const response = await fetch(`${API_URL}/api/morning-greeting?user_id=${userId}`);
-    const data = await response.json();
-    console.log("   Réponse API:", data);
+  const checkAndSendMorningReport = async () => {
+    if (!currentConversationId) return false;
+    if (morningReportSentToday) return false;
     
-    if (data.success && data.message && !data.already_sent) {
-      console.log("   ✅ Ajout du rapport");
-      const reportMessage: Message = { role: "assistant", content: data.message };
-      setMessages(prev => [reportMessage, ...prev]);
-      await saveMessage(currentConversationId, "assistant", data.message);
-      setMorningReportSentToday(true);
-      return true;
-    } else if (data.already_sent) {
-      console.log("   ⏭️ Rapport déjà envoyé aujourd'hui");
-      setMorningReportSentToday(true);
+    try {
+      const response = await fetch(`${API_URL}/api/morning-greeting?user_id=${userId}`);
+      const data = await response.json();
+      
+      if (data.success && data.message && !data.already_sent) {
+        const reportMessage: Message = { role: "assistant", content: data.message };
+        setMessages(prev => [reportMessage, ...prev]);
+        await saveMessage(currentConversationId, "assistant", data.message);
+        setMorningReportSentToday(true);
+        return true;
+      } else if (data.already_sent) {
+        setMorningReportSentToday(true);
+      }
+    } catch (error) {
+      console.error("Erreur rapport matinal:", error);
     }
-  } catch (error) {
-    console.error("Erreur rapport matinal:", error);
-  }
-  return false;
-};
+    return false;
+  };
 
   // ========== EFFETS ==========
   useEffect(() => {
@@ -291,7 +281,6 @@ export default function ChatPage() {
       });
       setMessages(parsedMessages);
     } else if (messages.length === 0) {
-      // Premier chargement : essayer d'avoir le rapport matinal
       try {
         const response = await fetch(`${API_URL}/api/morning-greeting?user_id=${userId}`);
         const data = await response.json();
@@ -299,11 +288,10 @@ export default function ChatPage() {
           setMessages([{ role: "assistant", content: data.message }]);
           if (!data.already_sent) setMorningReportSentToday(true);
         } else {
-          setMessages([{ role: "assistant", content: "Coucou Rebecca 😌 Je suis là. Raconte-moi… journée douce ou journée qui t'a testée ?" }]);
+          setMessages([{ role: "assistant", content: "Coucou Rebecca 😌 Je suis là. Raconte-moi…" }]);
         }
       } catch (error) {
-        console.error("Erreur récupération message:", error);
-        setMessages([{ role: "assistant", content: "Coucou Rebecca 😌 Je suis là. Raconte-moi… journée douce ou journée qui t'a testée ?" }]);
+        setMessages([{ role: "assistant", content: "Coucou Rebecca 😌 Je suis là." }]);
       }
     }
   }
@@ -320,9 +308,8 @@ export default function ChatPage() {
       setConversations(prev => [data, ...prev]);
       setFilteredConversations(prev => [data, ...prev]);
       setCurrentConversationId(data.id);
-      const welcomeMessage = "Coucou Rebecca 😌 Je suis là. Tu viens souffler un peu ou tu as quelque chose en tête ?";
-      setMessages([{ role: "assistant", content: welcomeMessage }]);
-      await saveMessage(data.id, "assistant", welcomeMessage);
+      setMessages([{ role: "assistant", content: "Coucou Rebecca 😌 Je suis là." }]);
+      await saveMessage(data.id, "assistant", "Coucou Rebecca 😌 Je suis là.");
       if (isMobile) setIsSidebarOpen(false);
     }
   }
@@ -435,11 +422,8 @@ export default function ChatPage() {
   };
 
   const sendMessage = async () => {
-    console.log("📤 sendMessage appelé");
     if (isSending || (!input.trim() && uploadedFiles.length === 0) || isLoading || !currentConversationId) return;
     
-    // 🔥 Vérifier et envoyer le rapport matinal (1x par jour, toutes conversations)
-    console.log("📤 Appel de checkAndSendMorningReport");
     await checkAndSendMorningReport();
     
     setIsSending(true);
@@ -509,7 +493,7 @@ export default function ChatPage() {
       inputRef.current?.focus();
     } catch (error) {
       console.error("❌ Erreur:", error);
-      setMessages(prev => [...prev, { role: "assistant", content: "❌ Erreur de connexion. Vérifie que le backend est bien démarré." }]);
+      setMessages(prev => [...prev, { role: "assistant", content: "❌ Erreur de connexion." }]);
     } finally {
       setIsLoading(false);
       setIsSending(false);
@@ -629,14 +613,12 @@ export default function ChatPage() {
   // ========== RENDU ==========
   return (
     <div className="fixed inset-0 bg-midnight flex flex-col">
-      {/* HEADER */}
       <header className="sticky top-0 z-10 h-12 border-b border-white/10 flex items-center justify-between px-4 bg-midnight/90 backdrop-blur-lg shrink-0">
         <button onClick={() => setIsSidebarOpen(true)} className="p-1.5 text-gray-400 hover:text-gold-500">
           <Menu className="w-4 h-4" />
         </button>
         
         <div className="flex items-center gap-2">
-          {/* Mode mains libres */}
           <button
             onClick={() => {
               if (isVoiceActive) {
@@ -652,7 +634,6 @@ export default function ChatPage() {
                 ? "bg-emerald-500/20 text-emerald-400 ring-1 ring-emerald-500/50" 
                 : "bg-white/10 text-gray-400 hover:bg-white/20"
             }`}
-            title={isVoiceActive ? "Mode vocal activé" : "Activer le mode mains libres"}
           >
             {isVoiceActive ? (
               <div className="relative">
@@ -664,7 +645,6 @@ export default function ChatPage() {
             )}
           </button>
 
-          {/* Push-to-talk */}
           <button
             onMouseDown={triggerVoiceManual}
             onTouchStart={triggerVoiceManual}
@@ -673,7 +653,6 @@ export default function ChatPage() {
                 ? "bg-red-500 text-white animate-pulse"
                 : "bg-gold-500/20 text-gold-500 hover:bg-gold-500/30"
             }`}
-            title="Appuyer pour parler (push-to-talk)"
           >
             {isVoiceListening ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Mic className="w-3.5 h-3.5" />}
           </button>
@@ -712,7 +691,6 @@ export default function ChatPage() {
         </Link>
       </header>
 
-      {/* SIDEBAR */}
       <AnimatePresence>
         {isSidebarOpen && (
           <>
@@ -788,24 +766,12 @@ export default function ChatPage() {
         )}
       </AnimatePresence>
 
-      {/* ZONE DES MESSAGES */}
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
         {messages.map((m, i) => (
           <motion.div key={i} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
             {m.role === "user" ? (
               <div className="max-w-[85%] p-4 rounded-2xl text-sm bg-gold-500 text-midnight rounded-br-none">
-                <ReactMarkdown 
-                  components={{ 
-                    img: ({ ...props }) => <img {...props} className="rounded-xl max-w-full max-h-96 object-contain my-2 border border-white/10" loading="lazy" />, 
-                    a: ({ href, children, ...props }) => { 
-                      const isImage = href?.match(/\.(jpg|jpeg|png|gif|webp)$/i); 
-                      if (isImage) return <img src={href} alt={String(children)} className="rounded-xl max-w-full max-h-96 object-contain my-2 border border-white/10" loading="lazy" />; 
-                      return <a href={href} target="_blank" rel="noopener noreferrer" className="text-gold-500 hover:underline" {...props}>{children}</a>; 
-                    } 
-                  }}
-                >
-                  {m.content}
-                </ReactMarkdown>
+                <ReactMarkdown>{m.content}</ReactMarkdown>
                 {m.files && Array.isArray(m.files) && m.files.length > 0 && (
                   <div className="mt-3">
                     <div className="grid grid-cols-2 gap-2">
@@ -887,7 +853,6 @@ export default function ChatPage() {
         <div ref={messagesEndRef} />
       </div>
 
-      {/* INPUT AREA */}
       <div className="shrink-0 border-t border-white/10 bg-midnight/90 backdrop-blur-lg p-3">
         {(isVoiceListening || isVoiceActive) && (
           <div className="text-center text-xs text-emerald-400 animate-pulse mb-2 flex items-center justify-center gap-2">
@@ -992,7 +957,6 @@ export default function ChatPage() {
         )}
       </div>
 
-      {/* MODALES */}
       {showChecklistModal && currentChecklist && (
         <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4" onClick={() => setShowChecklistModal(false)}>
           <div className="bg-midnight border border-gold-500/30 rounded-xl max-w-md w-full p-6" onClick={(e) => e.stopPropagation()}>
