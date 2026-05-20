@@ -124,32 +124,6 @@ useEffect(() => {
   window.addEventListener('profileUpdated', handleProfileUpdate);
   return () => window.removeEventListener('profileUpdated', handleProfileUpdate);
 }, [userId]);
-
-
-// Chargement du nom utilisateur dès que userId est disponible
-useEffect(() => {
-  if (userId) {
-    console.log("🔍 Chargement du nom pour userId:", userId);
-    const loadUserName = async () => {
-      const { data: profile, error } = await supabase
-        .from("user_profile")
-        .select("preferred_name")
-        .eq("user_id", userId)
-        .maybeSingle();
-      
-      console.log("📦 Profil reçu:", profile);
-      console.log("❌ Erreur:", error);
-      
-      if (profile?.preferred_name) {
-        setUserName(profile.preferred_name);
-        console.log("✅ Nom défini:", profile.preferred_name);
-      } else {
-        console.log("⚠️ Aucun nom trouvé, garde Rebecca");
-      }
-    };
-    loadUserName();
-  }
-}, [userId]);
   
   async function fetchAllData() {
     if (!userId) return;
