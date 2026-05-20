@@ -112,6 +112,19 @@ export default function DashboardPage() {
     }
   }, [userId]);
 
+
+    // Recharger le nom quand le profil est mis à jour
+useEffect(() => {
+  const handleProfileUpdate = () => {
+    if (userId) {
+      fetchUserName();
+    }
+  };
+  
+  window.addEventListener('profileUpdated', handleProfileUpdate);
+  return () => window.removeEventListener('profileUpdated', handleProfileUpdate);
+}, [userId]);
+  
   async function fetchAllData() {
     if (!userId) return;
     setIsLoading(true);
@@ -125,19 +138,36 @@ export default function DashboardPage() {
     setIsLoading(false);
   }
 
-  async function fetchUserName() {
-    if (!userId) return;
-    
-    const { data: profile } = await supabase
-      .from("user_profile")
-      .select("preferred_name")
-      .eq("user_id", userId)
-      .single();
-    
-    if (profile?.preferred_name) {
-      setUserName(profile.preferred_name);
-    }
+async function fetchUserName() {
+  const { data: { user } } = await supabase.auth.getUser();
+  
+  if (!user) {
+    setUserName("Rebecca");
+    return;
   }
+  
+  const userId = user.id;
+  
+  // 🔥 Utiliser maybeSingle() au lieu de single() pour éviter l'erreur 406
+  const { data: profile, error } = await supabase
+    .from("user_profile")
+    .select("preferred_name")
+    .eq("user_id", userId)
+    .maybeSingle();
+  
+  if (error) {
+    console.error("Erreur chargement profil:", error);
+    setUserName("Rebecca");
+    return;
+  }
+  
+  if (profile?.preferred_name) {
+    setUserName(profile.preferred_name);
+    console.log("✅ Nom chargé:", profile.preferred_name);
+  } else {
+    setUserName("Rebecca");
+  }
+}
 
   // Suggestion prochaine action
   async function fetchNextActionSuggestion() {
