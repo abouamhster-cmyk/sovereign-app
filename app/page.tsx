@@ -148,7 +148,7 @@ async function fetchUserName() {
   
   const userId = user.id;
   
-  // 🔥 Utiliser maybeSingle() au lieu de single() pour éviter l'erreur 406
+  // Utiliser maybeSingle() au lieu de single()
   const { data: profile, error } = await supabase
     .from("user_profile")
     .select("preferred_name")
@@ -169,6 +169,13 @@ async function fetchUserName() {
   }
 }
 
+  useEffect(() => {
+  console.log("🔄 Chargement du dashboard, userId:", userId);
+  if (userId) {
+    fetchAllData();
+  }
+}, [userId]);
+  
   // Suggestion prochaine action
   async function fetchNextActionSuggestion() {
     if (!userId) return;
