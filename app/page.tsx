@@ -107,8 +107,10 @@ export default function DashboardPage() {
       setMood(savedMood);
     }
     
-    fetchAllData();
-  }, []);
+    if (userId) {
+      fetchAllData();
+    }
+  }, [userId]);
 
   async function fetchAllData() {
     if (!userId) return;
@@ -124,58 +126,46 @@ export default function DashboardPage() {
   }
 
   async function fetchUserName() {
-    const { data: { user } } = await supabase.auth.getUser();
-    
-    if (!user) {
-      setUserName("Rebecca");
-      return;
-    }
-    
-    const uid = user.id;
+    if (!userId) return;
     
     const { data: profile } = await supabase
       .from("user_profile")
       .select("preferred_name")
-      .eq("user_id", uid)
+      .eq("user_id", userId)
       .single();
     
     if (profile?.preferred_name) {
       setUserName(profile.preferred_name);
-    } else if (user.email) {
-      const name = user.email.split('@')[0];
-      setUserName(name.charAt(0).toUpperCase() + name.slice(1));
     }
   }
 
   // Suggestion prochaine action
   async function fetchNextActionSuggestion() {
+    if (!userId) return;
+    
+    const lastCompleted = localStorage.getItem("lastCompletedTask");
+    const lastArea = localStorage.getItem("lastArea");
+    
+    const { data: recentTasksData } = await supabase
+      .from("tasks")
+      .select("title")
+      .eq("user_id", userId)
+      .eq("status", "done")
+      .order("updated_at", { ascending: false })
+      .limit(3);
+    
+    const recentTasks = recentTasksData?.map(t => t.title) || [];
+    
+    const { data: missionsData } = await supabase
+      .from("missions")
+      .select("name")
+      .eq("user_id", userId)
+      .eq("status", "active")
+      .limit(3);
+    
+    const activeMissionsList = missionsData?.map(m => m.name) || [];
+    
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-      
-      const uid = user.id;
-      const lastCompleted = localStorage.getItem("lastCompletedTask");
-      const lastArea = localStorage.getItem("lastArea");
-      
-      const { data: recentTasksData } = await supabase
-        .from("tasks")
-        .select("title")
-        .eq("user_id", uid)
-        .eq("status", "done")
-        .order("updated_at", { ascending: false })
-        .limit(3);
-      
-      const recentTasks = recentTasksData?.map(t => t.title) || [];
-      
-      const { data: missionsData } = await supabase
-        .from("missions")
-        .select("name")
-        .eq("user_id", uid)
-        .eq("status", "active")
-        .limit(3);
-      
-      const activeMissionsList = missionsData?.map(m => m.name) || [];
-      
       const response = await fetch(`${API_URL}/api/suggest-next-action`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -186,7 +176,7 @@ export default function DashboardPage() {
           active_missions: activeMissionsList,
           hour: new Date().getHours(),
           last_area: lastArea,
-          user_id: uid
+          user_id: userId
         })
       });
       
@@ -274,6 +264,9 @@ export default function DashboardPage() {
             duration: 5000
           });
         }
+      } else {
+        await generateDynamicGreeting();
+        setIsLoadingMessage(false);
       }
     } catch (error) {
       console.error("Erreur dashboard:", error);
@@ -283,27 +276,25 @@ export default function DashboardPage() {
   }
 
   async function generateDynamicGreeting() {
+    if (!userId) return;
+    
+    const today = new Date().toISOString().split('T')[0];
+    
+    const [tasksRes, overdueRes, winsRes, missionsRes, moodRes] = await Promise.all([
+      supabase.from("tasks").select("*").eq("user_id", userId).eq("due_date", today).neq("status", "done"),
+      supabase.from("tasks").select("*").eq("user_id", userId).lt("due_date", today).neq("status", "done"),
+      supabase.from("wins").select("*").eq("user_id", userId).gte("date", today),
+      supabase.from("missions").select("*").eq("user_id", userId).eq("status", "active"),
+      supabase.from("mood_entries").select("mood").eq("user_id", userId).eq("date", today).maybeSingle()
+    ]);
+    
+    const tasksCount = tasksRes.data?.length || 0;
+    const overdueCount = overdueRes.data?.length || 0;
+    const winsCount = winsRes.data?.length || 0;
+    const missionsCount = missionsRes.data?.length || 0;
+    const currentMood = moodRes.data?.mood || null;
+    
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-      
-      const uid = user.id;
-      const today = new Date().toISOString().split('T')[0];
-      
-      const [tasksRes, overdueRes, winsRes, missionsRes, moodRes] = await Promise.all([
-        supabase.from("tasks").select("*").eq("user_id", uid).eq("due_date", today).neq("status", "done"),
-        supabase.from("tasks").select("*").eq("user_id", uid).lt("due_date", today).neq("status", "done"),
-        supabase.from("wins").select("*").eq("user_id", uid).gte("date", today),
-        supabase.from("missions").select("*").eq("user_id", uid).eq("status", "active"),
-        supabase.from("mood_entries").select("mood").eq("user_id", uid).eq("date", today).maybeSingle()
-      ]);
-      
-      const tasksCount = tasksRes.data?.length || 0;
-      const overdueCount = overdueRes.data?.length || 0;
-      const winsCount = winsRes.data?.length || 0;
-      const missionsCount = missionsRes.data?.length || 0;
-      const currentMood = moodRes.data?.mood || null;
-      
       const response = await fetch(`${API_URL}/api/generate-greeting`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -314,7 +305,7 @@ export default function DashboardPage() {
           missions_count: missionsCount,
           mood: currentMood,
           hour: new Date().getHours(),
-          user_id: uid,
+          user_id: userId,
         })
       });
       
@@ -362,10 +353,11 @@ export default function DashboardPage() {
   }
 
   async function fetchFarmStatus() {
+    if (!userId) return;
     try {
       const [infraResult, productionResult] = await Promise.all([
-        supabase.from("farm_infrastructure").select("*").in("status", ["in_progress", "setup"]),
-        supabase.from("farm_production_units").select("*").in("status", ["setup", "in_progress"])
+        supabase.from("farm_infrastructure").select("*").in("status", ["in_progress", "setup"]).eq("user_id", userId),
+        supabase.from("farm_production_units").select("*").in("status", ["setup", "in_progress"]).eq("user_id", userId)
       ]);
       
       const infra = infraResult.data || [];
@@ -403,12 +395,10 @@ export default function DashboardPage() {
   }
   
   async function fetchRecentMemories() {
+    if (!userId) return;
     setIsLoadingMemories(true);
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-      
-      const response = await fetch(`${API_URL}/api/memory/get?user_id=${user.id}&limit=5`);
+      const response = await fetch(`${API_URL}/api/memory/get?user_id=${userId}&limit=5`);
       const data = await response.json();
       if (data.success && data.data) {
         setRecentMemories(data.data.slice(0, 5));
@@ -574,7 +564,7 @@ export default function DashboardPage() {
             <div className="text-center py-6">
               <Target className="w-8 h-8 mx-auto mb-2 opacity-30" />
               <p className="text-sm text-gray-500">Aucune priorité pour le moment</p>
-              <button onClick={() => window.location.href = "/agenda"} className="text-xs text-gold-500 mt-2 hover:underline">
+              <button onClick={() => router.push("/agenda")} className="text-xs text-gold-500 mt-2 hover:underline">
                 + Créer une tâche
               </button>
             </div>
@@ -786,7 +776,7 @@ export default function DashboardPage() {
 
       {/* MESSAGE DE CLÔTURE DE BECKS */}
       <div className="text-center text-xs text-gray-500 italic">
-        <p>✨ "Une chose à la fois. Tu gères, Rebecca." ✨</p>
+        <p>✨ "Une chose à la fois. Tu gères." ✨</p>
       </div>
 
       {/* ========== SECTION ACCÈS RAPIDE ========== */}
