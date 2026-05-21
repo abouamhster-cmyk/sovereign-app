@@ -547,63 +547,146 @@ export default function ChatPage() {
   }
 
   // ========== ENVOI DE MESSAGE ==========
-  const sendMessage = async () => {
-    if (isSending || (!input.trim() && uploadedFiles.length === 0) || isLoading || !currentConversationId) return;
+// ========== ENVOI DE MESSAGE AVEC STREAMING ==========
+const sendMessageStreaming = async (allMessages: any[], onChunk: (chunk: string) => void): Promise<string> => {
+  const response = await fetch(`${API_URL}/chat/stream`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ messages: allMessages, user_id: userId })
+  });
+  
+  if (!response.ok) throw new Error(`Erreur ${response.status}`);
+  
+  const reader = response.body?.getReader();
+  const decoder = new TextDecoder();
+  
+  if (!reader) return "";
+  
+  let fullResponse = "";
+  
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
     
-    setIsSending(true);
-    setIsLoading(true);
+    const chunk = decoder.decode(value);
+    const lines = chunk.split("\n");
     
-    const uploadedFilesData = await uploadFilesToStorage();
-    let userMessageContent = input.trim() || "📎 Fichier(s) joint(s)";
-    const imageFiles = uploadedFilesData.filter(f => f.type?.startsWith('image/'));
-    const otherFiles = uploadedFilesData.filter(f => !f.type?.startsWith('image/'));
-    if (imageFiles.length > 0) userMessageContent += "\n\n" + imageFiles.map(f => f.url).join("\n\n");
-    if (otherFiles.length > 0) userMessageContent += "\n\n📎 Fichiers joints:\n" + otherFiles.map(f => `- **${f.name}** : ${f.url}`).join("\n");
-    
-    const userMessage: Message = { 
-      role: "user", 
-      content: userMessageContent, 
-      files: uploadedFilesData.length > 0 ? uploadedFilesData : undefined 
-    };
-    const modeConfig = modes.find(m => m.id === selectedMode);
-    const systemPrompt = modeConfig?.prompt || "Tu es Becks, l'assistante de Rebecca. Sois chaleureuse et naturelle.";
-    
-    const allMessages = [
-      { role: "system", content: systemPrompt },
-      ...messages.map(msg => ({ role: msg.role, content: msg.content })),
-      { role: "user", content: userMessageContent }
-    ];
-    
-    setMessages(prev => [...prev, userMessage]);
-    await saveMessage(currentConversationId, "user", userMessageContent, undefined, uploadedFilesData);
-    
-    setInput("");
-    setUploadedFiles([]);
-    resetTranscript();
-
-    try {
-      const response = await fetch(`${API_URL}/chat`, { 
-        method: "POST", 
-        headers: { "Content-Type": "application/json" }, 
-        body: JSON.stringify({ messages: allMessages, user_id: userId })
-      });
-      const data = await response.json();
-      const assistantContent = data.reply;
-      
-      const assistantMessage: Message = { role: "assistant", content: assistantContent };
-      setMessages(prev => [...prev, assistantMessage]);
-      await saveMessage(currentConversationId, "assistant", assistantContent);
-      setLastAssistantMessage(assistantContent);
-      
-      inputRef.current?.focus();
-    } catch (error) {
-      console.error("Erreur:", error);
-      setMessages(prev => [...prev, { role: "assistant", content: "❌ Erreur de connexion." }]);
-    } finally {
-      setIsLoading(false);
-      setIsSending(false);
+    for (const line of lines) {
+      if (line.startsWith("data: ")) {
+        try {
+          const data = JSON.parse(line.slice(6));
+          if (data.content) {
+            fullResponse += data.content;
+            onChunk(data.content);
+          }
+          if (data.done) {
+            return fullResponse;
+          }
+        } catch (e) {
+          // Ignorer les erreurs de parsing JSON
+        }
+      }
     }
+  }
+  
+  return fullResponse;
+};
+
+const sendMessage = async () => {
+  if (isSending || (!input.trim() && uploadedFiles.length === 0) || isLoading || !currentConversationId) return;
+  
+  setIsSending(true);
+  setIsLoading(true);
+  
+  const uploadedFilesData = await uploadFilesToStorage();
+  let userMessageContent = input.trim() || "📎 Fichier(s) joint(s)";
+  const imageFiles = uploadedFilesData.filter(f => f.type?.startsWith('image/'));
+  const otherFiles = uploadedFilesData.filter(f => !f.type?.startsWith('image/'));
+  if (imageFiles.length > 0) userMessageContent += "\n\n" + imageFiles.map(f => f.url).join("\n\n");
+  if (otherFiles.length > 0) userMessageContent += "\n\n📎 Fichiers joints:\n" + otherFiles.map(f => `- **${f.name}** : ${f.url}`).join("\n");
+  
+  const userMessage: Message = { 
+    role: "user", 
+    content: userMessageContent, 
+    files: uploadedFilesData.length > 0 ? uploadedFilesData : undefined 
   };
+  const modeConfig = modes.find(m => m.id === selectedMode);
+  const systemPrompt = modeConfig?.prompt || "Tu es Becks, l'assistante de Rebecca. Sois chaleureuse et naturelle.";
+  
+  const allMessages = [
+    { role: "system", content: systemPrompt },
+    ...messages.map(msg => ({ role: msg.role, content: msg.content })),
+    { role: "user", content: userMessageContent }
+  ];
+  
+  // Ajouter le message utilisateur immédiatement
+  setMessages(prev => [...prev, userMessage]);
+  await saveMessage(currentConversationId, "user", userMessageContent, undefined, uploadedFilesData);
+  
+  // Ajouter un message assistant temporaire qui sera mis à jour en streaming
+  const tempAssistantId = `temp-${Date.now()}`;
+  setMessages(prev => [...prev, { id: tempAssistantId, role: "assistant", content: "" }]);
+  
+  setInput("");
+  setUploadedFiles([]);
+  resetTranscript();
+
+  try {
+    let assistantContent = "";
+    let firstChunkReceived = false;
+    
+    await sendMessageStreaming(allMessages, (chunk) => {
+      assistantContent += chunk;
+      firstChunkReceived = true;
+      
+      // Mettre à jour le message assistant en temps réel
+      setMessages(prev => {
+        const newMessages = [...prev];
+        const lastMsg = newMessages[newMessages.length - 1];
+        if (lastMsg && lastMsg.id === tempAssistantId) {
+          lastMsg.content = assistantContent;
+          return [...newMessages];
+        }
+        return newMessages;
+      });
+    });
+    
+    // Supprimer le message temporaire et ajouter le message final avec l'ID correct
+    setMessages(prev => {
+      const filtered = prev.filter(m => m.id !== tempAssistantId);
+      const finalMessage = { id: Date.now().toString(), role: "assistant" as const, content: assistantContent };
+      return [...filtered, finalMessage];
+    });
+    
+    await saveMessage(currentConversationId, "assistant", assistantContent);
+    setLastAssistantMessage(assistantContent);
+    
+    // Vérifier s'il faut créer un plan d'exécution
+    if (selectedMode === "fais-le-avec-moi" && userMessageContent.length > 10 && userMessageContent.length < 500) {
+      const hasPlan = await generateExecutionPlan(userMessageContent);
+      if (hasPlan && executionPlan) {
+        const guideMessageContent = `🎯 Je vais t'aider à avancer étape par étape.\n\n**Plan : ${executionPlan.plan.title}**\n*Durée estimée : ${executionPlan.plan.estimated_duration}*\n\nCoche les étapes au fur et à mesure. Une chose à la fois. ✨`;
+        const guideMessage: Message = { role: "assistant", content: guideMessageContent };
+        setMessages(prev => [...prev, guideMessage]);
+        await saveMessage(currentConversationId, "assistant", guideMessageContent);
+      }
+    }
+    
+    await fetchConversations();
+    inputRef.current?.focus();
+    
+  } catch (error) {
+    console.error("❌ Erreur streaming:", error);
+    // Remplacer le message temporaire par un message d'erreur
+    setMessages(prev => {
+      const filtered = prev.filter(m => m.id !== tempAssistantId);
+      return [...filtered, { role: "assistant", content: "❌ Erreur de connexion. Réessaie." }];
+    });
+  } finally {
+    setIsLoading(false);
+    setIsSending(false);
+  }
+};
 
   // ========== FONCTIONS VOCALES (appui long uniquement) ==========
   const startVoiceRecording = () => {
