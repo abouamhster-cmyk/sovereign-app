@@ -14,34 +14,18 @@ export const VOICE_OPTIONS = [
 export function useTextToSpeech() {
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [isAudioUnlocked, setIsAudioUnlocked] = useState(false);
   const [selectedVoice, setSelectedVoice] = useState(VOICE_OPTIONS[0].id);
   const currentAudioRef = useRef<HTMLAudioElement | null>(null);
 
-  // 🔓 DÉBLOQUER L'AUDIO AU PREMIER CLIC UTILISATEUR
+  // Nettoyage à la destruction
   useEffect(() => {
-    const unlockAudio = () => {
-      if (!isAudioUnlocked) {
-        // Créer un contexte audio silencieux pour débloquer
-        try {
-          const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
-          if (audioContext.state === 'suspended') {
-            audioContext.resume();
-          }
-          console.log("🔓 Audio débloqué");
-        } catch (e) {}
-        setIsAudioUnlocked(true);
+    return () => {
+      if (currentAudioRef.current) {
+        currentAudioRef.current.pause();
+        currentAudioRef.current = null;
       }
     };
-    
-    window.addEventListener('click', unlockAudio);
-    window.addEventListener('touchstart', unlockAudio);
-    
-    return () => {
-      window.removeEventListener('click', unlockAudio);
-      window.removeEventListener('touchstart', unlockAudio);
-    };
-  }, [isAudioUnlocked]);
+  }, []);
 
   const stop = useCallback(() => {
     if (currentAudioRef.current) {
@@ -51,21 +35,14 @@ export function useTextToSpeech() {
     setIsSpeaking(false);
   }, []);
 
-  useEffect(() => {
-    return () => {
-      if (currentAudioRef.current) {
-        currentAudioRef.current.pause();
-      }
-    };
-  }, []);
-
   const speak = useCallback(async (text: string, onEnd?: () => void) => {
     if (!text || text.length === 0) return;
     
+    // Nettoyer le texte des balises et émojis
     const cleanText = text
       .replace(/\[ACTION:[^\]]*\]/g, '')
       .replace(/\*\*/g, '')
-      .replace(/✅|🎯|✨|⚠️|📋|🎉/g, '')
+      .replace(/[✅🎯✨⚠️📋🎉⭐🌟🔥💪👑💖]/g, '')
       .trim();
     
     if (cleanText.length === 0) return;
@@ -95,8 +72,8 @@ export function useTextToSpeech() {
           currentAudioRef.current = null;
           onEnd?.();
         };
-        audio.onerror = (err) => {
-          console.error("Erreur lecture audio:", err);
+        audio.onerror = () => {
+          console.error("Erreur lecture audio, fallback Web Speech");
           fallbackSpeak(cleanText, onEnd);
           setIsLoading(false);
         };
@@ -104,8 +81,7 @@ export function useTextToSpeech() {
         // Forcer la lecture
         const playPromise = audio.play();
         if (playPromise !== undefined) {
-          playPromise.catch((error) => {
-            console.error("Lecture bloquée, fallback:", error);
+          playPromise.catch(() => {
             fallbackSpeak(cleanText, onEnd);
           });
         }
@@ -121,20 +97,28 @@ export function useTextToSpeech() {
   }, [selectedVoice, stop]);
 
   const fallbackSpeak = useCallback((text: string, onEnd?: () => void) => {
-    if (!window.speechSynthesis) return;
+    if (!window.speechSynthesis) {
+      console.warn("Web Speech API non supportée");
+      return;
+    }
     
+    // Annuler toute parole en cours
     window.speechSynthesis.cancel();
+    
     const utterance = new SpeechSynthesisUtterance(text);
     utterance.lang = 'fr-FR';
     utterance.rate = 0.9;
-    utterance.pitch = 1.1;
+    utterance.pitch = 1.0;
     
     utterance.onstart = () => setIsSpeaking(true);
     utterance.onend = () => {
       setIsSpeaking(false);
       onEnd?.();
     };
-    utterance.onerror = () => setIsSpeaking(false);
+    utterance.onerror = () => {
+      setIsSpeaking(false);
+      console.error("Erreur Web Speech");
+    };
     
     window.speechSynthesis.speak(utterance);
   }, []);
