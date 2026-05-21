@@ -378,6 +378,8 @@ export default function ChatPage() {
   const inputRef = useRef<HTMLInputElement>(null);
   const { transcript, resetTranscript } = useSpeechRecognition();
 
+  const [lastEmailsCache, setLastEmailsCache] = useState<any[]>([]);
+
   const [showChecklistModal, setShowChecklistModal] = useState(false);
   const [currentChecklist, setCurrentChecklist] = useState<{ title: string; steps: string[] } | null>(null);
   const [showDraftModal, setShowDraftModal] = useState(false);
@@ -659,12 +661,15 @@ const checkEmailInterception = async (message: string): Promise<string | null> =
       const result = await response.json();
       
       if (result.success && result.messages && result.messages.length > 0) {
+        // Stocker les emails en cache
+        setLastEmailsCache(result.messages);
+        
         let emailList = `📧 **${result.count} email(s) non lu(s) :**\n\n`;
         result.messages.forEach((email: any, idx: number) => {
           const fromClean = email.from?.split('<')[0].trim() || 'Inconnu';
-          emailList += `${idx + 1}. **${fromClean}**\n   📧 ${email.subject}\n`;
+          emailList += `${idx + 1}. **${fromClean}**\n   📧 ${email.subject}\n   📅 ${new Date().toLocaleDateString('fr-FR')}\n\n`;
         });
-        emailList += `\n💡 Dis-moi 'ouvre l'email [numéro]' pour voir le contenu`;
+        emailList += `💡 Dis-moi 'ouvre l'email [numéro]' pour voir le contenu détaillé`;
         return emailList;
       } else {
         return "📧 Aucun email non lu dans ta boîte.";
@@ -678,13 +683,37 @@ const checkEmailInterception = async (message: string): Promise<string | null> =
   return null;
 };
 
+  const openEmailInterception = async (message: string): Promise<string | null> => {
+  const match = message.match(/ouvre l'?email\s+(\d+)/i);
+  if (match && lastEmailsCache.length > 0) {
+    const emailNum = parseInt(match[1]);
+    if (emailNum >= 1 && emailNum <= lastEmailsCache.length) {
+      const email = lastEmailsCache[emailNum - 1];
+      return `📧 **Email #${emailNum}**\n\n**De :** ${email.from}\n**Objet :** ${email.subject}\n**Date :** ${email.date}\n\n**Contenu :**\n${email.snippet || '[Contenu non disponible]'}`;
+    }
+    return `❌ Email #${emailNum} non trouvé. Il y a ${lastEmailsCache.length} email(s) dans la liste.`;
+  }
+  return null;
+};
+
+  
 const sendMessage = async () => {
   if (isSending || (!input.trim() && uploadedFiles.length === 0) || isLoading || !currentConversationId) return;
   
-  // INTERCEPTION DES EMAILS AVANT ENVOI
+  // Vérifier d'abord si c'est une demande d'ouverture d'email
+  const openEmailResponse = await openEmailInterception(input);
+  if (openEmailResponse) {
+    const emailMessage: Message = { role: "assistant", content: openEmailResponse };
+    setMessages(prev => [...prev, emailMessage]);
+    await saveMessage(currentConversationId, "assistant", openEmailResponse);
+    setInput("");
+    setUploadedFiles([]);
+    return;
+  }
+  
+  // Vérifier si c'est une demande d'affichage d'emails
   const emailResponse = await checkEmailInterception(input);
   if (emailResponse) {
-    // Ajouter la réponse directement dans le chat
     const emailMessage: Message = { role: "assistant", content: emailResponse };
     setMessages(prev => [...prev, emailMessage]);
     await saveMessage(currentConversationId, "assistant", emailResponse);
