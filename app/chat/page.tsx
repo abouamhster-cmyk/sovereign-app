@@ -41,16 +41,32 @@ type Message = {
   created_at?: string;
 };
 
+
 // =====================================================
-// MODES DE CONVERSATION
+// MODES DE CONVERSATION (version raccourcie pour build)
 // =====================================================
 const modes = [
-  { id: "parle-moi", name: "Parle-moi", icon: Heart, color: "text-pink-400", bg: "bg-pink-500/10", description: "Soutien émotionnel" },
-  { id: "fais-le-avec-moi", name: "Fais-le avec moi", icon: Zap, color: "text-yellow-400", bg: "bg-yellow-500/10", description: "Exécution guidée" },
-  { id: "love-fire-sport", name: "Love & Fire", icon: Trophy, color: "text-emerald-400", bg: "bg-emerald-500/10", description: "Grants & DDA" },
-  { id: "business-argent", name: "Business & Argent", icon: DollarSign, color: "text-emerald-400", bg: "bg-emerald-500/10", description: "Opportunités" },
-  { id: "documents", name: "Documents", icon: FileText, color: "text-orange-400", bg: "bg-orange-500/10", description: "Lecture, rédaction" },
-  { id: "sovereign-mode", name: "Sovereign Mode", icon: Crown, color: "text-gold-500", bg: "bg-gold-500/10", description: "Vision & leadership" },
+  { id: "parle-moi", name: "Parle-moi", icon: Heart, color: "text-pink-400", bg: "bg-pink-500/10", description: "Soutien émotionnel, écoute",
+    prompt: `Tu es Becks, la confidente proche de Rebecca. Tu réponds avec douceur et présence.` },
+  { id: "fais-le-avec-moi", name: "Fais-le avec moi", icon: Zap, color: "text-yellow-400", bg: "bg-yellow-500/10", description: "Exécution guidée étape par étape",
+    prompt: `Tu es Becks en mode exécution guidée. Tu aides Rebecca à avancer étape par étape.` },
+  { id: "love-fire-sport", name: "Love & Fire Sport", icon: Trophy, color: "text-emerald-400", bg: "bg-emerald-500/10", description: "Grants, DDA",
+    prompt: `Tu es Becks en mode Love & Fire Sport. Tu aides Rebecca sur les grants et contrats.` },
+  { id: "mes-enfants", name: "Mes enfants", icon: Baby, color: "text-blue-400", bg: "bg-blue-500/10", description: "Famille",
+    prompt: `Tu es Becks en mode famille. Tu aides Rebecca avec ses enfants.` },
+  { id: "business-argent", name: "Business & Argent", icon: DollarSign, color: "text-emerald-400", bg: "bg-emerald-500/10", description: "Opportunités",
+    prompt: `Tu es Becks en mode Business & Argent.` },
+  { id: "documents", name: "Documents", icon: FileText, color: "text-orange-400", bg: "bg-orange-500/10", description: "Lecture, rédaction",
+    prompt: `Tu es Becks en mode Documents.` },
+  {
+    id: "sovereign-mode",
+    name: "Sovereign Mode",
+    icon: Crown,
+    color: "text-gold-500",
+    bg: "bg-gold-500/10",
+    description: "Vision, décisions, leadership",
+    prompt: `Tu es Becks en Sovereign Mode.`
+  }
 ];
 
 // =====================================================
