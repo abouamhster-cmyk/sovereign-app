@@ -2,7 +2,6 @@
 import "regenerator-runtime/runtime";
 import { useState, useRef, useEffect } from "react";
 import { useUserId } from "@/hooks/useUserId";
-import { useVoiceConversation } from "@/hooks/useVoiceConversation";
 import { ExecutionGuide } from "@/components/ExecutionGuide";
 import { ReadyToSend } from "@/components/ReadyToSend";
 import { DecisionMode } from "@/components/DecisionMode";
