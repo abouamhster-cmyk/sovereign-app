@@ -587,7 +587,7 @@ const generateExecutionPlan = async (query: string): Promise<boolean> => {
 
 // ========== ENVOI DE MESSAGE AVEC STREAMING ==========
 const sendMessageStreaming = async (allMessages: any[], onChunk: (chunk: string) => void): Promise<string> => {
-  const response = await fetch(`${API_URL}/chat/stream`, {
+  const response = await fetch(`${API_URL}/chat/stream-simple`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ messages: allMessages, user_id: userId })
