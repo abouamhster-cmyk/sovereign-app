@@ -601,27 +601,37 @@ const sendMessageStreaming = async (allMessages: any[], onChunk: (chunk: string)
   if (!reader) return "";
   
   let fullResponse = "";
+  let buffer = "";
   
   while (true) {
     const { done, value } = await reader.read();
     if (done) break;
     
-    const chunk = decoder.decode(value);
-    const lines = chunk.split("\n");
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split("\n");
+    buffer = lines.pop() || "";
     
     for (const line of lines) {
-      if (line.startsWith("data: ")) {
+      const trimmedLine = line.trim();
+      if (trimmedLine.startsWith("data: ")) {
+        const jsonStr = trimmedLine.slice(6).trim();
+        
+        if (!jsonStr) continue;
+        
         try {
-          const data = JSON.parse(line.slice(6));
-          if (data.content) {
+          const data = JSON.parse(jsonStr);
+          if (data.content && typeof data.content === 'string') {
             fullResponse += data.content;
             onChunk(data.content);
           }
           if (data.done) {
             return fullResponse;
           }
-        } catch (e) {
-          // Ignorer les erreurs de parsing JSON
+          if (data.error) {
+            throw new Error(data.error);
+          }
+        } catch (parseError) {
+          console.warn("Erreur parsing JSON:", jsonStr.substring(0, 100));
         }
       }
     }
@@ -629,7 +639,6 @@ const sendMessageStreaming = async (allMessages: any[], onChunk: (chunk: string)
   
   return fullResponse;
 };
-
 const sendMessage = async () => {
   if (isSending || (!input.trim() && uploadedFiles.length === 0) || isLoading || !currentConversationId) return;
   
