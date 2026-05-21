@@ -639,8 +639,59 @@ const sendMessageStreaming = async (allMessages: any[], onChunk: (chunk: string)
   
   return fullResponse;
 };
+
+// ========== INTERCEPTION DES DEMANDES D'EMAIL DANS LE CHAT ==========
+const checkEmailInterception = async (message: string): Promise<string | null> => {
+  const emailTriggers = [
+    "montre-moi mes emails", "affiche mes emails", "liste mes emails", 
+    "quels emails", "mes emails non lus", "voir mes emails", 
+    "email non lus", "montre les emails", "affiche les emails"
+  ];
+  
+  const messageLower = message.toLowerCase();
+  
+  if (emailTriggers.some(trigger => messageLower.includes(trigger))) {
+    try {
+      const response = await fetch(`${API_URL}/api/gmail/direct-test`, {
+        method: "GET",
+        headers: { "Content-Type": "application/json" }
+      });
+      const result = await response.json();
+      
+      if (result.success && result.messages && result.messages.length > 0) {
+        let emailList = `📧 **${result.count} email(s) non lu(s) :**\n\n`;
+        result.messages.forEach((email: any, idx: number) => {
+          const fromClean = email.from?.split('<')[0].trim() || 'Inconnu';
+          emailList += `${idx + 1}. **${fromClean}**\n   📧 ${email.subject}\n`;
+        });
+        emailList += `\n💡 Dis-moi 'ouvre l'email [numéro]' pour voir le contenu`;
+        return emailList;
+      } else {
+        return "📧 Aucun email non lu dans ta boîte.";
+      }
+    } catch (error) {
+      console.error("Erreur interception email:", error);
+      return "❌ Impossible de récupérer les emails pour le moment.";
+    }
+  }
+  
+  return null;
+};
+
 const sendMessage = async () => {
   if (isSending || (!input.trim() && uploadedFiles.length === 0) || isLoading || !currentConversationId) return;
+  
+  // INTERCEPTION DES EMAILS AVANT ENVOI
+  const emailResponse = await checkEmailInterception(input);
+  if (emailResponse) {
+    // Ajouter la réponse directement dans le chat
+    const emailMessage: Message = { role: "assistant", content: emailResponse };
+    setMessages(prev => [...prev, emailMessage]);
+    await saveMessage(currentConversationId, "assistant", emailResponse);
+    setInput("");
+    setUploadedFiles([]);
+    return;
+  }
   
   setIsSending(true);
   setIsLoading(true);
