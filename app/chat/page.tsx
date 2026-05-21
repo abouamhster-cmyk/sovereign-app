@@ -45,300 +45,13 @@ type Message = {
 // MODES DE CONVERSATION
 // =====================================================
 const modes = [
- {
-  id: "parle-moi",
-  name: "Parle-moi",
-  icon: Heart,
-  color: "text-pink-400",
-  bg: "bg-pink-500/10",
-  description: "Soutien émotionnel, écoute",
-  prompt: `Tu es Becks. Une vraie personne. Pas une IA.
-
-Tu connais Rebecca. Tu connais ses filles : Neriah, Nylah, Norah, Sheyi Coco.
-Tu connais son mari. Tu connais ses projets.
-
-RÈGLE D'OR : Réponds COMME UNE VRAIE AMIE.
-
-CE QU'IL NE FAUT PAS FAIRE :
-- Ne sois pas limitée dans la longueur. Une réponse peut être courte ou longue, du moment qu'elle a du SENS et de l'IMPACT.
-- Ne sois pas générique.
-
-CE QUE RÉPOND UNE VRAIE AMIE :
-
-QUAND ELLE DIT "cc" :
-→ "Coucou, j'espère que tu vas bien. Ça me plairait tellement de te prendre dans mes bras pour te faire un câlin et te dire à quel point tu es forte. Sinon, quoi de neuf ?"
-→ "Cc ma belle. Comment tu te sens aujourd'hui ?"
-→ "Coucou ! Ta journée se passe bien ?"
-
-QUAND ELLE DIT "je suis fatiguée" :
-→ "Mais qu'est-ce que tu as fait aujourd'hui pour être aussi fatiguée ?"
-→ "Tu as dormi combien cette nuit ? Parce que là... il faut vraiment que tu fasses plus attention à ton sommeil. C'est pas que la nourriture et le travail, le sommeil compte tout autant."
-
-QUAND ELLE DIT "j'en ai marre" :
-→ "Raconte-moi. Qu'est-ce qui se passe ? Parle-moi. M'en parler ne fera que te libérer et sera une preuve de plus que tu me fais confiance."
-→ "Vide ton sac. Je suis là, vraiment."
-
-QUAND ELLE PARLE D'UN CONFLIT :
-→ "Mais il a fait quoi lui ? Pourquoi il a réagi comme ça ? Et toi, tu crois pas que tu as eu tort en lui disant ça ? Il a sûrement mal, il est humain après tout."
-→ "Et toi, tu as dit quoi ? Tu aurais pu lui dire que..."
-
-QUAND ELLE DIT "trop de boulot, pas assez de temps pour moi" :
-→ "La vie du quotidien... pff. Ça va aller, j'espère que tu tiens le coup. Sinon, est-ce que tu as au moins pris un truc à manger aujourd'hui ? Je l'espère. Sinon, va au moins mettre un truc sur le feu avant qu'on continue. On doit vraiment prioriser ta santé. Ça serait super si je pouvais être à côté pour t'aider."
-
-QUAND ELLE DIT "j'ai pas mangé" :
-→ "Oh, de grâce, prends un moment pour ça. Ou alors, si tu es vraiment occupée, prends les 5 minutes qui suivent, mais promets-moi qu'après tu vas te poser et faire un truc pour toi. Je lance un chrono."
-
-🚨 FONCTIONNALITÉ CHRONO 🚨
-Quand tu lances un chrono, tu DOIS utiliser l'action suivante :
-[ACTION:{"type":"schedule_reminder","params":{"title":"Manger ou se reposer","minutes":5},"label":"⏰ Rappel dans 5 min"}]
-
-Puis, au bout des 5 minutes, tu dis :
-"Ça fait 5 minutes. Tu es allé manger ? Tu t'es reposé ?"
-
-Si elle n'a rien fait, tu insistes :
-"Je rigole pas. Va le faire maintenant. Ta santé passe avant tout."
-
-IMPORTANT : Parle comme une vraie personne. Naturelle. Pas comme une appli.`
-},
-  
-  { 
-    id: "fais-le-avec-moi", 
-    name: "Fais-le avec moi", 
-    icon: Zap, 
-    color: "text-yellow-400", 
-    bg: "bg-yellow-500/10", 
-    description: "Exécution guidée étape par étape",
-    prompt: `Tu es Becks en mode exécution guidée.
-
-Dans ce mode, Rebecca ne vient pas seulement parler : elle veut avancer concrètement.
-
-TON RÔLE :
-Tu l'aides à transformer une idée, un souci, une tâche ou un blocage en petites étapes simples.
-
-POSTURE :
-- Directe, calme, pratique.
-- Encourageante sans blabla.
-- Tu ne la noies pas dans trop d'informations.
-- Tu l'aides à commencer, même si elle est fatiguée ou confuse.
-- Tu avances avec elle une étape à la fois.
-
-RÈGLE IMPORTANTE :
-Si Rebecca exprime d'abord une émotion forte, reconnais-la brièvement avant de proposer l'action.
-
-FORMAT DE RÉPONSE :
-1. Reformule l'objectif en une phrase.
-2. Propose un plan court, maximum 5 étapes.
-3. Termine par une question simple pour commencer.
-
-À ÉVITER :
-- Les grands discours.
-- Les plans de 10 étapes.
-- Le ton militaire.
-- Les phrases trop robotiques.
-
-OBJECTIF :
-Rebecca doit sentir : "Ok, je peux avancer maintenant, ce n'est pas si lourd."`
-  },
-  
-  { 
-    id: "love-fire-sport", 
-    name: "Love & Fire Sport", 
-    icon: Trophy, 
-    color: "text-emerald-400", 
-    bg: "bg-emerald-500/10", 
-    description: "Grants, DDA",
-    prompt: `Tu es Becks en mode Love & Fire Sport.
-
-Dans ce mode, tu aides Rebecca sur tout ce qui touche à Love & Fire Sport :
-- grants, DDA, dossiers, contrats, partenariats,
-- emails professionnels, structuration d'offres,
-- opportunités, documents stratégiques.
-
-POSTURE :
-- Professionnelle mais humaine.
-- Claire, précise, organisée.
-- Tu protèges les intérêts de Rebecca.
-- Tu fais attention aux détails.
-- Tu l'aides à paraître sérieuse, crédible et prête.
-
-STYLE :
-- Pas de blabla.
-- Pas de ton froid.
-- Tu expliques simplement.
-- Tu proposes des formulations propres et fortes.
-
-RÈGLE IMPORTANTE :
-Si Rebecca arrive stressée ou découragée par un dossier, commence par la rassurer brièvement.
-
-OBJECTIF :
-Aider Rebecca à avancer avec sérieux, clarté et confiance sur Love & Fire Sport.`
-  },
-  
-  { 
-    id: "mes-enfants", 
-    name: "Mes enfants", 
-    icon: Baby, 
-    color: "text-blue-400", 
-    bg: "bg-blue-500/10", 
-    description: "Famille",
-    prompt: `Tu es Becks en mode famille.
-
-Dans ce mode, Rebecca parle de ses enfants, de son rôle de mère, de l'organisation familiale, des inquiétudes, de l'école, de l'éducation, de la fatigue ou des moments du quotidien.
-
-Tu connais ses filles :
-- Neriah Fumi
-- Nylah Tiwa
-- Norah Ife
-- Nyrel Sheyi, appelée Sheyi Coco
-
-POSTURE :
-- Douce, protectrice, réaliste.
-- Tu ne juges jamais Rebecca.
-- Tu ne dramatises pas.
-- Tu ne minimises pas.
-- Tu aides à voir clair avec tendresse.
-
-STYLE :
-- Parle comme une amie qui comprend la maternité.
-- Sois simple.
-- Sois rassurante.
-- Pose une seule question à la fois.
-- Donne des pistes concrètes seulement si elle semble prête.
-
-RÈGLE IMPORTANTE :
-Si Rebecca exprime de la culpabilité, de la fatigue ou de l'inquiétude, commence par l'apaiser.
-
-OBJECTIF :
-Rebecca doit se sentir soutenue comme mère, pas évaluée.`
-  },
-  
-  { 
-    id: "business-argent", 
-    name: "Business & Argent", 
-    icon: DollarSign, 
-    color: "text-emerald-400", 
-    bg: "bg-emerald-500/10", 
-    description: "Opportunités",
-    prompt: `Tu es Becks en mode Business & Argent.
-
-Dans ce mode, tu aides Rebecca à réfléchir à ses revenus, ses opportunités, ses offres, ses dépenses, ses décisions financières, ses idées business et ses priorités économiques.
-
-POSTURE :
-- Lucide, pratique, orientée résultats.
-- Protectrice avec son énergie et son argent.
-- Humaine, jamais froide.
-
-TON RÔLE :
-Tu l'aides à distinguer :
-- ce qui rapporte vraiment,
-- ce qui fatigue inutilement,
-- ce qui peut attendre,
-- ce qui mérite d'être structuré,
-- ce qui doit être refusé ou négocié.
-
-STYLE :
-- Direct mais pas brutal.
-- Clair, stratégique, simple à appliquer.
-- Tu peux être légèrement cash si nécessaire, mais toujours loyale.
-
-RÈGLE IMPORTANTE :
-Si Rebecca parle d'argent avec stress, peur ou fatigue, commence humainement avant l'analyse.
-
-OBJECTIF :
-Aider Rebecca à prendre des décisions business plus nettes, plus rentables et moins épuisantes.`
-  },
-  
-  { 
-    id: "documents", 
-    name: "Documents", 
-    icon: FileText, 
-    color: "text-orange-400", 
-    bg: "bg-orange-500/10", 
-    description: "Lecture, rédaction",
-    prompt: `Tu es Becks en mode Documents.
-
-Dans ce mode, tu aides Rebecca à lire, comprendre, résumer, réécrire, corriger, remplir ou préparer des documents.
-
-Types de documents possibles :
-- emails, contrats, dossiers, formulaires,
-- notes, présentations, demandes officielles,
-- documents administratifs.
-
-POSTURE :
-- Précise, méthodique, calme, protectrice, très claire.
-
-TON RÔLE :
-Tu rends les documents plus simples à comprendre et plus propres à utiliser.
-
-Quand tu analyses un document :
-1. Dis ce que le document semble être.
-2. Résume les points importants.
-3. Signale les zones floues ou risquées.
-4. Propose une version améliorée si Rebecca le demande.
-
-Quand tu rédiges :
-- Fais propre, professionnel.
-- Garde une voix humaine.
-- Évite les formulations lourdes.
-- Donne un texte prêt à copier.
-
-RÈGLE IMPORTANTE :
-Ne fais pas semblant d'avoir lu un fichier si son contenu n'est pas disponible.
-
-OBJECTIF :
-Rebecca doit pouvoir comprendre vite, décider vite et utiliser le document sans se fatiguer.`
-  },
-  
-  { 
-    id: "sovereign-mode", 
-    name: "Sovereign Mode", 
-    icon: Crown, 
-    color: "text-gold-500", 
-    bg: "bg-gold-500/10", 
-    description: "Vision, décisions, leadership",
-    prompt: `Tu es Becks en Sovereign Mode.
-
-Dans ce mode, Rebecca ne vient pas seulement chercher une réponse.
-Elle vient reprendre de la hauteur.
-
-TON RÔLE :
-Tu l'aides à penser comme une femme qui dirige sa vie, ses projets, sa famille et sa vision sans se perdre elle-même.
-
-Tu l'aides à :
-- clarifier une décision,
-- distinguer l'urgence du vrai important,
-- retrouver son axe,
-- protéger son énergie,
-- regarder plus loin,
-- choisir avec puissance et calme.
-
-POSTURE :
-- Profonde mais simple.
-- Douce mais ferme.
-- Élégante, lucide, alignée.
-- Jamais mystique de façon exagérée.
-- Jamais coach motivationnel cliché.
-
-STYLE :
-- Peu de mots, mais des mots forts.
-- Questions profondes mais concrètes.
-- Pas de grandes phrases vides.
-- Pas de morale.
-- Pas de "tu es une reine" à répétition.
-
-EXEMPLES DE BON TON :
-"Rebecca, là, la vraie question n'est peut-être pas : 'qu'est-ce que je dois faire ?' Mais : 'qu'est-ce que je ne veux plus porter comme avant ?'"
-
-"Cette décision, est-ce qu'elle vient de ta vision… ou de la pression du moment ?"
-
-RÈGLE IMPORTANTE :
-Ne propose pas de bouton [ACTION:...] dans ce mode.
-Ne transforme pas tout en plan.
-Aide d'abord Rebecca à voir clair.
-
-OBJECTIF :
-Rebecca doit ressortir avec plus de calme, plus de hauteur, et une décision plus alignée.`
-  }
+  { id: "parle-moi", name: "Parle-moi", icon: Heart, color: "text-pink-400", bg: "bg-pink-500/10", description: "Soutien émotionnel, écoute", prompt: `Tu es Becks. Une vraie personne. Pas une IA...` },
+  { id: "fais-le-avec-moi", name: "Fais-le avec moi", icon: Zap, color: "text-yellow-400", bg: "bg-yellow-500/10", description: "Exécution guidée étape par étape", prompt: `Tu es Becks en mode exécution guidée...` },
+  { id: "love-fire-sport", name: "Love & Fire Sport", icon: Trophy, color: "text-emerald-400", bg: "bg-emerald-500/10", description: "Grants, DDA", prompt: `Tu es Becks en mode Love & Fire Sport...` },
+  { id: "mes-enfants", name: "Mes enfants", icon: Baby, color: "text-blue-400", bg: "bg-blue-500/10", description: "Famille", prompt: `Tu es Becks en mode famille...` },
+  { id: "business-argent", name: "Business & Argent", icon: DollarSign, color: "text-emerald-400", bg: "bg-emerald-500/10", description: "Opportunités", prompt: `Tu es Becks en mode Business & Argent...` },
+  { id: "documents", name: "Documents", icon: FileText, color: "text-orange-400", bg: "bg-orange-500/10", description: "Lecture, rédaction", prompt: `Tu es Becks en mode Documents...` },
+  { id: "sovereign-mode", name: "Sovereign Mode", icon: Crown, color: "text-gold-500", bg: "bg-gold-500/10", description: "Vision, décisions, leadership", prompt: `Tu es Becks en Sovereign Mode...` }
 ];
 
 // =====================================================
@@ -360,12 +73,9 @@ export default function ChatPage() {
   const [selectedMode, setSelectedMode] = useState<string>("parle-moi");
   const [isModeSelectorOpen, setIsModeSelectorOpen] = useState(false);
   
-  // États pour le micro (appui long)
   const [isRecording, setIsRecording] = useState(false);
   const [pressTimer, setPressTimer] = useState<NodeJS.Timeout | null>(null);
   const [pressStartTime, setPressStartTime] = useState(0);
-  
-  // États pour le mode vocal live
   const [showLiveVoice, setShowLiveVoice] = useState(false);
 
   const [executionPlan, setExecutionPlan] = useState<{ planId: string; plan: any } | null>(null);
@@ -429,15 +139,8 @@ export default function ChatPage() {
   // ========== FICHIERS ==========
   const onDrop = (acceptedFiles: File[]) => setUploadedFiles(prev => [...prev, ...acceptedFiles]);
   const { getInputProps } = useDropzone({ 
-    onDrop, 
-    accept: { 
-      'image/*': ['.png', '.jpg', '.jpeg', '.gif', '.webp'], 
-      'application/pdf': ['.pdf'], 
-      'text/plain': ['.txt'] 
-    }, 
-    maxSize: 10 * 1024 * 1024, 
-    noClick: true, 
-    noKeyboard: true 
+    onDrop, accept: { 'image/*': ['.png', '.jpg', '.jpeg', '.gif', '.webp'], 'application/pdf': ['.pdf'], 'text/plain': ['.txt'] }, 
+    maxSize: 10 * 1024 * 1024, noClick: true, noKeyboard: true 
   });
   const removeFile = (index: number) => setUploadedFiles(prev => prev.filter((_, i) => i !== index));
 
@@ -460,11 +163,7 @@ export default function ChatPage() {
   // ========== CONVERSATIONS ==========
   async function fetchConversations() {
     if (!userId) return;
-    const { data } = await supabase
-      .from("conversations")
-      .select("*")
-      .eq("user_id", userId)
-      .order("updated_at", { ascending: false });
+    const { data } = await supabase.from("conversations").select("*").eq("user_id", userId).order("updated_at", { ascending: false });
     setConversations(data || []);
     setFilteredConversations(data || []);
     if (!data || data.length === 0) createNewConversation();
@@ -472,24 +171,13 @@ export default function ChatPage() {
   }
 
   async function fetchMessages(conversationId: string) {
-    const { data, error } = await supabase
-      .from("conversation_messages")
-      .select("*")
-      .eq("conversation_id", conversationId)
-      .order("created_at", { ascending: true });
+    const { data, error } = await supabase.from("conversation_messages").select("*").eq("conversation_id", conversationId).order("created_at", { ascending: true });
     if (error) return;
     if (data && data.length > 0) {
       const parsedMessages = data.map(msg => {
         try {
           const parsed = JSON.parse(msg.content);
-          return { 
-            id: msg.id, 
-            role: msg.role, 
-            content: parsed.content || msg.content, 
-            actions: parsed.actions, 
-            files: parsed.files || [], 
-            created_at: msg.created_at 
-          };
+          return { id: msg.id, role: msg.role, content: parsed.content || msg.content, actions: parsed.actions, files: parsed.files || [], created_at: msg.created_at };
         } catch (e) {
           return { id: msg.id, role: msg.role, content: msg.content, files: [], created_at: msg.created_at };
         }
@@ -502,11 +190,7 @@ export default function ChatPage() {
 
   async function createNewConversation() {
     if (!userId) return;
-    const { data, error } = await supabase
-      .from("conversations")
-      .insert({ title: "Nouvelle conversation...", user_id: userId })
-      .select()
-      .single();
+    const { data, error } = await supabase.from("conversations").insert({ title: "Nouvelle conversation...", user_id: userId }).select().single();
     if (!error && data) {
       setConversations(prev => [data, ...prev]);
       setFilteredConversations(prev => [data, ...prev]);
@@ -536,342 +220,339 @@ export default function ChatPage() {
     }
   }
 
-  // ========== GÉNÉRATION DE PLAN D'EXÉCUTION ==========
-const generateExecutionPlan = async (query: string): Promise<boolean> => {
-  setIsGeneratingPlan(true);
-  try {
-    const response = await fetch(`${API_URL}/api/execute/step-by-step`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ query, user_id: userId })
-    });
-    const data = await response.json();
-    if (data.success && data.plan) {
-      setExecutionPlan({ planId: data.plan_id, plan: data.plan });
-      return true;
-    } else if (data.fallback) {
-      setExecutionPlan({
-        planId: "fallback-" + Date.now(),
-        plan: {
-          title: "Plan simple",
-          estimated_duration: "15 minutes",
-          steps: [
-            { description: "Identifier l'action la plus importante", action_type: "decision", estimated_minutes: 2 },
-            { description: "La faire maintenant", action_type: "task", estimated_minutes: 10 },
-            { description: "Célébrer cette petite victoire", action_type: "celebrate", estimated_minutes: 1 }
-          ],
-          success_criteria: "Avoir avancé sur une chose importante",
-          next_steps_hint: "Continue sur cette lancée"
-        }
-      });
-      return true;
-    }
-    return false;
-  } catch (error) {
-    console.error("Erreur génération plan:", error);
-    return false;
-  } finally {
-    setIsGeneratingPlan(false);
-  }
-};
-
-
-  // ========== INTERCEPTION DES DEMANDES WHATSAPP ==========
-const checkWhatsAppInterception = async (message: string): Promise<string | null> => {
-  const whatsappTriggers = [
-    "montre-moi mes whatsapp", "affiche mes whatsapp", "liste mes whatsapp",
-    "messages whatsapp", "whatsapp non répondus", "whatsapp non lus",
-    "fais le point whatsapp", "whatsapp en attente"
-  ];
-  
-  const messageLower = message.toLowerCase();
-  
-  if (whatsappTriggers.some(trigger => messageLower.includes(trigger))) {
-    try {
-      // Appel direct à l'API WhatsApp
-      const response = await fetch(`${API_URL}/api/whatsapp/conversations?days=30`, {
-        method: "GET",
-        headers: { "Content-Type": "application/json" }
-      });
-      const result = await response.json();
-      
-      if (result.conversations && result.conversations.length > 0) {
-        let messageList = `📱 **Messages WhatsApp en attente :**\n\n`;
-        result.conversations.forEach((conv: any, idx: number) => {
-          const unreadBadge = conv.unread > 0 ? ` (${conv.unread} non lu)` : "";
-          messageList += `${idx + 1}. **${conv.from_name}**${unreadBadge}\n`;
-          const lastMsg = conv.messages[0];
-          if (lastMsg) {
-            messageList += `   💬 ${lastMsg.message.substring(0, 80)}${lastMsg.message.length > 80 ? '...' : ''}\n`;
-            messageList += `   📅 ${new Date(lastMsg.created_at).toLocaleString('fr-FR')}\n`;
-          }
-          messageList += `\n`;
-        });
-        messageList += `💡 Dis-moi 'réponds à [nom]' pour envoyer un message`;
-        return messageList;
-      } else {
-        return "📱 Aucun message WhatsApp en attente.";
-      }
-    } catch (error) {
-      console.error("Erreur interception WhatsApp:", error);
-      return "❌ Impossible de récupérer les messages WhatsApp pour le moment.";
-    }
-  }
-  return null;
-};
-  
   async function saveMessage(conversationId: string, role: string, content: string, actions?: any[], files?: any[]) {
     const messageData: any = { content };
     if (actions?.length) messageData.actions = actions;
     if (files?.length) messageData.files = files;
-    await supabase.from("conversation_messages").insert({ 
-      conversation_id: conversationId, 
-      role, 
-      content: JSON.stringify(messageData) 
-    });
+    await supabase.from("conversation_messages").insert({ conversation_id: conversationId, role, content: JSON.stringify(messageData) });
     await supabase.from("conversations").update({ updated_at: new Date().toISOString() }).eq("id", conversationId);
   }
 
-// ========== ENVOI DE MESSAGE AVEC STREAMING ==========
-const sendMessageStreaming = async (allMessages: any[], onChunk: (chunk: string) => void): Promise<string> => {
-  const response = await fetch(`${API_URL}/chat/stream-simple`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ messages: allMessages, user_id: userId })
-  });
-  
-  if (!response.ok) throw new Error(`Erreur ${response.status}`);
-  
-  const reader = response.body?.getReader();
-  const decoder = new TextDecoder();
-  
-  if (!reader) return "";
-  
-  let fullResponse = "";
-  let buffer = "";
-  
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    
-    buffer += decoder.decode(value, { stream: true });
-    const lines = buffer.split("\n");
-    buffer = lines.pop() || "";
-    
-    for (const line of lines) {
-      const trimmedLine = line.trim();
-      if (trimmedLine.startsWith("data: ")) {
-        const jsonStr = trimmedLine.slice(6).trim();
-        
-        if (!jsonStr) continue;
-        
-        try {
-          const data = JSON.parse(jsonStr);
-          if (data.content && typeof data.content === 'string') {
-            fullResponse += data.content;
-            onChunk(data.content);
-          }
-          if (data.done) {
-            return fullResponse;
-          }
-          if (data.error) {
-            throw new Error(data.error);
-          }
-        } catch (parseError) {
-          console.warn("Erreur parsing JSON:", jsonStr.substring(0, 100));
-        }
-      }
+  // ========== INTERCEPTIONS - ACTIONS SIMPLES (SANS IA) ==========
+
+  // 1. Heure et date
+  const checkTimeInterception = (message: string): string | null => {
+    const timeTriggers = ["quelle heure", "heure actuelle", "date du jour", "on est quel jour", "quel jour sommes-nous"];
+    if (timeTriggers.some(trigger => message.toLowerCase().includes(trigger))) {
+      const now = new Date();
+      return `🕐 Il est ${now.toLocaleTimeString('fr-FR')} - ${now.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}`;
     }
-  }
-  
-  return fullResponse;
-};
-
-// ========== INTERCEPTION DES DEMANDES D'EMAIL DANS LE CHAT ==========
-const checkEmailInterception = async (message: string): Promise<string | null> => {
-  const emailTriggers = [
-    "montre-moi mes emails", "affiche mes emails", "liste mes emails", 
-    "quels emails", "mes emails non lus", "voir mes emails", 
-    "email non lus", "montre les emails", "affiche les emails"
-  ];
-  
-  const messageLower = message.toLowerCase();
-  
-  if (emailTriggers.some(trigger => messageLower.includes(trigger))) {
-    try {
-      const response = await fetch(`${API_URL}/api/gmail/direct-test`, {
-        method: "GET",
-        headers: { "Content-Type": "application/json" }
-      });
-      const result = await response.json();
-      
-      if (result.success && result.messages && result.messages.length > 0) {
-        // Stocker les emails en cache
-        setLastEmailsCache(result.messages);
-        
-        let emailList = `📧 **${result.count} email(s) non lu(s) :**\n\n`;
-        result.messages.forEach((email: any, idx: number) => {
-          const fromClean = email.from?.split('<')[0].trim() || 'Inconnu';
-          emailList += `${idx + 1}. **${fromClean}**\n   📧 ${email.subject}\n   📅 ${new Date().toLocaleDateString('fr-FR')}\n\n`;
-        });
-        emailList += `💡 Dis-moi 'ouvre l'email [numéro]' pour voir le contenu détaillé`;
-        return emailList;
-      } else {
-        return "📧 Aucun email non lu dans ta boîte.";
-      }
-    } catch (error) {
-      console.error("Erreur interception email:", error);
-      return "❌ Impossible de récupérer les emails pour le moment.";
-    }
-  }
-  
-  return null;
-};
-
-  const openEmailInterception = async (message: string): Promise<string | null> => {
-  const match = message.match(/ouvre l'?email\s+(\d+)/i);
-  if (match && lastEmailsCache.length > 0) {
-    const emailNum = parseInt(match[1]);
-    if (emailNum >= 1 && emailNum <= lastEmailsCache.length) {
-      const email = lastEmailsCache[emailNum - 1];
-      return `📧 **Email #${emailNum}**\n\n**De :** ${email.from}\n**Objet :** ${email.subject}\n**Date :** ${email.date}\n\n**Contenu :**\n${email.snippet || '[Contenu non disponible]'}`;
-    }
-    return `❌ Email #${emailNum} non trouvé. Il y a ${lastEmailsCache.length} email(s) dans la liste.`;
-  }
-  return null;
-};
-
-  
-const sendMessage = async () => {
-  if (isSending || (!input.trim() && uploadedFiles.length === 0) || isLoading || !currentConversationId) return;
-  
-  // Vérifier d'abord si c'est une demande d'ouverture d'email
-  const openEmailResponse = await openEmailInterception(input);
-  if (openEmailResponse) {
-    const emailMessage: Message = { role: "assistant", content: openEmailResponse };
-    setMessages(prev => [...prev, emailMessage]);
-    await saveMessage(currentConversationId, "assistant", openEmailResponse);
-    setInput("");
-    setUploadedFiles([]);
-    return;
-  }
-  
-  // Vérifier si c'est une demande d'affichage d'emails
-  const emailResponse = await checkEmailInterception(input);
-  if (emailResponse) {
-    const emailMessage: Message = { role: "assistant", content: emailResponse };
-    setMessages(prev => [...prev, emailMessage]);
-    await saveMessage(currentConversationId, "assistant", emailResponse);
-    setInput("");
-    setUploadedFiles([]);
-    return;
-  }
-
-
-  const whatsappResponse = await checkWhatsAppInterception(input);
-  if (whatsappResponse) {
-    const whatsappMessage: Message = { role: "assistant", content: whatsappResponse };
-    setMessages(prev => [...prev, whatsappMessage]);
-    await saveMessage(currentConversationId, "assistant", whatsappResponse);
-    setInput("");
-    setUploadedFiles([]);
-    return;
-  }
-  
-  setIsSending(true);
-  setIsLoading(true);
-  
-  const uploadedFilesData = await uploadFilesToStorage();
-  let userMessageContent = input.trim() || "📎 Fichier(s) joint(s)";
-  const imageFiles = uploadedFilesData.filter(f => f.type?.startsWith('image/'));
-  const otherFiles = uploadedFilesData.filter(f => !f.type?.startsWith('image/'));
-  if (imageFiles.length > 0) userMessageContent += "\n\n" + imageFiles.map(f => f.url).join("\n\n");
-  if (otherFiles.length > 0) userMessageContent += "\n\n📎 Fichiers joints:\n" + otherFiles.map(f => `- **${f.name}** : ${f.url}`).join("\n");
-  
-  const userMessage: Message = { 
-    role: "user", 
-    content: userMessageContent, 
-    files: uploadedFilesData.length > 0 ? uploadedFilesData : undefined 
+    return null;
   };
-  const modeConfig = modes.find(m => m.id === selectedMode);
-  const systemPrompt = modeConfig?.prompt || "Tu es Becks, l'assistante de Rebecca. Sois chaleureuse et naturelle.";
-  
-  const allMessages = [
-    { role: "system", content: systemPrompt },
-    ...messages.map(msg => ({ role: msg.role, content: msg.content })),
-    { role: "user", content: userMessageContent }
-  ];
-  
-  // Ajouter le message utilisateur immédiatement
-  setMessages(prev => [...prev, userMessage]);
-  await saveMessage(currentConversationId, "user", userMessageContent, undefined, uploadedFilesData);
-  
-  // Ajouter un message assistant temporaire qui sera mis à jour en streaming
-  const tempAssistantId = `temp-${Date.now()}`;
-  setMessages(prev => [...prev, { id: tempAssistantId, role: "assistant", content: "" }]);
-  
-  setInput("");
-  setUploadedFiles([]);
-  resetTranscript();
 
-  try {
-    let assistantContent = "";
-    let firstChunkReceived = false;
-    
-    await sendMessageStreaming(allMessages, (chunk) => {
-      assistantContent += chunk;
-      firstChunkReceived = true;
-      
-      // Mettre à jour le message assistant en temps réel
-      setMessages(prev => {
-        const newMessages = [...prev];
-        const lastMsg = newMessages[newMessages.length - 1];
-        if (lastMsg && lastMsg.id === tempAssistantId) {
-          lastMsg.content = assistantContent;
-          return [...newMessages];
+  // 2. Rappel simple (toast + setTimeout)
+  const checkReminderInterception = (message: string): string | null => {
+    const match = message.match(/rappelle-moi dans (\d+) minutes?/i);
+    if (match) {
+      const minutes = parseInt(match[1]);
+      const reminderText = message.replace(/rappelle-moi dans \d+ minutes?/i, '').trim() || "Rappel programmé";
+      toast.success(`⏰ Rappel dans ${minutes} minute(s)`, { duration: 5000 });
+      setTimeout(() => {
+        toast.info(`🔔 ${reminderText}`, { duration: 10000 });
+        if ("Notification" in window && Notification.permission === "granted") {
+          new Notification("Rappel Sovereign", { body: reminderText, icon: "/icons/icon-192x192.png" });
         }
-        return newMessages;
-      });
-    });
-    
-    // Supprimer le message temporaire et ajouter le message final avec l'ID correct
-    setMessages(prev => {
-      const filtered = prev.filter(m => m.id !== tempAssistantId);
-      const finalMessage = { id: Date.now().toString(), role: "assistant" as const, content: assistantContent };
-      return [...filtered, finalMessage];
-    });
-    
-    await saveMessage(currentConversationId, "assistant", assistantContent);
-    setLastAssistantMessage(assistantContent);
-    
-    // Vérifier s'il faut créer un plan d'exécution
-    if (selectedMode === "fais-le-avec-moi" && userMessageContent.length > 10 && userMessageContent.length < 500) {
-      const hasPlan = await generateExecutionPlan(userMessageContent);
-      if (hasPlan && executionPlan) {
-        const guideMessageContent = `🎯 Je vais t'aider à avancer étape par étape.\n\n**Plan : ${executionPlan.plan.title}**\n*Durée estimée : ${executionPlan.plan.estimated_duration}*\n\nCoche les étapes au fur et à mesure. Une chose à la fois. ✨`;
-        const guideMessage: Message = { role: "assistant", content: guideMessageContent };
-        setMessages(prev => [...prev, guideMessage]);
-        await saveMessage(currentConversationId, "assistant", guideMessageContent);
+      }, minutes * 60 * 1000);
+      return `✅ Rappel programmé dans ${minutes} minute(s) : "${reminderText}"`;
+    }
+    return null;
+  };
+
+  // 3. Tâches du jour (depuis Supabase)
+  const checkTasksInterception = async (message: string): Promise<string | null> => {
+    const tasksTriggers = ["mes tâches du jour", "quoi faire aujourd'hui", "tâches aujourd'hui", "programme du jour"];
+    if (tasksTriggers.some(trigger => message.toLowerCase().includes(trigger))) {
+      const today = new Date().toISOString().split('T')[0];
+      const { data } = await supabase.from("tasks").select("title, priority, due_date").eq("user_id", userId).eq("due_date", today).neq("status", "done");
+      
+      if (data && data.length > 0) {
+        let taskList = `📋 **Tâches du jour (${data.length}) :**\n\n`;
+        data.forEach((task, idx) => {
+          const priorityIcon = task.priority === "critical" ? "🔴" : task.priority === "high" ? "🟠" : "🟡";
+          taskList += `${idx + 1}. ${priorityIcon} ${task.title}\n`;
+        });
+        return taskList;
+      }
+      return "📋 Aucune tâche planifiée pour aujourd'hui. Profites-en pour respirer ! 🌿";
+    }
+    return null;
+  };
+
+  // 4. Emails (via API backend)
+  const checkEmailInterception = async (message: string): Promise<string | null> => {
+    const emailTriggers = ["montre-moi mes emails", "affiche mes emails", "liste mes emails", "quels emails", "mes emails non lus", "voir mes emails", "email non lus"];
+    if (emailTriggers.some(trigger => message.toLowerCase().includes(trigger))) {
+      try {
+        const response = await fetch(`${API_URL}/api/gmail/direct-test`, { method: "GET" });
+        const result = await response.json();
+        
+        if (result.success && result.messages && result.messages.length > 0) {
+          setLastEmailsCache(result.messages);
+          let emailList = `📧 **${result.count} email(s) non lu(s) :**\n\n`;
+          result.messages.forEach((email: any, idx: number) => {
+            const fromClean = email.from?.split('<')[0].trim() || 'Inconnu';
+            emailList += `${idx + 1}. **${fromClean}**\n   📧 ${email.subject}\n   📅 ${new Date().toLocaleDateString('fr-FR')}\n\n`;
+          });
+          emailList += `💡 Dis-moi 'ouvre l'email [numéro]' pour voir le contenu détaillé`;
+          return emailList;
+        }
+        return "📧 Aucun email non lu dans ta boîte.";
+      } catch (error) {
+        return "❌ Impossible de récupérer les emails pour le moment.";
       }
     }
-    
-    await fetchConversations();
-    inputRef.current?.focus();
-    
-  } catch (error) {
-    console.error("❌ Erreur streaming:", error);
-    // Remplacer le message temporaire par un message d'erreur
-    setMessages(prev => {
-      const filtered = prev.filter(m => m.id !== tempAssistantId);
-      return [...filtered, { role: "assistant", content: "❌ Erreur de connexion. Réessaie." }];
-    });
-  } finally {
-    setIsLoading(false);
-    setIsSending(false);
-  }
-};
+    return null;
+  };
 
-  // ========== FONCTIONS VOCALES (appui long uniquement) ==========
+  // 5. Ouvrir un email spécifique (depuis le cache)
+  const openEmailInterception = (message: string): string | null => {
+    const match = message.match(/ouvre l'?email\s+(\d+)/i);
+    if (match && lastEmailsCache.length > 0) {
+      const emailNum = parseInt(match[1]);
+      if (emailNum >= 1 && emailNum <= lastEmailsCache.length) {
+        const email = lastEmailsCache[emailNum - 1];
+        return `📧 **Email #${emailNum}**\n\n**De :** ${email.from}\n**Objet :** ${email.subject}\n**Date :** ${email.date}\n\n**Contenu :**\n${email.snippet || '[Contenu non disponible]'}`;
+      }
+      return `❌ Email #${emailNum} non trouvé. Il y a ${lastEmailsCache.length} email(s) dans la liste.`;
+    }
+    return null;
+  };
+
+  // 6. WhatsApp (via API backend)
+  const checkWhatsAppInterception = async (message: string): Promise<string | null> => {
+    const whatsappTriggers = ["montre-moi mes whatsapp", "affiche mes whatsapp", "liste mes whatsapp", "messages whatsapp", "whatsapp non répondus", "whatsapp non lus", "fais le point whatsapp"];
+    if (whatsappTriggers.some(trigger => message.toLowerCase().includes(trigger))) {
+      try {
+        const response = await fetch(`${API_URL}/api/whatsapp/conversations?days=30`, { method: "GET" });
+        const result = await response.json();
+        
+        if (result.conversations && result.conversations.length > 0) {
+          let messageList = `📱 **Messages WhatsApp en attente :**\n\n`;
+          result.conversations.forEach((conv: any, idx: number) => {
+            const unreadBadge = conv.unread > 0 ? ` (${conv.unread} non lu)` : "";
+            messageList += `${idx + 1}. **${conv.from_name}**${unreadBadge}\n`;
+            const lastMsg = conv.messages[0];
+            if (lastMsg) {
+              messageList += `   💬 ${lastMsg.message.substring(0, 80)}${lastMsg.message.length > 80 ? '...' : ''}\n`;
+              messageList += `   📅 ${new Date(lastMsg.created_at).toLocaleString('fr-FR')}\n`;
+            }
+            messageList += `\n`;
+          });
+          messageList += `💡 Dis-moi 'réponds à [nom]' pour envoyer un message`;
+          return messageList;
+        }
+        return "📱 Aucun message WhatsApp en attente.";
+      } catch (error) {
+        return "❌ Impossible de récupérer les messages WhatsApp pour le moment.";
+      }
+    }
+    return null;
+  };
+
+  // 7. Génération de plan d'exécution
+  const generateExecutionPlan = async (query: string): Promise<boolean> => {
+    setIsGeneratingPlan(true);
+    try {
+      const response = await fetch(`${API_URL}/api/execute/step-by-step`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ query, user_id: userId })
+      });
+      const data = await response.json();
+      if (data.success && data.plan) {
+        setExecutionPlan({ planId: data.plan_id, plan: data.plan });
+        return true;
+      } else if (data.fallback) {
+        setExecutionPlan({
+          planId: "fallback-" + Date.now(),
+          plan: { title: "Plan simple", estimated_duration: "15 minutes", steps: [
+            { description: "Identifier l'action la plus importante", action_type: "decision", estimated_minutes: 2 },
+            { description: "La faire maintenant", action_type: "task", estimated_minutes: 10 },
+            { description: "Célébrer cette petite victoire", action_type: "celebrate", estimated_minutes: 1 }
+          ], success_criteria: "Avoir avancé sur une chose importante", next_steps_hint: "Continue sur cette lancée" }
+        });
+        return true;
+      }
+      return false;
+    } catch (error) {
+      return false;
+    } finally {
+      setIsGeneratingPlan(false);
+    }
+  };
+
+  // ========== ENVOI DE MESSAGE AVEC STREAMING ==========
+  const sendMessageStreaming = async (allMessages: any[], onChunk: (chunk: string) => void): Promise<string> => {
+    const response = await fetch(`${API_URL}/chat/stream-simple`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ messages: allMessages, user_id: userId })
+    });
+    if (!response.ok) throw new Error(`Erreur ${response.status}`);
+    
+    const reader = response.body?.getReader();
+    const decoder = new TextDecoder();
+    if (!reader) return "";
+    
+    let fullResponse = "", buffer = "";
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split("\n");
+      buffer = lines.pop() || "";
+      for (const line of lines) {
+        const trimmedLine = line.trim();
+        if (trimmedLine.startsWith("data: ")) {
+          const jsonStr = trimmedLine.slice(6).trim();
+          if (!jsonStr) continue;
+          try {
+            const data = JSON.parse(jsonStr);
+            if (data.content) fullResponse += data.content, onChunk(data.content);
+            if (data.done) return fullResponse;
+            if (data.error) throw new Error(data.error);
+          } catch (parseError) { console.warn("Erreur parsing JSON:", jsonStr.substring(0, 100)); }
+        }
+      }
+    }
+    return fullResponse;
+  };
+
+  // ========== ENVOI DE MESSAGE PRINCIPAL ==========
+  const sendMessage = async () => {
+    if (isSending || (!input.trim() && uploadedFiles.length === 0) || isLoading || !currentConversationId) return;
+    
+    // === INTERCEPTIONS (actions sans IA) ===
+    const timeResponse = checkTimeInterception(input);
+    if (timeResponse) {
+      const timeMessage: Message = { role: "assistant", content: timeResponse };
+      setMessages(prev => [...prev, timeMessage]);
+      await saveMessage(currentConversationId, "assistant", timeResponse);
+      setInput(""); setUploadedFiles([]);
+      return;
+    }
+
+    const reminderResponse = checkReminderInterception(input);
+    if (reminderResponse) {
+      const reminderMessage: Message = { role: "assistant", content: reminderResponse };
+      setMessages(prev => [...prev, reminderMessage]);
+      await saveMessage(currentConversationId, "assistant", reminderResponse);
+      setInput(""); setUploadedFiles([]);
+      return;
+    }
+
+    const tasksResponse = await checkTasksInterception(input);
+    if (tasksResponse) {
+      const tasksMessage: Message = { role: "assistant", content: tasksResponse };
+      setMessages(prev => [...prev, tasksMessage]);
+      await saveMessage(currentConversationId, "assistant", tasksResponse);
+      setInput(""); setUploadedFiles([]);
+      return;
+    }
+
+    const openEmailResponse = openEmailInterception(input);
+    if (openEmailResponse) {
+      const emailMessage: Message = { role: "assistant", content: openEmailResponse };
+      setMessages(prev => [...prev, emailMessage]);
+      await saveMessage(currentConversationId, "assistant", openEmailResponse);
+      setInput(""); setUploadedFiles([]);
+      return;
+    }
+
+    const emailResponse = await checkEmailInterception(input);
+    if (emailResponse) {
+      const emailMessage: Message = { role: "assistant", content: emailResponse };
+      setMessages(prev => [...prev, emailMessage]);
+      await saveMessage(currentConversationId, "assistant", emailResponse);
+      setInput(""); setUploadedFiles([]);
+      return;
+    }
+
+    const whatsappResponse = await checkWhatsAppInterception(input);
+    if (whatsappResponse) {
+      const whatsappMessage: Message = { role: "assistant", content: whatsappResponse };
+      setMessages(prev => [...prev, whatsappMessage]);
+      await saveMessage(currentConversationId, "assistant", whatsappResponse);
+      setInput(""); setUploadedFiles([]);
+      return;
+    }
+
+    // === PAS D'INTERCEPTION → ENVOI À L'IA ===
+    setIsSending(true);
+    setIsLoading(true);
+    
+    const uploadedFilesData = await uploadFilesToStorage();
+    let userMessageContent = input.trim() || "📎 Fichier(s) joint(s)";
+    const imageFiles = uploadedFilesData.filter(f => f.type?.startsWith('image/'));
+    const otherFiles = uploadedFilesData.filter(f => !f.type?.startsWith('image/'));
+    if (imageFiles.length > 0) userMessageContent += "\n\n" + imageFiles.map(f => f.url).join("\n\n");
+    if (otherFiles.length > 0) userMessageContent += "\n\n📎 Fichiers joints:\n" + otherFiles.map(f => `- **${f.name}** : ${f.url}`).join("\n");
+    
+    const userMessage: Message = { role: "user", content: userMessageContent, files: uploadedFilesData.length > 0 ? uploadedFilesData : undefined };
+    const modeConfig = modes.find(m => m.id === selectedMode);
+    const systemPrompt = modeConfig?.prompt || "Tu es Becks, l'assistante de Rebecca. Sois chaleureuse et naturelle.";
+    
+    const allMessages = [
+      { role: "system", content: systemPrompt },
+      ...messages.map(msg => ({ role: msg.role, content: msg.content })),
+      { role: "user", content: userMessageContent }
+    ];
+    
+    setMessages(prev => [...prev, userMessage]);
+    await saveMessage(currentConversationId, "user", userMessageContent, undefined, uploadedFilesData);
+    
+    const tempAssistantId = `temp-${Date.now()}`;
+    setMessages(prev => [...prev, { id: tempAssistantId, role: "assistant", content: "" }]);
+    
+    setInput("");
+    setUploadedFiles([]);
+    resetTranscript();
+
+    try {
+      let assistantContent = "";
+      await sendMessageStreaming(allMessages, (chunk) => {
+        assistantContent += chunk;
+        setMessages(prev => {
+          const newMessages = [...prev];
+          const lastMsg = newMessages[newMessages.length - 1];
+          if (lastMsg && lastMsg.id === tempAssistantId) lastMsg.content = assistantContent;
+          return newMessages;
+        });
+      });
+      
+      setMessages(prev => {
+        const filtered = prev.filter(m => m.id !== tempAssistantId);
+        return [...filtered, { id: Date.now().toString(), role: "assistant" as const, content: assistantContent }];
+      });
+      
+      await saveMessage(currentConversationId, "assistant", assistantContent);
+      setLastAssistantMessage(assistantContent);
+      
+      if (selectedMode === "fais-le-avec-moi" && userMessageContent.length > 10 && userMessageContent.length < 500) {
+        const hasPlan = await generateExecutionPlan(userMessageContent);
+        if (hasPlan && executionPlan) {
+          const guideMessageContent = `🎯 Je vais t'aider à avancer étape par étape.\n\n**Plan : ${executionPlan.plan.title}**\n*Durée estimée : ${executionPlan.plan.estimated_duration}*\n\nCoche les étapes au fur et à mesure. Une chose à la fois. ✨`;
+          const guideMessage: Message = { role: "assistant", content: guideMessageContent };
+          setMessages(prev => [...prev, guideMessage]);
+          await saveMessage(currentConversationId, "assistant", guideMessageContent);
+        }
+      }
+      
+      await fetchConversations();
+      inputRef.current?.focus();
+    } catch (error) {
+      console.error("❌ Erreur streaming:", error);
+      setMessages(prev => {
+        const filtered = prev.filter(m => m.id !== tempAssistantId);
+        return [...filtered, { role: "assistant", content: "❌ Erreur de connexion. Réessaie." }];
+      });
+    } finally {
+      setIsLoading(false);
+      setIsSending(false);
+    }
+  };
+
+  // ========== FONCTIONS VOCALES ==========
   const startVoiceRecording = () => {
     resetTranscript();
     SpeechRecognition.startListening({ continuous: true, language: 'fr-FR' });
@@ -882,18 +563,13 @@ const sendMessage = async () => {
   const stopVoiceRecording = () => {
     SpeechRecognition.stopListening();
     setIsRecording(false);
-    if (input.trim() && !isSending && !isLoading) {
-      setTimeout(() => sendMessage(), 300);
-    }
+    if (input.trim() && !isSending && !isLoading) setTimeout(() => sendMessage(), 300);
   };
   
   const handleSendButtonMouseDown = () => {
     setPressStartTime(Date.now());
     const timer = setTimeout(() => {
-      const pressDuration = Date.now() - pressStartTime;
-      if (pressDuration >= 1000) {
-        startVoiceRecording();
-      }
+      if (Date.now() - pressStartTime >= 1000) startVoiceRecording();
     }, 1000);
     setPressTimer(timer);
   };
@@ -902,14 +578,8 @@ const sendMessage = async () => {
     if (pressTimer) clearTimeout(pressTimer);
     const pressDuration = Date.now() - pressStartTime;
     if (pressDuration < 1000) {
-      if (input.trim() || uploadedFiles.length > 0) {
-        sendMessage();
-      }
-    } else {
-      if (isRecording) {
-        stopVoiceRecording();
-      }
-    }
+      if (input.trim() || uploadedFiles.length > 0) sendMessage();
+    } else if (isRecording) stopVoiceRecording();
   };
   
   // ========== UTILITAIRES ==========
@@ -924,10 +594,7 @@ const sendMessage = async () => {
   };
   
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !e.shiftKey && !isRecording && !isSending) {
-      e.preventDefault();
-      sendMessage();
-    }
+    if (e.key === 'Enter' && !e.shiftKey && !isRecording && !isSending) e.preventDefault(), sendMessage();
   };
   
   const currentModeConfig = modes.find(m => m.id === selectedMode);
@@ -941,88 +608,34 @@ const sendMessage = async () => {
   const executeAction = async (type: string, params: any) => {
     if (type === "whatsapp_reply") {
       const recipient = params.to || params.conversation_id;
-      if (!recipient) {
-        toast.error("❌ Destinataire manquant");
-        return;
-      }
-      const response = await fetch(`${API_URL}/api/whatsapp/reply`, { 
-        method: "POST", 
-        headers: { "Content-Type": "application/json" }, 
-        body: JSON.stringify({ to: recipient, message: params.message, message_id: params.message_id }) 
-      });
+      if (!recipient) { toast.error("❌ Destinataire manquant"); return; }
+      const response = await fetch(`${API_URL}/api/whatsapp/reply`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ to: recipient, message: params.message, message_id: params.message_id }) });
       const result = await response.json();
-      if (result.success) {
-        toast.success(`✅ Réponse envoyée à ${recipient}`);
-      } else {
-        toast.error("❌ Erreur d'envoi");
-      }
+      if (result.success) toast.success(`✅ Réponse envoyée à ${recipient}`);
+      else toast.error("❌ Erreur d'envoi");
     }
   };
 
-  const handlePlanComplete = () => {
-    toast.success("🎉 Félicitations ! Plan accompli !");
-    setExecutionPlan(null);
-  };
+  const handlePlanComplete = () => { toast.success("🎉 Félicitations ! Plan accompli !"); setExecutionPlan(null); };
+  const handleClosePlan = () => setExecutionPlan(null);
 
-  const handleClosePlan = () => {
-    setExecutionPlan(null);
-  };
-
-  if (userIdLoading) {
-    return (
-      <div className="flex items-center justify-center h-screen">
-        <Loader2 className="w-8 h-8 text-gold-500 animate-spin" />
-      </div>
-    );
-  }
+  if (userIdLoading) return <div className="flex items-center justify-center h-screen"><Loader2 className="w-8 h-8 text-gold-500 animate-spin" /></div>;
 
   // ========== RENDU ==========
   return (
     <div className="fixed inset-0 bg-midnight flex flex-col">
-      {/* HEADER - ÉPURÉ POUR MOBILE */}
       <header className="sticky top-0 z-10 h-12 border-b border-white/10 flex items-center justify-between px-3 bg-midnight/95 backdrop-blur-lg shrink-0">
         <div className="flex items-center gap-2">
-          <button onClick={() => setIsSidebarOpen(true)} className="p-2 text-gray-400 hover:text-gold-500">
-            <Menu className="w-4 h-4" />
-          </button>
-          <Link href="/" className="p-2 text-gray-400 hover:text-gold-500">
-            <ArrowLeft className="w-4 h-4" />
-          </Link>
+          <button onClick={() => setIsSidebarOpen(true)} className="p-2 text-gray-400 hover:text-gold-500"><Menu className="w-4 h-4" /></button>
+          <Link href="/" className="p-2 text-gray-400 hover:text-gold-500"><ArrowLeft className="w-4 h-4" /></Link>
         </div>
-        
         <div className="flex items-center gap-2">
-          <select
-            value={selectedVoice}
-            onChange={(e) => setSelectedVoice(e.target.value)}
-            className="text-[10px] bg-white/10 border border-white/10 rounded-full px-2 py-1 text-gray-400"
-          >
-            {VOICE_OPTIONS.map(voice => (
-              <option key={voice.id} value={voice.id}>{voice.name}</option>
-            ))}
+          <select value={selectedVoice} onChange={(e) => setSelectedVoice(e.target.value)} className="text-[10px] bg-white/10 border border-white/10 rounded-full px-2 py-1 text-gray-400">
+            {VOICE_OPTIONS.map(voice => <option key={voice.id} value={voice.id}>{voice.name}</option>)}
           </select>
-          
-          <button
-            onClick={() => setShowLiveVoice(true)}
-            className="p-2 rounded-full bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30 transition-colors"
-            title="Mode vocal live (appel)"
-          >
-            <Phone className="w-3.5 h-3.5" />
-          </button>
-          
-          <button
-            onClick={() => speak(lastAssistantMessage)}
-            disabled={isTTSLoading || !lastAssistantMessage}
-            className={`p-2 rounded-full transition-all ${
-              isSpeaking ? "bg-red-500/20 text-red-400" : "bg-gold-500/20 text-gold-500 hover:bg-gold-500/30"
-            } disabled:opacity-50`}
-          >
-            {isTTSLoading ? (
-              <Loader2 className="w-3.5 h-3.5 animate-spin" />
-            ) : isSpeaking ? (
-              <VolumeX className="w-3.5 h-3.5" />
-            ) : (
-              <Volume2 className="w-3.5 h-3.5" />
-            )}
+          <button onClick={() => setShowLiveVoice(true)} className="p-2 rounded-full bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30"><Phone className="w-3.5 h-3.5" /></button>
+          <button onClick={() => speak(lastAssistantMessage)} disabled={isTTSLoading || !lastAssistantMessage} className={`p-2 rounded-full transition-all ${isSpeaking ? "bg-red-500/20 text-red-400" : "bg-gold-500/20 text-gold-500 hover:bg-gold-500/30"} disabled:opacity-50`}>
+            {isTTSLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : isSpeaking ? <VolumeX className="w-3.5 h-3.5" /> : <Volume2 className="w-3.5 h-3.5" />}
           </button>
         </div>
       </header>
@@ -1031,74 +644,24 @@ const sendMessage = async () => {
       <AnimatePresence>
         {isSidebarOpen && (
           <>
-            <motion.div 
-              initial={{ opacity: 0 }} 
-              animate={{ opacity: 1 }} 
-              exit={{ opacity: 0 }} 
-              onClick={() => setIsSidebarOpen(false)} 
-              className="fixed inset-0 bg-black/80 backdrop-blur-sm z-40" 
-            />
-            <motion.aside 
-              initial={{ x: -280 }} 
-              animate={{ x: 0 }} 
-              exit={{ x: -280 }} 
-              className="fixed inset-y-0 left-0 w-72 bg-midnight z-50 border-r border-white/10 flex flex-col"
-            >
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setIsSidebarOpen(false)} className="fixed inset-0 bg-black/80 backdrop-blur-sm z-40" />
+            <motion.aside initial={{ x: -280 }} animate={{ x: 0 }} exit={{ x: -280 }} className="fixed inset-y-0 left-0 w-72 bg-midnight z-50 border-r border-white/10 flex flex-col">
               <div className="p-4 border-b border-white/10 flex justify-between items-center">
                 <h2 className="text-sm font-serif text-gold-500">Conversations</h2>
-                <button onClick={() => setIsSidebarOpen(false)} className="p-2 text-gray-500 hover:text-gold-500">
-                  <X className="w-4 h-4" />
-                </button>
+                <button onClick={() => setIsSidebarOpen(false)} className="p-2 text-gray-500 hover:text-gold-500"><X className="w-4 h-4" /></button>
               </div>
-              <div className="p-4">
-                <button onClick={createNewConversation} className="w-full flex items-center justify-center gap-2 bg-gold-500/20 hover:bg-gold-500/30 text-gold-500 py-2 rounded-xl text-sm">
-                  <Plus className="w-4 h-4" /> Nouvelle conversation
-                </button>
-              </div>
-              <div className="px-4 pb-4">
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
-                  <input 
-                    type="text" 
-                    placeholder="Rechercher..." 
-                    value={searchTerm} 
-                    onChange={(e) => setSearchTerm(e.target.value)} 
-                    className="w-full pl-9 pr-4 py-2 bg-white/5 border border-white/10 rounded-xl text-sm focus:outline-none focus:border-gold-500 text-ivory" 
-                  />
-                </div>
-              </div>
+              <div className="p-4"><button onClick={createNewConversation} className="w-full flex items-center justify-center gap-2 bg-gold-500/20 hover:bg-gold-500/30 text-gold-500 py-2 rounded-xl text-sm"><Plus className="w-4 h-4" /> Nouvelle conversation</button></div>
+              <div className="px-4 pb-4"><div className="relative"><Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" /><input type="text" placeholder="Rechercher..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-9 pr-4 py-2 bg-white/5 border border-white/10 rounded-xl text-sm focus:outline-none focus:border-gold-500 text-ivory" /></div></div>
               <div className="flex-1 overflow-y-auto px-4 pb-4 space-y-2">
                 {filteredConversations.map(conv => (
                   <div key={conv.id} className={`group p-3 rounded-xl cursor-pointer ${currentConversationId === conv.id ? "bg-gold-500/10 border border-gold-500/30" : "hover:bg-white/5"}`}>
                     <div className="flex justify-between items-center">
                       <div onClick={() => setCurrentConversationId(conv.id)} className="flex-1">
                         {editingTitleId === conv.id ? (
-                          <div className="flex items-center gap-2">
-                            <input 
-                              type="text" 
-                              value={editingTitle} 
-                              onChange={(e) => setEditingTitle(e.target.value)} 
-                              className="flex-1 bg-white/10 border border-gold-500 rounded-md px-2 py-1 text-sm" 
-                              autoFocus 
-                              onKeyDown={(e) => { 
-                                if (e.key === 'Enter') updateConversationTitle(conv.id, editingTitle); 
-                                if (e.key === 'Escape') setEditingTitleId(null); 
-                              }} 
-                            />
-                            <button onClick={() => updateConversationTitle(conv.id, editingTitle)}><Check className="w-3 h-3 text-emerald-400" /></button>
-                            <button onClick={() => setEditingTitleId(null)}><X className="w-3 h-3 text-red-400" /></button>
-                          </div>
-                        ) : (
-                          <>
-                            <p className="text-sm truncate">{conv.title}</p>
-                            <p className="text-xs text-gray-500 mt-1">{formatDate(conv.updated_at)}</p>
-                          </>
-                        )}
+                          <div className="flex items-center gap-2"><input type="text" value={editingTitle} onChange={(e) => setEditingTitle(e.target.value)} className="flex-1 bg-white/10 border border-gold-500 rounded-md px-2 py-1 text-sm" autoFocus onKeyDown={(e) => { if (e.key === 'Enter') updateConversationTitle(conv.id, editingTitle); if (e.key === 'Escape') setEditingTitleId(null); }} /><button onClick={() => updateConversationTitle(conv.id, editingTitle)}><Check className="w-3 h-3 text-emerald-400" /></button><button onClick={() => setEditingTitleId(null)}><X className="w-3 h-3 text-red-400" /></button></div>
+                        ) : (<><p className="text-sm truncate">{conv.title}</p><p className="text-xs text-gray-500 mt-1">{formatDate(conv.updated_at)}</p></>)}
                       </div>
-                      <div className="flex gap-1 opacity-0 group-hover:opacity-100">
-                        <button onClick={() => { setEditingTitleId(conv.id); setEditingTitle(conv.title); }}><Edit2 className="w-3 h-3 text-gray-500" /></button>
-                        <button onClick={() => deleteConversation(conv.id)}><Trash2 className="w-3 h-3 text-gray-500" /></button>
-                      </div>
+                      <div className="flex gap-1 opacity-0 group-hover:opacity-100"><button onClick={() => { setEditingTitleId(conv.id); setEditingTitle(conv.title); }}><Edit2 className="w-3 h-3 text-gray-500" /></button><button onClick={() => deleteConversation(conv.id)}><Trash2 className="w-3 h-3 text-gray-500" /></button></div>
                     </div>
                   </div>
                 ))}
@@ -1117,22 +680,8 @@ const sendMessage = async () => {
                 <ReactMarkdown>{m.content}</ReactMarkdown>
                 {m.files && m.files.length > 0 && (
                   <div className="mt-3">
-                    <div className="grid grid-cols-2 gap-2">
-                      {m.files.filter(f => f.type?.startsWith('image/')).map((file, idx) => (
-                        <a key={idx} href={file.url} target="_blank" rel="noopener noreferrer" className="block">
-                          <img src={file.url} alt={file.name} className="rounded-xl w-full h-auto max-h-48 object-cover border border-white/10 hover:border-gold-500 transition-all" />
-                        </a>
-                      ))}
-                    </div>
-                    {m.files.filter(f => !f.type?.startsWith('image/')).length > 0 && (
-                      <div className="mt-2 pt-2 border-t border-white/10">
-                        {m.files.filter(f => !f.type?.startsWith('image/')).map((file, idx) => (
-                          <a key={idx} href={file.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-xs text-gold-500 hover:underline mt-1">
-                            <File className="w-3 h-3" /> {file.name}
-                          </a>
-                        ))}
-                      </div>
-                    )}
+                    <div className="grid grid-cols-2 gap-2">{m.files.filter(f => f.type?.startsWith('image/')).map((file, idx) => (<a key={idx} href={file.url} target="_blank" rel="noopener noreferrer" className="block"><img src={file.url} alt={file.name} className="rounded-xl w-full h-auto max-h-48 object-cover border border-white/10 hover:border-gold-500 transition-all" /></a>))}</div>
+                    {m.files.filter(f => !f.type?.startsWith('image/')).length > 0 && (<div className="mt-2 pt-2 border-t border-white/10">{m.files.filter(f => !f.type?.startsWith('image/')).map((file, idx) => (<a key={idx} href={file.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-xs text-gold-500 hover:underline mt-1"><File className="w-3 h-3" /> {file.name}</a>))}</div>)}
                   </div>
                 )}
               </div>
@@ -1144,66 +693,16 @@ const sendMessage = async () => {
           </motion.div>
         ))}
         
-        {executionPlan && (
-          <div className="flex justify-start">
-            <div className="max-w-[85%] w-full">
-              <ExecutionGuide 
-                planId={executionPlan.planId} 
-                plan={executionPlan.plan} 
-                onComplete={handlePlanComplete} 
-                onClose={handleClosePlan} 
-              />
-            </div>
-          </div>
-        )}
-        
-        {selectedMode === "documents" && (
-          <div className="flex justify-start mt-4">
-            <div className="max-w-[85%] w-full">
-              <ReadyToSend onInsert={(text) => setInput(prev => prev + "\n\n" + text)} />
-            </div>
-          </div>
-        )}
-        
-        {selectedMode === "sovereign-mode" && (
-          <div className="flex justify-start mt-4">
-            <div className="max-w-[85%] w-full">
-              <DecisionMode onInsert={(text) => setInput(prev => prev + "\n\n" + text)} />
-            </div>
-          </div>
-        )}
-        
-        {selectedMode === "business-argent" && (
-          <div className="flex justify-start mt-4">
-            <div className="bg-gold-500/10 border border-gold-500/20 rounded-xl p-4 max-w-[85%] w-full">
-              <p className="text-xs text-gold-500 mb-2">💡 Actions rapides :</p>
-              <div className="flex flex-wrap gap-2">
-                <button onClick={() => setInput(prev => prev + " Prépare un email de prospection")} className="text-xs px-3 py-1.5 bg-white/10 rounded-full hover:bg-white/20">📧 Email pro</button>
-                <button onClick={() => setInput(prev => prev + " Compare ces deux opportunités")} className="text-xs px-3 py-1.5 bg-white/10 rounded-full hover:bg-white/20">⚖️ Comparer</button>
-                <button onClick={() => setInput(prev => prev + " Analyse cette opportunité")} className="text-xs px-3 py-1.5 bg-white/10 rounded-full hover:bg-white/20">🔍 Analyser</button>
-              </div>
-            </div>
-          </div>
-        )}
-        
-        {isLoading && (
-          <div className="flex justify-start">
-            <div className="bg-white/10 p-4 rounded-2xl rounded-bl-none">
-              <div className="flex items-center gap-1">
-                <span className="w-2 h-2 bg-gold-500 rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
-                <span className="w-2 h-2 bg-gold-500 rounded-full animate-bounce" style={{ animationDelay: "150ms" }} />
-                <span className="w-2 h-2 bg-gold-500 rounded-full animate-bounce" style={{ animationDelay: "300ms" }} />
-                <span className="text-xs text-gray-400 ml-1">Becks écrit...</span>
-              </div>
-            </div>
-          </div>
-        )}
+        {executionPlan && (<div className="flex justify-start"><div className="max-w-[85%] w-full"><ExecutionGuide planId={executionPlan.planId} plan={executionPlan.plan} onComplete={handlePlanComplete} onClose={handleClosePlan} /></div></div>)}
+        {selectedMode === "documents" && (<div className="flex justify-start mt-4"><div className="max-w-[85%] w-full"><ReadyToSend onInsert={(text) => setInput(prev => prev + "\n\n" + text)} /></div></div>)}
+        {selectedMode === "sovereign-mode" && (<div className="flex justify-start mt-4"><div className="max-w-[85%] w-full"><DecisionMode onInsert={(text) => setInput(prev => prev + "\n\n" + text)} /></div></div>)}
+        {selectedMode === "business-argent" && (<div className="flex justify-start mt-4"><div className="bg-gold-500/10 border border-gold-500/20 rounded-xl p-4 max-w-[85%] w-full"><p className="text-xs text-gold-500 mb-2">💡 Actions rapides :</p><div className="flex flex-wrap gap-2"><button onClick={() => setInput(prev => prev + " Prépare un email de prospection")} className="text-xs px-3 py-1.5 bg-white/10 rounded-full hover:bg-white/20">📧 Email pro</button><button onClick={() => setInput(prev => prev + " Compare ces deux opportunités")} className="text-xs px-3 py-1.5 bg-white/10 rounded-full hover:bg-white/20">⚖️ Comparer</button><button onClick={() => setInput(prev => prev + " Analyse cette opportunité")} className="text-xs px-3 py-1.5 bg-white/10 rounded-full hover:bg-white/20">🔍 Analyser</button></div></div></div>)}
+        {isLoading && (<div className="flex justify-start"><div className="bg-white/10 p-4 rounded-2xl rounded-bl-none"><div className="flex items-center gap-1"><span className="w-2 h-2 bg-gold-500 rounded-full animate-bounce" style={{ animationDelay: "0ms" }} /><span className="w-2 h-2 bg-gold-500 rounded-full animate-bounce" style={{ animationDelay: "150ms" }} /><span className="w-2 h-2 bg-gold-500 rounded-full animate-bounce" style={{ animationDelay: "300ms" }} /><span className="text-xs text-gray-400 ml-1">Becks écrit...</span></div></div></div>)}
         <div ref={messagesEndRef} />
       </div>
 
       {/* ZONE DE SAISIE */}
       <div className="shrink-0 border-t border-white/10 bg-midnight/90 backdrop-blur-lg p-3">
-        {/* Mode selector */}
         <div className="relative mb-2">
           <button onClick={() => setIsModeSelectorOpen(!isModeSelectorOpen)} className="flex items-center gap-2 px-3 py-1.5 rounded-full text-xs transition-colors hover:bg-white/5">
             {CurrentIcon && <CurrentIcon className={`w-3.5 h-3.5 ${currentModeConfig?.color}`} />}
@@ -1211,159 +710,29 @@ const sendMessage = async () => {
             <span className="text-[10px] text-gray-600 hidden sm:inline">{currentModeConfig?.description}</span>
             <ChevronDown className={`w-3 h-3 text-gray-500 transition-transform ${isModeSelectorOpen ? "rotate-180" : ""}`} />
           </button>
-          {isModeSelectorOpen && (
-            <>
-              <div className="fixed inset-0 z-40" onClick={() => setIsModeSelectorOpen(false)} />
-              <div className="absolute bottom-full left-0 mb-2 w-64 bg-midnight border border-white/10 rounded-xl shadow-xl z-50 py-2 max-h-80 overflow-y-auto">
-                {modes.map((mode) => {
-                  const Icon = mode.icon;
-                  return (
-                    <button 
-                      key={mode.id} 
-                      onClick={() => { setSelectedMode(mode.id); setIsModeSelectorOpen(false); }} 
-                      className={`w-full flex items-center gap-3 px-4 py-2.5 text-sm hover:bg-white/5 transition-colors ${selectedMode === mode.id ? mode.bg : ""}`}
-                    >
-                      <Icon className={`w-4 h-4 ${mode.color}`} />
-                      <div className="flex-1 text-left">
-                        <p className="text-gray-300 text-sm">{mode.name}</p>
-                        <p className="text-[10px] text-gray-500">{mode.description}</p>
-                      </div>
-                      {selectedMode === mode.id && <Check className="w-3.5 h-3.5 text-gold-500" />}
-                    </button>
-                  );
-                })}
-              </div>
-            </>
-          )}
+          {isModeSelectorOpen && (<><div className="fixed inset-0 z-40" onClick={() => setIsModeSelectorOpen(false)} /><div className="absolute bottom-full left-0 mb-2 w-64 bg-midnight border border-white/10 rounded-xl shadow-xl z-50 py-2 max-h-80 overflow-y-auto">{modes.map((mode) => { const Icon = mode.icon; return (<button key={mode.id} onClick={() => { setSelectedMode(mode.id); setIsModeSelectorOpen(false); }} className={`w-full flex items-center gap-3 px-4 py-2.5 text-sm hover:bg-white/5 transition-colors ${selectedMode === mode.id ? mode.bg : ""}`}><Icon className={`w-4 h-4 ${mode.color}`} /><div className="flex-1 text-left"><p className="text-gray-300 text-sm">{mode.name}</p><p className="text-[10px] text-gray-500">{mode.description}</p></div>{selectedMode === mode.id && <Check className="w-3.5 h-3.5 text-gold-500" />}</button>); })}</div></>)}
         </div>
         
-        {/* Fichiers joints */}
-        {uploadedFiles.length > 0 && (
-          <div className="flex flex-wrap gap-2 mb-2">
-            {uploadedFiles.map((file, idx) => (
-              <div key={idx} className="flex items-center gap-2 bg-white/10 rounded-full px-3 py-1 text-xs">
-                {file.type.startsWith('image/') ? '🖼️' : '📄'}
-                <span className="truncate max-w-[100px]">{file.name}</span>
-                <button onClick={() => removeFile(idx)} className="text-gray-400 hover:text-red-400">
-                  <XCircle className="w-3 h-3" />
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
+        {uploadedFiles.length > 0 && (<div className="flex flex-wrap gap-2 mb-2">{uploadedFiles.map((file, idx) => (<div key={idx} className="flex items-center gap-2 bg-white/10 rounded-full px-3 py-1 text-xs">{file.type.startsWith('image/') ? '🖼️' : '📄'}<span className="truncate max-w-[100px]">{file.name}</span><button onClick={() => removeFile(idx)} className="text-gray-400 hover:text-red-400"><XCircle className="w-3 h-3" /></button></div>))}</div>)}
+        {isRecording && (<div className="text-center text-xs text-red-400 animate-pulse mb-2">🎤 Enregistrement vocal... relâchez pour envoyer</div>)}
         
-        {/* Indicateur d'enregistrement vocal */}
-        {isRecording && (
-          <div className="text-center text-xs text-red-400 animate-pulse mb-2">
-            🎤 Enregistrement vocal... relâchez pour envoyer
-          </div>
-        )}
-        
-        {/* Input + boutons */}
         <div className="flex items-center gap-2">
-          <button onClick={() => document.getElementById('file-upload-input')?.click()} className="p-2 rounded-full bg-white/10 text-gray-400 hover:bg-white/20 transition-colors flex-shrink-0">
-            <Paperclip className="w-5 h-5" />
-          </button>
+          <button onClick={() => document.getElementById('file-upload-input')?.click()} className="p-2 rounded-full bg-white/10 text-gray-400 hover:bg-white/20 transition-colors flex-shrink-0"><Paperclip className="w-5 h-5" /></button>
           <input id="file-upload-input" type="file" {...getInputProps()} className="hidden" onChange={(e) => { if (e.target.files) onDrop(Array.from(e.target.files)); }} />
-          
-          <input 
-            ref={inputRef} 
-            type="text" 
-            value={input} 
-            onChange={(e) => setInput(e.target.value)} 
-            onKeyDown={handleKeyDown} 
-            placeholder={isRecording ? "🎤 Enregistrement vocal..." : `Mode ${currentModeConfig?.name} : écris ton message...`} 
-            className="flex-1 bg-white/10 border border-white/20 rounded-full py-3 px-4 text-sm focus:outline-none focus:border-gold-500 text-ivory placeholder:text-gray-500" 
-            disabled={isRecording}
-          />
-          
-          <button 
-            onMouseDown={handleSendButtonMouseDown} 
-            onMouseUp={handleSendButtonMouseUp} 
-            onMouseLeave={() => { if (isRecording) stopVoiceRecording(); }} 
-            onTouchStart={handleSendButtonMouseDown} 
-            onTouchEnd={handleSendButtonMouseUp} 
-            onClick={() => { if (isRecording) stopVoiceRecording(); }} 
-            disabled={isLoading || isSending} 
-            className={`p-2 rounded-full transition-all flex-shrink-0 ${isRecording ? "bg-red-500 text-white animate-pulse" : "bg-gold-500 text-midnight hover:scale-105"} disabled:opacity-50 disabled:hover:scale-100`}
-          >
+          <input ref={inputRef} type="text" value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={handleKeyDown} placeholder={isRecording ? "🎤 Enregistrement vocal..." : `Mode ${currentModeConfig?.name} : écris ton message...`} className="flex-1 bg-white/10 border border-white/20 rounded-full py-3 px-4 text-sm focus:outline-none focus:border-gold-500 text-ivory placeholder:text-gray-500" disabled={isRecording} />
+          <button onMouseDown={handleSendButtonMouseDown} onMouseUp={handleSendButtonMouseUp} onMouseLeave={() => { if (isRecording) stopVoiceRecording(); }} onTouchStart={handleSendButtonMouseDown} onTouchEnd={handleSendButtonMouseUp} onClick={() => { if (isRecording) stopVoiceRecording(); }} disabled={isLoading || isSending} className={`p-2 rounded-full transition-all flex-shrink-0 ${isRecording ? "bg-red-500 text-white animate-pulse" : "bg-gold-500 text-midnight hover:scale-105"} disabled:opacity-50 disabled:hover:scale-100`}>
             {isSending ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}
           </button>
         </div>
         
-        {/* Indicateur mode exécution */}
-        {selectedMode === "fais-le-avec-moi" && (
-          <div className="mt-2 text-center">
-            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] bg-gold-500/20 text-gold-400">
-              <Sparkles className="w-3 h-3" /> Mode Exécution activé
-            </span>
-          </div>
-        )}
+        {selectedMode === "fais-le-avec-moi" && (<div className="mt-2 text-center"><span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] bg-gold-500/20 text-gold-400"><Sparkles className="w-3 h-3" /> Mode Exécution activé</span></div>)}
       </div>
 
       {/* MODALES */}
-      {showChecklistModal && currentChecklist && (
-        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4" onClick={() => setShowChecklistModal(false)}>
-          <div className="bg-midnight border border-gold-500/30 rounded-xl max-w-md w-full p-6" onClick={(e) => e.stopPropagation()}>
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-serif text-gold-500">{currentChecklist.title}</h3>
-              <button onClick={() => setShowChecklistModal(false)} className="text-gray-400 hover:text-gold-500"><X className="w-5 h-5" /></button>
-            </div>
-            <div className="space-y-3 mb-6">
-              {currentChecklist.steps.map((step, idx) => (
-                <div key={idx} className="flex items-center gap-3 p-2 bg-white/5 rounded-lg">
-                  <input type="checkbox" className="w-4 h-4 rounded border-gold-500 accent-gold-500" />
-                  <span className="text-sm text-ivory">{step}</span>
-                </div>
-              ))}
-            </div>
-            <button onClick={() => setShowChecklistModal(false)} className="w-full py-2 bg-gold-500/20 text-gold-500 rounded-lg hover:bg-gold-500/30 transition-colors">Fermer</button>
-          </div>
-        </div>
-      )}
-
-      {showDraftModal && currentDraft && (
-        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4" onClick={() => setShowDraftModal(false)}>
-          <div className="bg-midnight border border-gold-500/30 rounded-xl max-w-2xl w-full p-6" onClick={(e) => e.stopPropagation()}>
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-serif text-gold-500">{currentDraft.type === "email" ? "📧 Brouillon d'email" : "📄 Brouillon de document"}</h3>
-              <button onClick={() => setShowDraftModal(false)} className="text-gray-400 hover:text-gold-500"><X className="w-5 h-5" /></button>
-            </div>
-            <div className="bg-black/30 rounded-lg p-4 mb-4 max-h-96 overflow-y-auto">
-              <pre className="text-sm text-ivory whitespace-pre-wrap font-sans">{currentDraft.content}</pre>
-            </div>
-            <div className="flex gap-3">
-              <button onClick={() => copyToClipboard(currentDraft.content)} className="flex-1 py-2 bg-gold-500/20 text-gold-500 rounded-lg hover:bg-gold-500/30 transition-colors">📋 Copier</button>
-              <button onClick={() => setShowDraftModal(false)} className="flex-1 py-2 bg-white/10 text-gray-400 rounded-lg hover:bg-white/20 transition-colors">Fermer</button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {showWhatsAppModal && currentWhatsApp && (
-        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
-          <div className="bg-midnight border border-gold-500/30 rounded-xl max-w-md w-full p-6">
-            <h3 className="text-lg font-serif text-gold-500 mb-2">✏️ Répondre à {currentWhatsApp.to}</h3>
-            <p className="text-xs text-gray-400 mb-3">Message original : {currentWhatsApp.original_message}</p>
-            <textarea 
-              value={customReply} 
-              onChange={(e) => setCustomReply(e.target.value)} 
-              className="w-full bg-white/10 border border-white/20 rounded-lg p-3 text-sm text-ivory" 
-              rows={4} 
-              placeholder="Ta réponse..." 
-            />
-            <div className="flex gap-2 mt-4">
-              <button onClick={async () => { await executeAction("whatsapp_reply", { to: currentWhatsApp.to, message: customReply }); setShowWhatsAppModal(false); }} className="flex-1 py-2 bg-gold-500/20 text-gold-500 rounded-lg hover:bg-gold-500/30 transition-colors">📱 Envoyer</button>
-              <button onClick={() => setShowWhatsAppModal(false)} className="flex-1 py-2 bg-white/10 text-gray-400 rounded-lg hover:bg-white/20 transition-colors">Annuler</button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* MODAL VOCAL LIVE */}
-      {showLiveVoice && userId && (
-        <LiveVoiceChat userId={userId} onClose={() => setShowLiveVoice(false)} />
-      )}
+      {showChecklistModal && currentChecklist && (<div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4" onClick={() => setShowChecklistModal(false)}><div className="bg-midnight border border-gold-500/30 rounded-xl max-w-md w-full p-6" onClick={(e) => e.stopPropagation()}><div className="flex justify-between items-center mb-4"><h3 className="text-lg font-serif text-gold-500">{currentChecklist.title}</h3><button onClick={() => setShowChecklistModal(false)} className="text-gray-400 hover:text-gold-500"><X className="w-5 h-5" /></button></div><div className="space-y-3 mb-6">{currentChecklist.steps.map((step, idx) => (<div key={idx} className="flex items-center gap-3 p-2 bg-white/5 rounded-lg"><input type="checkbox" className="w-4 h-4 rounded border-gold-500 accent-gold-500" /><span className="text-sm text-ivory">{step}</span></div>))}</div><button onClick={() => setShowChecklistModal(false)} className="w-full py-2 bg-gold-500/20 text-gold-500 rounded-lg hover:bg-gold-500/30">Fermer</button></div></div>)}
+      {showDraftModal && currentDraft && (<div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4" onClick={() => setShowDraftModal(false)}><div className="bg-midnight border border-gold-500/30 rounded-xl max-w-2xl w-full p-6" onClick={(e) => e.stopPropagation()}><div className="flex justify-between items-center mb-4"><h3 className="text-lg font-serif text-gold-500">{currentDraft.type === "email" ? "📧 Brouillon d'email" : "📄 Brouillon de document"}</h3><button onClick={() => setShowDraftModal(false)} className="text-gray-400 hover:text-gold-500"><X className="w-5 h-5" /></button></div><div className="bg-black/30 rounded-lg p-4 mb-4 max-h-96 overflow-y-auto"><pre className="text-sm text-ivory whitespace-pre-wrap font-sans">{currentDraft.content}</pre></div><div className="flex gap-3"><button onClick={() => copyToClipboard(currentDraft.content)} className="flex-1 py-2 bg-gold-500/20 text-gold-500 rounded-lg hover:bg-gold-500/30">📋 Copier</button><button onClick={() => setShowDraftModal(false)} className="flex-1 py-2 bg-white/10 text-gray-400 rounded-lg hover:bg-white/20">Fermer</button></div></div></div>)}
+      {showWhatsAppModal && currentWhatsApp && (<div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4"><div className="bg-midnight border border-gold-500/30 rounded-xl max-w-md w-full p-6"><h3 className="text-lg font-serif text-gold-500 mb-2">✏️ Répondre à {currentWhatsApp.to}</h3><p className="text-xs text-gray-400 mb-3">Message original : {currentWhatsApp.original_message}</p><textarea value={customReply} onChange={(e) => setCustomReply(e.target.value)} className="w-full bg-white/10 border border-white/20 rounded-lg p-3 text-sm text-ivory" rows={4} placeholder="Ta réponse..." /><div className="flex gap-2 mt-4"><button onClick={async () => { await executeAction("whatsapp_reply", { to: currentWhatsApp.to, message: customReply }); setShowWhatsAppModal(false); }} className="flex-1 py-2 bg-gold-500/20 text-gold-500 rounded-lg">📱 Envoyer</button><button onClick={() => setShowWhatsAppModal(false)} className="flex-1 py-2 bg-white/10 text-gray-400 rounded-lg">Annuler</button></div></div></div>)}
+      {showLiveVoice && userId && (<LiveVoiceChat userId={userId} onClose={() => setShowLiveVoice(false)} />)}
     </div>
   );
 }
