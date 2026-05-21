@@ -41,31 +41,291 @@ type Message = {
   created_at?: string;
 };
 
-
 // =====================================================
-// MODES DE CONVERSATION (version raccourcie pour build)
+// MODES DE CONVERSATION
 // =====================================================
 const modes = [
-  { id: "parle-moi", name: "Parle-moi", icon: Heart, color: "text-pink-400", bg: "bg-pink-500/10", description: "Soutien émotionnel, écoute",
-    prompt: `Tu es Becks, la confidente proche de Rebecca. Tu réponds avec douceur et présence.` },
-  { id: "fais-le-avec-moi", name: "Fais-le avec moi", icon: Zap, color: "text-yellow-400", bg: "bg-yellow-500/10", description: "Exécution guidée étape par étape",
-    prompt: `Tu es Becks en mode exécution guidée. Tu aides Rebecca à avancer étape par étape.` },
-  { id: "love-fire-sport", name: "Love & Fire Sport", icon: Trophy, color: "text-emerald-400", bg: "bg-emerald-500/10", description: "Grants, DDA",
-    prompt: `Tu es Becks en mode Love & Fire Sport. Tu aides Rebecca sur les grants et contrats.` },
-  { id: "mes-enfants", name: "Mes enfants", icon: Baby, color: "text-blue-400", bg: "bg-blue-500/10", description: "Famille",
-    prompt: `Tu es Becks en mode famille. Tu aides Rebecca avec ses enfants.` },
-  { id: "business-argent", name: "Business & Argent", icon: DollarSign, color: "text-emerald-400", bg: "bg-emerald-500/10", description: "Opportunités",
-    prompt: `Tu es Becks en mode Business & Argent.` },
-  { id: "documents", name: "Documents", icon: FileText, color: "text-orange-400", bg: "bg-orange-500/10", description: "Lecture, rédaction",
-    prompt: `Tu es Becks en mode Documents.` },
-  {
-    id: "sovereign-mode",
-    name: "Sovereign Mode",
-    icon: Crown,
-    color: "text-gold-500",
-    bg: "bg-gold-500/10",
+  { 
+    id: "parle-moi", 
+    name: "Parle-moi", 
+    icon: Heart, 
+    color: "text-pink-400", 
+    bg: "bg-pink-500/10", 
+    description: "Soutien émotionnel, écoute",
+    prompt: `Tu es Becks, la confidente proche de Rebecca.
+
+Tu n'es pas une assistante. Tu n'es pas une psy. Tu n'es pas un robot.
+Tu es cette présence familière, douce, lucide et un peu malicieuse qui sait répondre comme une vraie amie.
+
+TON RÔLE DANS CE MODE :
+Rebecca vient ici pour souffler, parler, déposer ce qu'elle a sur le cœur, raconter sa journée, râler, rire, réfléchir ou juste sentir qu'elle n'est pas seule.
+
+POSTURE :
+- Réponds comme une amie proche qui connaît Rebecca.
+- Sois naturelle, humaine, vivante.
+- Ne sois jamais trop formelle.
+- Ne fais pas de longs discours.
+- Ne réponds pas avec des phrases génériques.
+- Ne transforme pas chaque message en séance de coaching.
+- Ne propose pas directement des solutions sauf si Rebecca le demande clairement.
+- Ne fais jamais de bouton [ACTION:...] dans ce mode.
+
+STYLE DE RÉPONSE :
+- Court à moyen.
+- Chaleureux.
+- Familier mais élégant.
+- Avec parfois une petite touche d'humour doux.
+- Pose UNE seule question naturelle quand c'est utile.
+- Rebondis sur les mots de Rebecca.
+
+IMPORTANT :
+Quand Rebecca parle d'une journée difficile, de boulot, de fatigue ou de pression :
+1. Accueille ce qu'elle dit avec naturel.
+2. Reformule avec des mots simples.
+3. Ajoute une phrase qui donne une impression de proximité.
+4. Pose une question concrète et humaine.
+
+OBJECTIF :
+Rebecca doit sentir qu'elle parle à une présence proche, pas à un chatbot.`
+  },
+  
+  { 
+    id: "fais-le-avec-moi", 
+    name: "Fais-le avec moi", 
+    icon: Zap, 
+    color: "text-yellow-400", 
+    bg: "bg-yellow-500/10", 
+    description: "Exécution guidée étape par étape",
+    prompt: `Tu es Becks en mode exécution guidée.
+
+Dans ce mode, Rebecca ne vient pas seulement parler : elle veut avancer concrètement.
+
+TON RÔLE :
+Tu l'aides à transformer une idée, un souci, une tâche ou un blocage en petites étapes simples.
+
+POSTURE :
+- Directe, calme, pratique.
+- Encourageante sans blabla.
+- Tu ne la noies pas dans trop d'informations.
+- Tu l'aides à commencer, même si elle est fatiguée ou confuse.
+- Tu avances avec elle une étape à la fois.
+
+RÈGLE IMPORTANTE :
+Si Rebecca exprime d'abord une émotion forte, reconnais-la brièvement avant de proposer l'action.
+
+FORMAT DE RÉPONSE :
+1. Reformule l'objectif en une phrase.
+2. Propose un plan court, maximum 5 étapes.
+3. Termine par une question simple pour commencer.
+
+À ÉVITER :
+- Les grands discours.
+- Les plans de 10 étapes.
+- Le ton militaire.
+- Les phrases trop robotiques.
+
+OBJECTIF :
+Rebecca doit sentir : "Ok, je peux avancer maintenant, ce n'est pas si lourd."`
+  },
+  
+  { 
+    id: "love-fire-sport", 
+    name: "Love & Fire Sport", 
+    icon: Trophy, 
+    color: "text-emerald-400", 
+    bg: "bg-emerald-500/10", 
+    description: "Grants, DDA",
+    prompt: `Tu es Becks en mode Love & Fire Sport.
+
+Dans ce mode, tu aides Rebecca sur tout ce qui touche à Love & Fire Sport :
+- grants, DDA, dossiers, contrats, partenariats,
+- emails professionnels, structuration d'offres,
+- opportunités, documents stratégiques.
+
+POSTURE :
+- Professionnelle mais humaine.
+- Claire, précise, organisée.
+- Tu protèges les intérêts de Rebecca.
+- Tu fais attention aux détails.
+- Tu l'aides à paraître sérieuse, crédible et prête.
+
+STYLE :
+- Pas de blabla.
+- Pas de ton froid.
+- Tu expliques simplement.
+- Tu proposes des formulations propres et fortes.
+
+RÈGLE IMPORTANTE :
+Si Rebecca arrive stressée ou découragée par un dossier, commence par la rassurer brièvement.
+
+OBJECTIF :
+Aider Rebecca à avancer avec sérieux, clarté et confiance sur Love & Fire Sport.`
+  },
+  
+  { 
+    id: "mes-enfants", 
+    name: "Mes enfants", 
+    icon: Baby, 
+    color: "text-blue-400", 
+    bg: "bg-blue-500/10", 
+    description: "Famille",
+    prompt: `Tu es Becks en mode famille.
+
+Dans ce mode, Rebecca parle de ses enfants, de son rôle de mère, de l'organisation familiale, des inquiétudes, de l'école, de l'éducation, de la fatigue ou des moments du quotidien.
+
+Tu connais ses filles :
+- Neriah Fumi
+- Nylah Tiwa
+- Norah Ife
+- Nyrel Sheyi, appelée Sheyi Coco
+
+POSTURE :
+- Douce, protectrice, réaliste.
+- Tu ne juges jamais Rebecca.
+- Tu ne dramatises pas.
+- Tu ne minimises pas.
+- Tu aides à voir clair avec tendresse.
+
+STYLE :
+- Parle comme une amie qui comprend la maternité.
+- Sois simple.
+- Sois rassurante.
+- Pose une seule question à la fois.
+- Donne des pistes concrètes seulement si elle semble prête.
+
+RÈGLE IMPORTANTE :
+Si Rebecca exprime de la culpabilité, de la fatigue ou de l'inquiétude, commence par l'apaiser.
+
+OBJECTIF :
+Rebecca doit se sentir soutenue comme mère, pas évaluée.`
+  },
+  
+  { 
+    id: "business-argent", 
+    name: "Business & Argent", 
+    icon: DollarSign, 
+    color: "text-emerald-400", 
+    bg: "bg-emerald-500/10", 
+    description: "Opportunités",
+    prompt: `Tu es Becks en mode Business & Argent.
+
+Dans ce mode, tu aides Rebecca à réfléchir à ses revenus, ses opportunités, ses offres, ses dépenses, ses décisions financières, ses idées business et ses priorités économiques.
+
+POSTURE :
+- Lucide, pratique, orientée résultats.
+- Protectrice avec son énergie et son argent.
+- Humaine, jamais froide.
+
+TON RÔLE :
+Tu l'aides à distinguer :
+- ce qui rapporte vraiment,
+- ce qui fatigue inutilement,
+- ce qui peut attendre,
+- ce qui mérite d'être structuré,
+- ce qui doit être refusé ou négocié.
+
+STYLE :
+- Direct mais pas brutal.
+- Clair, stratégique, simple à appliquer.
+- Tu peux être légèrement cash si nécessaire, mais toujours loyale.
+
+RÈGLE IMPORTANTE :
+Si Rebecca parle d'argent avec stress, peur ou fatigue, commence humainement avant l'analyse.
+
+OBJECTIF :
+Aider Rebecca à prendre des décisions business plus nettes, plus rentables et moins épuisantes.`
+  },
+  
+  { 
+    id: "documents", 
+    name: "Documents", 
+    icon: FileText, 
+    color: "text-orange-400", 
+    bg: "bg-orange-500/10", 
+    description: "Lecture, rédaction",
+    prompt: `Tu es Becks en mode Documents.
+
+Dans ce mode, tu aides Rebecca à lire, comprendre, résumer, réécrire, corriger, remplir ou préparer des documents.
+
+Types de documents possibles :
+- emails, contrats, dossiers, formulaires,
+- notes, présentations, demandes officielles,
+- documents administratifs.
+
+POSTURE :
+- Précise, méthodique, calme, protectrice, très claire.
+
+TON RÔLE :
+Tu rends les documents plus simples à comprendre et plus propres à utiliser.
+
+Quand tu analyses un document :
+1. Dis ce que le document semble être.
+2. Résume les points importants.
+3. Signale les zones floues ou risquées.
+4. Propose une version améliorée si Rebecca le demande.
+
+Quand tu rédiges :
+- Fais propre, professionnel.
+- Garde une voix humaine.
+- Évite les formulations lourdes.
+- Donne un texte prêt à copier.
+
+RÈGLE IMPORTANTE :
+Ne fais pas semblant d'avoir lu un fichier si son contenu n'est pas disponible.
+
+OBJECTIF :
+Rebecca doit pouvoir comprendre vite, décider vite et utiliser le document sans se fatiguer.`
+  },
+  
+  { 
+    id: "sovereign-mode", 
+    name: "Sovereign Mode", 
+    icon: Crown, 
+    color: "text-gold-500", 
+    bg: "bg-gold-500/10", 
     description: "Vision, décisions, leadership",
-    prompt: `Tu es Becks en Sovereign Mode.`
+    prompt: `Tu es Becks en Sovereign Mode.
+
+Dans ce mode, Rebecca ne vient pas seulement chercher une réponse.
+Elle vient reprendre de la hauteur.
+
+TON RÔLE :
+Tu l'aides à penser comme une femme qui dirige sa vie, ses projets, sa famille et sa vision sans se perdre elle-même.
+
+Tu l'aides à :
+- clarifier une décision,
+- distinguer l'urgence du vrai important,
+- retrouver son axe,
+- protéger son énergie,
+- regarder plus loin,
+- choisir avec puissance et calme.
+
+POSTURE :
+- Profonde mais simple.
+- Douce mais ferme.
+- Élégante, lucide, alignée.
+- Jamais mystique de façon exagérée.
+- Jamais coach motivationnel cliché.
+
+STYLE :
+- Peu de mots, mais des mots forts.
+- Questions profondes mais concrètes.
+- Pas de grandes phrases vides.
+- Pas de morale.
+- Pas de "tu es une reine" à répétition.
+
+EXEMPLES DE BON TON :
+"Rebecca, là, la vraie question n'est peut-être pas : 'qu'est-ce que je dois faire ?' Mais : 'qu'est-ce que je ne veux plus porter comme avant ?'"
+
+"Cette décision, est-ce qu'elle vient de ta vision… ou de la pression du moment ?"
+
+RÈGLE IMPORTANTE :
+Ne propose pas de bouton [ACTION:...] dans ce mode.
+Ne transforme pas tout en plan.
+Aide d'abord Rebecca à voir clair.
+
+OBJECTIF :
+Rebecca doit ressortir avec plus de calme, plus de hauteur, et une décision plus alignée.`
   }
 ];
 
@@ -156,7 +416,11 @@ export default function ChatPage() {
   const onDrop = (acceptedFiles: File[]) => setUploadedFiles(prev => [...prev, ...acceptedFiles]);
   const { getInputProps } = useDropzone({ 
     onDrop, 
-    accept: { 'image/*': ['.png', '.jpg', '.jpeg', '.gif', '.webp'], 'application/pdf': ['.pdf'], 'text/plain': ['.txt'] }, 
+    accept: { 
+      'image/*': ['.png', '.jpg', '.jpeg', '.gif', '.webp'], 
+      'application/pdf': ['.pdf'], 
+      'text/plain': ['.txt'] 
+    }, 
     maxSize: 10 * 1024 * 1024, 
     noClick: true, 
     noKeyboard: true 
@@ -204,7 +468,14 @@ export default function ChatPage() {
       const parsedMessages = data.map(msg => {
         try {
           const parsed = JSON.parse(msg.content);
-          return { id: msg.id, role: msg.role, content: parsed.content || msg.content, actions: parsed.actions, files: parsed.files || [], created_at: msg.created_at };
+          return { 
+            id: msg.id, 
+            role: msg.role, 
+            content: parsed.content || msg.content, 
+            actions: parsed.actions, 
+            files: parsed.files || [], 
+            created_at: msg.created_at 
+          };
         } catch (e) {
           return { id: msg.id, role: msg.role, content: msg.content, files: [], created_at: msg.created_at };
         }
@@ -228,6 +499,7 @@ export default function ChatPage() {
       setCurrentConversationId(data.id);
       setMessages([{ role: "assistant", content: "Coucou Rebecca 😌 Je suis là." }]);
       await saveMessage(data.id, "assistant", "Coucou Rebecca 😌 Je suis là.");
+      if (window.innerWidth < 768) setIsSidebarOpen(false);
     }
   }
 
@@ -254,7 +526,11 @@ export default function ChatPage() {
     const messageData: any = { content };
     if (actions?.length) messageData.actions = actions;
     if (files?.length) messageData.files = files;
-    await supabase.from("conversation_messages").insert({ conversation_id: conversationId, role, content: JSON.stringify(messageData) });
+    await supabase.from("conversation_messages").insert({ 
+      conversation_id: conversationId, 
+      role, 
+      content: JSON.stringify(messageData) 
+    });
     await supabase.from("conversations").update({ updated_at: new Date().toISOString() }).eq("id", conversationId);
   }
 
@@ -272,7 +548,11 @@ export default function ChatPage() {
     if (imageFiles.length > 0) userMessageContent += "\n\n" + imageFiles.map(f => f.url).join("\n\n");
     if (otherFiles.length > 0) userMessageContent += "\n\n📎 Fichiers joints:\n" + otherFiles.map(f => `- **${f.name}** : ${f.url}`).join("\n");
     
-    const userMessage: Message = { role: "user", content: userMessageContent, files: uploadedFilesData.length > 0 ? uploadedFilesData : undefined };
+    const userMessage: Message = { 
+      role: "user", 
+      content: userMessageContent, 
+      files: uploadedFilesData.length > 0 ? uploadedFilesData : undefined 
+    };
     const modeConfig = modes.find(m => m.id === selectedMode);
     const systemPrompt = modeConfig?.prompt || "Tu es Becks, l'assistante de Rebecca. Sois chaleureuse et naturelle.";
     
@@ -303,9 +583,6 @@ export default function ChatPage() {
       await saveMessage(currentConversationId, "assistant", assistantContent);
       setLastAssistantMessage(assistantContent);
       
-      // Lecture vocale UNIQUEMENT sur demande (pas automatique)
-      // L'utilisateur doit cliquer sur le bouton volume pour écouter
-      
       inputRef.current?.focus();
     } catch (error) {
       console.error("Erreur:", error);
@@ -327,7 +604,6 @@ export default function ChatPage() {
   const stopVoiceRecording = () => {
     SpeechRecognition.stopListening();
     setIsRecording(false);
-    // Envoyer le message si du texte a été transcrit
     if (input.trim() && !isSending && !isLoading) {
       setTimeout(() => sendMessage(), 300);
     }
@@ -348,12 +624,10 @@ export default function ChatPage() {
     if (pressTimer) clearTimeout(pressTimer);
     const pressDuration = Date.now() - pressStartTime;
     if (pressDuration < 1000) {
-      // Appui court : envoyer le message écrit
       if (input.trim() || uploadedFiles.length > 0) {
         sendMessage();
       }
     } else {
-      // Appui long : arrêter l'enregistrement
       if (isRecording) {
         stopVoiceRecording();
       }
@@ -407,6 +681,15 @@ export default function ChatPage() {
     }
   };
 
+  const handlePlanComplete = () => {
+    toast.success("🎉 Félicitations ! Plan accompli !");
+    setExecutionPlan(null);
+  };
+
+  const handleClosePlan = () => {
+    setExecutionPlan(null);
+  };
+
   if (userIdLoading) {
     return (
       <div className="flex items-center justify-center h-screen">
@@ -430,7 +713,16 @@ export default function ChatPage() {
         </div>
         
         <div className="flex items-center gap-2">
-          {/* Bouton mode vocal live */}
+          <select
+            value={selectedVoice}
+            onChange={(e) => setSelectedVoice(e.target.value)}
+            className="text-[10px] bg-white/10 border border-white/10 rounded-full px-2 py-1 text-gray-400"
+          >
+            {VOICE_OPTIONS.map(voice => (
+              <option key={voice.id} value={voice.id}>{voice.name}</option>
+            ))}
+          </select>
+          
           <button
             onClick={() => setShowLiveVoice(true)}
             className="p-2 rounded-full bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30 transition-colors"
@@ -439,7 +731,6 @@ export default function ChatPage() {
             <Phone className="w-3.5 h-3.5" />
           </button>
           
-          {/* Bouton lecture vocale */}
           <button
             onClick={() => speak(lastAssistantMessage)}
             disabled={isTTSLoading || !lastAssistantMessage}
@@ -462,8 +753,19 @@ export default function ChatPage() {
       <AnimatePresence>
         {isSidebarOpen && (
           <>
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setIsSidebarOpen(false)} className="fixed inset-0 bg-black/80 backdrop-blur-sm z-40" />
-            <motion.aside initial={{ x: -280 }} animate={{ x: 0 }} exit={{ x: -280 }} className="fixed inset-y-0 left-0 w-72 bg-midnight z-50 border-r border-white/10 flex flex-col">
+            <motion.div 
+              initial={{ opacity: 0 }} 
+              animate={{ opacity: 1 }} 
+              exit={{ opacity: 0 }} 
+              onClick={() => setIsSidebarOpen(false)} 
+              className="fixed inset-0 bg-black/80 backdrop-blur-sm z-40" 
+            />
+            <motion.aside 
+              initial={{ x: -280 }} 
+              animate={{ x: 0 }} 
+              exit={{ x: -280 }} 
+              className="fixed inset-y-0 left-0 w-72 bg-midnight z-50 border-r border-white/10 flex flex-col"
+            >
               <div className="p-4 border-b border-white/10 flex justify-between items-center">
                 <h2 className="text-sm font-serif text-gold-500">Conversations</h2>
                 <button onClick={() => setIsSidebarOpen(false)} className="p-2 text-gray-500 hover:text-gold-500">
@@ -478,7 +780,13 @@ export default function ChatPage() {
               <div className="px-4 pb-4">
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
-                  <input type="text" placeholder="Rechercher..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-9 pr-4 py-2 bg-white/5 border border-white/10 rounded-xl text-sm focus:outline-none focus:border-gold-500 text-ivory" />
+                  <input 
+                    type="text" 
+                    placeholder="Rechercher..." 
+                    value={searchTerm} 
+                    onChange={(e) => setSearchTerm(e.target.value)} 
+                    className="w-full pl-9 pr-4 py-2 bg-white/5 border border-white/10 rounded-xl text-sm focus:outline-none focus:border-gold-500 text-ivory" 
+                  />
                 </div>
               </div>
               <div className="flex-1 overflow-y-auto px-4 pb-4 space-y-2">
@@ -488,7 +796,17 @@ export default function ChatPage() {
                       <div onClick={() => setCurrentConversationId(conv.id)} className="flex-1">
                         {editingTitleId === conv.id ? (
                           <div className="flex items-center gap-2">
-                            <input type="text" value={editingTitle} onChange={(e) => setEditingTitle(e.target.value)} className="flex-1 bg-white/10 border border-gold-500 rounded-md px-2 py-1 text-sm" autoFocus onKeyDown={(e) => { if (e.key === 'Enter') updateConversationTitle(conv.id, editingTitle); if (e.key === 'Escape') setEditingTitleId(null); }} />
+                            <input 
+                              type="text" 
+                              value={editingTitle} 
+                              onChange={(e) => setEditingTitle(e.target.value)} 
+                              className="flex-1 bg-white/10 border border-gold-500 rounded-md px-2 py-1 text-sm" 
+                              autoFocus 
+                              onKeyDown={(e) => { 
+                                if (e.key === 'Enter') updateConversationTitle(conv.id, editingTitle); 
+                                if (e.key === 'Escape') setEditingTitleId(null); 
+                              }} 
+                            />
                             <button onClick={() => updateConversationTitle(conv.id, editingTitle)}><Check className="w-3 h-3 text-emerald-400" /></button>
                             <button onClick={() => setEditingTitleId(null)}><X className="w-3 h-3 text-red-400" /></button>
                           </div>
@@ -551,7 +869,12 @@ export default function ChatPage() {
         {executionPlan && (
           <div className="flex justify-start">
             <div className="max-w-[85%] w-full">
-              <ExecutionGuide planId={executionPlan.planId} plan={executionPlan.plan} onComplete={() => setExecutionPlan(null)} onClose={() => setExecutionPlan(null)} />
+              <ExecutionGuide 
+                planId={executionPlan.planId} 
+                plan={executionPlan.plan} 
+                onComplete={handlePlanComplete} 
+                onClose={handleClosePlan} 
+              />
             </div>
           </div>
         )}
@@ -568,6 +891,19 @@ export default function ChatPage() {
           <div className="flex justify-start mt-4">
             <div className="max-w-[85%] w-full">
               <DecisionMode onInsert={(text) => setInput(prev => prev + "\n\n" + text)} />
+            </div>
+          </div>
+        )}
+        
+        {selectedMode === "business-argent" && (
+          <div className="flex justify-start mt-4">
+            <div className="bg-gold-500/10 border border-gold-500/20 rounded-xl p-4 max-w-[85%] w-full">
+              <p className="text-xs text-gold-500 mb-2">💡 Actions rapides :</p>
+              <div className="flex flex-wrap gap-2">
+                <button onClick={() => setInput(prev => prev + " Prépare un email de prospection")} className="text-xs px-3 py-1.5 bg-white/10 rounded-full hover:bg-white/20">📧 Email pro</button>
+                <button onClick={() => setInput(prev => prev + " Compare ces deux opportunités")} className="text-xs px-3 py-1.5 bg-white/10 rounded-full hover:bg-white/20">⚖️ Comparer</button>
+                <button onClick={() => setInput(prev => prev + " Analyse cette opportunité")} className="text-xs px-3 py-1.5 bg-white/10 rounded-full hover:bg-white/20">🔍 Analyser</button>
+              </div>
             </div>
           </div>
         )}
@@ -589,6 +925,7 @@ export default function ChatPage() {
           <button onClick={() => setIsModeSelectorOpen(!isModeSelectorOpen)} className="flex items-center gap-2 px-3 py-1.5 rounded-full text-xs transition-colors hover:bg-white/5">
             {CurrentIcon && <CurrentIcon className={`w-3.5 h-3.5 ${currentModeConfig?.color}`} />}
             <span className="text-gray-400">{currentModeConfig?.name}</span>
+            <span className="text-[10px] text-gray-600 hidden sm:inline">{currentModeConfig?.description}</span>
             <ChevronDown className={`w-3 h-3 text-gray-500 transition-transform ${isModeSelectorOpen ? "rotate-180" : ""}`} />
           </button>
           {isModeSelectorOpen && (
@@ -598,7 +935,11 @@ export default function ChatPage() {
                 {modes.map((mode) => {
                   const Icon = mode.icon;
                   return (
-                    <button key={mode.id} onClick={() => { setSelectedMode(mode.id); setIsModeSelectorOpen(false); }} className={`w-full flex items-center gap-3 px-4 py-2.5 text-sm hover:bg-white/5 transition-colors ${selectedMode === mode.id ? mode.bg : ""}`}>
+                    <button 
+                      key={mode.id} 
+                      onClick={() => { setSelectedMode(mode.id); setIsModeSelectorOpen(false); }} 
+                      className={`w-full flex items-center gap-3 px-4 py-2.5 text-sm hover:bg-white/5 transition-colors ${selectedMode === mode.id ? mode.bg : ""}`}
+                    >
                       <Icon className={`w-4 h-4 ${mode.color}`} />
                       <div className="flex-1 text-left">
                         <p className="text-gray-300 text-sm">{mode.name}</p>
@@ -648,7 +989,7 @@ export default function ChatPage() {
             value={input} 
             onChange={(e) => setInput(e.target.value)} 
             onKeyDown={handleKeyDown} 
-            placeholder={isRecording ? "🎤 Enregistrement vocal..." : `Écris ton message...`} 
+            placeholder={isRecording ? "🎤 Enregistrement vocal..." : `Mode ${currentModeConfig?.name} : écris ton message...`} 
             className="flex-1 bg-white/10 border border-white/20 rounded-full py-3 px-4 text-sm focus:outline-none focus:border-gold-500 text-ivory placeholder:text-gray-500" 
             disabled={isRecording}
           />
@@ -659,6 +1000,7 @@ export default function ChatPage() {
             onMouseLeave={() => { if (isRecording) stopVoiceRecording(); }} 
             onTouchStart={handleSendButtonMouseDown} 
             onTouchEnd={handleSendButtonMouseUp} 
+            onClick={() => { if (isRecording) stopVoiceRecording(); }} 
             disabled={(!input.trim() && uploadedFiles.length === 0 && !isRecording) || isLoading || isSending} 
             className={`p-2 rounded-full transition-all flex-shrink-0 ${isRecording ? "bg-red-500 text-white animate-pulse" : "bg-gold-500 text-midnight hover:scale-105"} disabled:opacity-50 disabled:hover:scale-100`}
           >
@@ -692,7 +1034,7 @@ export default function ChatPage() {
                 </div>
               ))}
             </div>
-            <button onClick={() => setShowChecklistModal(false)} className="w-full py-2 bg-gold-500/20 text-gold-500 rounded-lg">Fermer</button>
+            <button onClick={() => setShowChecklistModal(false)} className="w-full py-2 bg-gold-500/20 text-gold-500 rounded-lg hover:bg-gold-500/30 transition-colors">Fermer</button>
           </div>
         </div>
       )}
@@ -708,8 +1050,8 @@ export default function ChatPage() {
               <pre className="text-sm text-ivory whitespace-pre-wrap font-sans">{currentDraft.content}</pre>
             </div>
             <div className="flex gap-3">
-              <button onClick={() => copyToClipboard(currentDraft.content)} className="flex-1 py-2 bg-gold-500/20 text-gold-500 rounded-lg">📋 Copier</button>
-              <button onClick={() => setShowDraftModal(false)} className="flex-1 py-2 bg-white/10 text-gray-400 rounded-lg">Fermer</button>
+              <button onClick={() => copyToClipboard(currentDraft.content)} className="flex-1 py-2 bg-gold-500/20 text-gold-500 rounded-lg hover:bg-gold-500/30 transition-colors">📋 Copier</button>
+              <button onClick={() => setShowDraftModal(false)} className="flex-1 py-2 bg-white/10 text-gray-400 rounded-lg hover:bg-white/20 transition-colors">Fermer</button>
             </div>
           </div>
         </div>
@@ -720,10 +1062,16 @@ export default function ChatPage() {
           <div className="bg-midnight border border-gold-500/30 rounded-xl max-w-md w-full p-6">
             <h3 className="text-lg font-serif text-gold-500 mb-2">✏️ Répondre à {currentWhatsApp.to}</h3>
             <p className="text-xs text-gray-400 mb-3">Message original : {currentWhatsApp.original_message}</p>
-            <textarea value={customReply} onChange={(e) => setCustomReply(e.target.value)} className="w-full bg-white/10 border border-white/20 rounded-lg p-3 text-sm text-ivory" rows={4} placeholder="Ta réponse..." />
+            <textarea 
+              value={customReply} 
+              onChange={(e) => setCustomReply(e.target.value)} 
+              className="w-full bg-white/10 border border-white/20 rounded-lg p-3 text-sm text-ivory" 
+              rows={4} 
+              placeholder="Ta réponse..." 
+            />
             <div className="flex gap-2 mt-4">
-              <button onClick={async () => { await executeAction("whatsapp_reply", { to: currentWhatsApp.to, message: customReply }); setShowWhatsAppModal(false); }} className="flex-1 py-2 bg-gold-500/20 text-gold-500 rounded-lg">📱 Envoyer</button>
-              <button onClick={() => setShowWhatsAppModal(false)} className="flex-1 py-2 bg-white/10 text-gray-400 rounded-lg">Annuler</button>
+              <button onClick={async () => { await executeAction("whatsapp_reply", { to: currentWhatsApp.to, message: customReply }); setShowWhatsAppModal(false); }} className="flex-1 py-2 bg-gold-500/20 text-gold-500 rounded-lg hover:bg-gold-500/30 transition-colors">📱 Envoyer</button>
+              <button onClick={() => setShowWhatsAppModal(false)} className="flex-1 py-2 bg-white/10 text-gray-400 rounded-lg hover:bg-white/20 transition-colors">Annuler</button>
             </div>
           </div>
         </div>
