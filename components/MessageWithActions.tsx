@@ -54,6 +54,7 @@ function parseActionsFromText(text: string): { cleanText: string; actions: Actio
 // ============================================================
 const getActionIcon = (type: string) => {
   switch(type) {
+    case "get_emails": return <Mail className="w-3 h-3" />;
     case "send_email": return <Mail className="w-3 h-3" />;
     case "create_task": return <CheckCircle className="w-3 h-3" />;
     case "create_draft": return <FileText className="w-3 h-3" />;
@@ -85,6 +86,35 @@ const executeActionFn = async (action: Action): Promise<{ success: boolean; data
     console.log("🔘 Action cliquée:", { type, params });
     
     switch (type) {
+      // ========== EMAILS - NOUVEAU ==========
+      case "get_emails":
+        try {
+          toast.info("📧 Récupération des emails...", { duration: 1500 });
+          const response = await fetch(`${API_URL}/api/gmail/direct-test`, {
+            method: "GET",
+            headers: { "Content-Type": "application/json" }
+          });
+          const result = await response.json();
+          
+          if (result.success && result.messages && result.messages.length > 0) {
+            let emailList = `📧 **${result.count} email(s) non lu(s) :**\n\n`;
+            result.messages.forEach((email: any, idx: number) => {
+              const fromClean = email.from?.split('<')[0].trim() || 'Inconnu';
+              emailList += `${idx + 1}. **${fromClean}**\n   📧 ${email.subject}\n`;
+            });
+            emailList += `\n💡 Dis-moi 'ouvre l'email [numéro]' pour voir le contenu`;
+            toast.success(`${result.count} email(s) trouvé(s)`);
+            return { success: true, data: { type: "email_list", content: emailList } };
+          } else {
+            toast.info("Aucun email non lu");
+            return { success: true, data: { type: "email_list", content: "📧 Aucun email non lu dans ta boîte." } };
+          }
+        } catch (error) {
+          console.error("Erreur get_emails:", error);
+          toast.error("❌ Erreur lors de la récupération des emails");
+          return { success: false };
+        }
+      
       // ========== TÂCHES ==========
       case "create_task":
         const taskResponse = await fetch(`${API_URL}/api/execute/create-task`, {
@@ -109,7 +139,7 @@ const executeActionFn = async (action: Action): Promise<{ success: boolean; data
         setTimeout(() => window.open("/money", "_self"), 500);
         return { success: true };
       
-      // ========== EMAILS ==========
+      // ========== EMAILS - ENVOI ==========
       case "send_email":
         const emailResponse = await fetch(`${API_URL}/api/email/send`, {
           method: "POST",
@@ -362,8 +392,7 @@ const executeActionFn = async (action: Action): Promise<{ success: boolean; data
         return { success: true };
 
       // ========== WHATSAPP RÉPONSES ==========
-     case "whatsapp_reply":
-        // Support both 'to' and 'conversation_id' field names
+      case "whatsapp_reply":
         const recipient = params.to || params.conversation_id;
         if (!recipient) {
           toast.error("❌ Destinataire manquant");
@@ -383,56 +412,55 @@ const executeActionFn = async (action: Action): Promise<{ success: boolean; data
           toast.error(`❌ Échec de l'envoi: ${replyResult.error || "erreur inconnue"}`);
           return { success: false };
         }
-        break;
       
       case "whatsapp_reply_custom":
         return { success: true, data: { type: "whatsapp_custom", to: params.to, original_message: params.original_message } };
 
-       // ========== WHATSAPP - GET CONVERSATIONS ==========
-     case "whatsapp_get_conversations":
-  const convResponse = await fetch(`${API_URL}/api/whatsapp/conversations?days=${params.days || 30}`, { 
-    method: "GET", 
-    headers: { "Content-Type": "application/json" } 
-  });
-  const convResult = await convResponse.json();
-  
-  if (convResult.conversations && convResult.conversations.length > 0) {
-    let messageText = "📱 Messages WhatsApp du mois\n\n";
-    const allActions: Action[] = [];
-    
-    convResult.conversations.forEach((conv: any) => {
-      const unreadBadge = conv.unread > 0 ? ` (${conv.unread} non lu)` : "";
-      messageText += `👤 ${conv.from_name}${unreadBadge}\n`;
+      // ========== WHATSAPP - GET CONVERSATIONS ==========
+      case "whatsapp_get_conversations":
+        const convResponse = await fetch(`${API_URL}/api/whatsapp/conversations?days=${params.days || 30}`, { 
+          method: "GET", 
+          headers: { "Content-Type": "application/json" } 
+        });
+        const convResult = await convResponse.json();
+        
+        if (convResult.conversations && convResult.conversations.length > 0) {
+          let messageText = "📱 Messages WhatsApp du mois\n\n";
+          const allActions: Action[] = [];
+          
+          convResult.conversations.forEach((conv: any) => {
+            const unreadBadge = conv.unread > 0 ? ` (${conv.unread} non lu)` : "";
+            messageText += `👤 ${conv.from_name}${unreadBadge}\n`;
+            
+            const lastMsg = conv.messages[0];
+            if (lastMsg) {
+              messageText += `   💬 ${lastMsg.message}\n`;
+              messageText += `   📅 ${new Date(lastMsg.created_at).toLocaleDateString('fr-FR')}\n`;
+            }
+            messageText += `\n`;
+            
+            allActions.push({
+              type: "whatsapp_reply",
+              params: { to: conv.from, message: "" },
+              label: `✏️ Répondre à ${conv.from_name}`
+            });
+          });
+          
+          console.log("📦 allActions:", allActions);  
+          
+          return { 
+            success: true, 
+            data: { 
+              type: "whatsapp_conversations",
+              text: messageText,
+              actions: allActions
+            } 
+          };
+        } else {
+          toast.info("📱 Aucun message WhatsApp récent");
+          return { success: true };
+        }
       
-      const lastMsg = conv.messages[0];
-      if (lastMsg) {
-        messageText += `   💬 ${lastMsg.message}\n`;
-        messageText += `   📅 ${new Date(lastMsg.created_at).toLocaleDateString('fr-FR')}\n`;
-      }
-      messageText += `\n`;
-      
-      allActions.push({
-        type: "whatsapp_reply",
-        params: { to: conv.from, message: "" },
-        label: `✏️ Répondre à ${conv.from_name}`
-      });
-    });
-    
-    console.log("📦 allActions:", allActions);  
-    
-    return { 
-      success: true, 
-      data: { 
-        type: "whatsapp_conversations",
-        text: messageText,
-        actions: allActions
-      } 
-    };
-  } else {
-    toast.info("📱 Aucun message WhatsApp récent");
-    return { success: true };
-  }
-  break;
       // ========== WHATSAPP ENVOI AVEC IMAGE ==========
       case "whatsapp_send_image":
         toast.info("🖼️ Envoi d'image WhatsApp...", { duration: 2000 });
@@ -517,6 +545,11 @@ export function MessageWithActions({ content, actions: providedActions = [], onA
     const result = await executeActionFn(action);
     
     if (result.success) {
+      // Afficher directement le contenu des emails si c'est une liste d'emails
+      if (result.data?.type === "email_list") {
+        setCurrentData({ title: "📧 Emails", content: result.data.content });
+        setShowDataModal(true);
+      }
       if (result.data?.type === "checklist") {
         setCurrentChecklist({ title: result.data.title, steps: result.data.steps });
         setShowChecklistModal(true);
@@ -534,14 +567,9 @@ export function MessageWithActions({ content, actions: providedActions = [], onA
         setCustomReply("");
         setShowWhatsAppModal(true);
       }
-
-    if (result.data?.type === "whatsapp_conversations") {
-        console.log("📦 result.data.actions:", result.data.actions);  // ← AJOUTE CE LOG
-        
-        setCurrentData({
-          title: "WhatsApp",
-          content: result.data.text
-        });
+      if (result.data?.type === "whatsapp_conversations") {
+        console.log("📦 result.data.actions:", result.data.actions);
+        setCurrentData({ title: "WhatsApp", content: result.data.text });
         setShowDataModal(true);
         setCurrentWhatsAppActions(result.data.actions || []);
       }
@@ -629,7 +657,7 @@ export function MessageWithActions({ content, actions: providedActions = [], onA
         </div>
       )}
 
-           {/* MODALE DONNÉES TABLE AVEC RÉPONSE WHATSAPP - VERSION MINI MODAL */}
+      {/* MODALE DONNÉES TABLE AVEC RÉPONSE WHATSAPP - VERSION MINI MODAL */}
       {showDataModal && currentData && (
         <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4" onClick={() => { setShowDataModal(false); setShowReplyInput(false); }}>
           <div className="bg-midnight border border-gold-500/30 rounded-xl max-w-lg w-full p-6" onClick={(e) => e.stopPropagation()}>
