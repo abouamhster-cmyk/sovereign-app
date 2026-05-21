@@ -575,6 +575,51 @@ const generateExecutionPlan = async (query: string): Promise<boolean> => {
   }
 };
 
+
+  // ========== INTERCEPTION DES DEMANDES WHATSAPP ==========
+const checkWhatsAppInterception = async (message: string): Promise<string | null> => {
+  const whatsappTriggers = [
+    "montre-moi mes whatsapp", "affiche mes whatsapp", "liste mes whatsapp",
+    "messages whatsapp", "whatsapp non répondus", "whatsapp non lus",
+    "fais le point whatsapp", "whatsapp en attente"
+  ];
+  
+  const messageLower = message.toLowerCase();
+  
+  if (whatsappTriggers.some(trigger => messageLower.includes(trigger))) {
+    try {
+      // Appel direct à l'API WhatsApp
+      const response = await fetch(`${API_URL}/api/whatsapp/conversations?days=30`, {
+        method: "GET",
+        headers: { "Content-Type": "application/json" }
+      });
+      const result = await response.json();
+      
+      if (result.conversations && result.conversations.length > 0) {
+        let messageList = `📱 **Messages WhatsApp en attente :**\n\n`;
+        result.conversations.forEach((conv: any, idx: number) => {
+          const unreadBadge = conv.unread > 0 ? ` (${conv.unread} non lu)` : "";
+          messageList += `${idx + 1}. **${conv.from_name}**${unreadBadge}\n`;
+          const lastMsg = conv.messages[0];
+          if (lastMsg) {
+            messageList += `   💬 ${lastMsg.message.substring(0, 80)}${lastMsg.message.length > 80 ? '...' : ''}\n`;
+            messageList += `   📅 ${new Date(lastMsg.created_at).toLocaleString('fr-FR')}\n`;
+          }
+          messageList += `\n`;
+        });
+        messageList += `💡 Dis-moi 'réponds à [nom]' pour envoyer un message`;
+        return messageList;
+      } else {
+        return "📱 Aucun message WhatsApp en attente.";
+      }
+    } catch (error) {
+      console.error("Erreur interception WhatsApp:", error);
+      return "❌ Impossible de récupérer les messages WhatsApp pour le moment.";
+    }
+  }
+  return null;
+};
+  
   async function saveMessage(conversationId: string, role: string, content: string, actions?: any[], files?: any[]) {
     const messageData: any = { content };
     if (actions?.length) messageData.actions = actions;
@@ -717,6 +762,17 @@ const sendMessage = async () => {
     const emailMessage: Message = { role: "assistant", content: emailResponse };
     setMessages(prev => [...prev, emailMessage]);
     await saveMessage(currentConversationId, "assistant", emailResponse);
+    setInput("");
+    setUploadedFiles([]);
+    return;
+  }
+
+
+  const whatsappResponse = await checkWhatsAppInterception(input);
+  if (whatsappResponse) {
+    const whatsappMessage: Message = { role: "assistant", content: whatsappResponse };
+    setMessages(prev => [...prev, whatsappMessage]);
+    await saveMessage(currentConversationId, "assistant", whatsappResponse);
     setInput("");
     setUploadedFiles([]);
     return;
