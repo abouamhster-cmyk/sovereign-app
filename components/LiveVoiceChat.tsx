@@ -52,12 +52,11 @@ export function LiveVoiceChat({ userId, onClose }: LiveVoiceChatProps) {
     
     const ws = new WebSocket(`${API_URL.replace("https", "wss")}/ws/voice/${userId}`);
     
-    ws.onopen = () => {
-      console.log("🔊 Connecté au vocal live");
+     ws.onopen = () => {
       setIsConnected(true);
       setIsConnecting(false);
-      toast.success("🎤 Mode vocal activé");
-      startMicrophone();
+      startMicrophone();  
+      toast.success("🎤 Mode vocal activé - Parlez maintenant");
     };
     
     ws.onmessage = (event) => {
