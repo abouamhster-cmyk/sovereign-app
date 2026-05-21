@@ -534,6 +534,45 @@ export default function ChatPage() {
     }
   }
 
+  // ========== GÉNÉRATION DE PLAN D'EXÉCUTION ==========
+const generateExecutionPlan = async (query: string): Promise<boolean> => {
+  setIsGeneratingPlan(true);
+  try {
+    const response = await fetch(`${API_URL}/api/execute/step-by-step`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ query, user_id: userId })
+    });
+    const data = await response.json();
+    if (data.success && data.plan) {
+      setExecutionPlan({ planId: data.plan_id, plan: data.plan });
+      return true;
+    } else if (data.fallback) {
+      setExecutionPlan({
+        planId: "fallback-" + Date.now(),
+        plan: {
+          title: "Plan simple",
+          estimated_duration: "15 minutes",
+          steps: [
+            { description: "Identifier l'action la plus importante", action_type: "decision", estimated_minutes: 2 },
+            { description: "La faire maintenant", action_type: "task", estimated_minutes: 10 },
+            { description: "Célébrer cette petite victoire", action_type: "celebrate", estimated_minutes: 1 }
+          ],
+          success_criteria: "Avoir avancé sur une chose importante",
+          next_steps_hint: "Continue sur cette lancée"
+        }
+      });
+      return true;
+    }
+    return false;
+  } catch (error) {
+    console.error("Erreur génération plan:", error);
+    return false;
+  } finally {
+    setIsGeneratingPlan(false);
+  }
+};
+
   async function saveMessage(conversationId: string, role: string, content: string, actions?: any[], files?: any[]) {
     const messageData: any = { content };
     if (actions?.length) messageData.actions = actions;
@@ -546,7 +585,6 @@ export default function ChatPage() {
     await supabase.from("conversations").update({ updated_at: new Date().toISOString() }).eq("id", conversationId);
   }
 
-  // ========== ENVOI DE MESSAGE ==========
 // ========== ENVOI DE MESSAGE AVEC STREAMING ==========
 const sendMessageStreaming = async (allMessages: any[], onChunk: (chunk: string) => void): Promise<string> => {
   const response = await fetch(`${API_URL}/chat/stream`, {
