@@ -10,7 +10,7 @@ import {
   Calendar, AlertCircle, ArrowRight, Loader2, Edit2, Inbox, CheckSquare, 
   Briefcase, Globe, Trophy, Users, Zap, ShieldAlert, Map, Mail, FileText, 
   TrendingUp, CalendarDays, FolderOpen, Star, Sun, Moon, TrendingDown,
-  Activity, Clock, Award, PieChart, BarChart3, LineChart
+  Activity, Clock, Award, PieChart, BarChart3, LineChart, Wallet
 } from "lucide-react";
 import { toast } from "sonner";
 import { Line, Bar, Doughnut } from "react-chartjs-2";
@@ -27,16 +27,6 @@ import {
   Legend,
   Filler
 } from 'chart.js';
-
-
-// En haut du fichier, après les imports
-type SpendingWithCategory = {
-  id: string;
-  title: string;
-  amount: number;
-  category: string;
-  date: string;
-};
 
 // Enregistrement des composants Chart.js
 ChartJS.register(
@@ -250,17 +240,17 @@ export default function DashboardPage() {
     setTotalSpending(totalSpend);
     setBalance(totalRev - totalSpend);
     
-    // Dépenses par catégorie
-spendingData.forEach((s: SpendingWithCategory) => {
-  const cat = s.category || "other";
-  const currentTotal = categoryMap.get(cat) || 0;
-  categoryMap.set(cat, currentTotal + s.amount);
-});
-const categoriesArray: { category: string; total: number }[] = [];
-categoryMap.forEach((total, category) => {
-  categoriesArray.push({ category, total });
-});
-setSpendingByCategory(categoriesArray);
+    // Dépenses par catégorie - Version corrigée sans Map
+    const categoriesTotal: { [key: string]: number } = {};
+    spendingData.forEach((s: Spending) => {
+      const cat = s.category || "other";
+      categoriesTotal[cat] = (categoriesTotal[cat] || 0) + s.amount;
+    });
+    const categoriesArray = Object.entries(categoriesTotal).map(([category, total]) => ({ 
+      category: category, 
+      total: total 
+    }));
+    setSpendingByCategory(categoriesArray);
   }
 
   async function fetchStats() {
