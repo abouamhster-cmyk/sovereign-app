@@ -1,5 +1,6 @@
 "use client";
-import { useEffect, useState } from "react";
+
+import { useEffect, useState, useMemo, useCallback } from "react";
 import { supabase } from "@/lib/supabase";
 import { useUserId } from "@/hooks/useUserId";
 import LoadingSpinner from "@/components/LoadingSpinner";
@@ -16,14 +17,13 @@ import { Chart as ChartJS, ArcElement, Tooltip, Legend, CategoryScale, LinearSca
 import { Bar, Pie } from 'react-chartjs-2';
 import { toast } from "sonner";
 import Link from "next/link";
-
-const API_URL = "https://sovereign-bridge.onrender.com";
+import { useAuth } from "@/contexts/AuthContext";
 
 // Enregistrer les composants Chart.js
 ChartJS.register(ArcElement, Tooltip, Legend, CategoryScale, LinearScale, BarElement, Title);
 
 // =====================================================
-// TYPES
+// TYPES OPTIMISÉS (colonnes nécessaires uniquement)
 // =====================================================
 
 type Spending = {
@@ -34,7 +34,7 @@ type Spending = {
   project: string;
   date: string;
   notes?: string;
-  created_at: string;
+  created_at?: string;
 };
 
 type Revenue = {
@@ -44,7 +44,7 @@ type Revenue = {
   project: string;
   date: string;
   notes?: string;
-  created_at: string;
+  created_at?: string;
 };
 
 type Opportunity = {
@@ -118,10 +118,8 @@ const probabilityConfig = {
   high: { label: "🔴 Haute", color: "text-emerald-400", value: 75 }
 };
 
-
 function calculateOpportunityScore(opp: Opportunity): number {
   let score = 0;
-  
   if (opp.estimated_value) {
     if (opp.estimated_value >= 10000000) score += 10;
     else if (opp.estimated_value >= 5000000) score += 8;
@@ -130,18 +128,15 @@ function calculateOpportunityScore(opp: Opportunity): number {
     else if (opp.estimated_value >= 500000) score += 2;
     else score += 1;
   }
-  
   if (opp.probability === "high") score += 8;
   else if (opp.probability === "medium") score += 5;
   else if (opp.probability === "low") score += 2;
-  
   if (opp.stage === "won") score += 7;
   else if (opp.stage === "follow_up") score += 6;
   else if (opp.stage === "submitted") score += 5;
   else if (opp.stage === "preparing") score += 3;
   else if (opp.stage === "researching") score += 2;
   else if (opp.stage === "idea") score += 1;
-  
   if (opp.deadline) {
     const daysUntil = Math.ceil((new Date(opp.deadline).getTime() - new Date().getTime()) / (1000 * 3600 * 24));
     if (daysUntil <= 3) score += 5;
@@ -150,7 +145,6 @@ function calculateOpportunityScore(opp: Opportunity): number {
     else if (daysUntil <= 30) score += 2;
     else score += 1;
   }
-  
   return Math.min(score, 30);
 }
 
@@ -174,7 +168,8 @@ function getScoreColor(score: number): string {
 // =====================================================
 
 export default function MoneyOpportunitiesPage() {
-    const { userId, loading: userIdLoading } = useUserId();
+  const { user } = useAuth();  // ← OPTIMISATION: useAuth au lieu de useUserId
+  const userId = user?.id || null;
   const [activeTab, setActiveTab] = useState<"money" | "opportunities">("money");
   
   // États pour les finances
@@ -220,108 +215,111 @@ export default function MoneyOpportunitiesPage() {
     notes: ""
   });
 
-  const scrollToForm = () => {
-    setTimeout(() => {
-      const formElement = document.getElementById('form-container');
-      if (formElement) {
-        formElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      }
-    }, 150);
-  };
-
-  // =====================================================
-  // CHARGEMENT DES DONNÉES
-  // =====================================================
-
- useEffect(() => {
-  if (!userId) return;
-  
-  const spendingChannel = supabase
-    .channel('spending_changes')
-    .on('postgres_changes', 
-      { event: '*', schema: 'public', table: 'spending', filter: `user_id=eq.${userId}` }, 
-      () => fetchFinanceData()
-    )
-    .subscribe();
-  
-  const revenueChannel = supabase
-    .channel('revenue_changes')
-    .on('postgres_changes', 
-      { event: '*', schema: 'public', table: 'revenue', filter: `user_id=eq.${userId}` }, 
-      () => fetchFinanceData()
-    )
-    .subscribe();
-  
-  const opportunitiesChannel = supabase
-    .channel('opportunities_changes')
-    .on('postgres_changes', 
-      { event: '*', schema: 'public', table: 'opportunities', filter: `user_id=eq.${userId}` }, 
-      () => fetchOpportunities()
-    )
-    .subscribe();
-  
-  return () => {
-    spendingChannel.unsubscribe();
-    revenueChannel.unsubscribe();
-    opportunitiesChannel.unsubscribe();
-  };
-}, [userId]);
+  // ========== CHARGEMENT OPTIMISÉ ==========
+  useEffect(() => {
+    if (!userId) return;
+    fetchAllData();
+    
+    // Channels unifiés
+    const spendingChannel = supabase
+      .channel('money_spending')
+      .on('postgres_changes', 
+        { event: '*', schema: 'public', table: 'spending', filter: `user_id=eq.${userId}` }, 
+        () => fetchFinanceDataOptimized()
+      )
+      .subscribe();
+    
+    const revenueChannel = supabase
+      .channel('money_revenue')
+      .on('postgres_changes', 
+        { event: '*', schema: 'public', table: 'revenue', filter: `user_id=eq.${userId}` }, 
+        () => fetchFinanceDataOptimized()
+      )
+      .subscribe();
+    
+    const opportunitiesChannel = supabase
+      .channel('money_opportunities')
+      .on('postgres_changes', 
+        { event: '*', schema: 'public', table: 'opportunities', filter: `user_id=eq.${userId}` }, 
+        () => fetchOpportunitiesOptimized()
+      )
+      .subscribe();
+    
+    return () => {
+      spendingChannel.unsubscribe();
+      revenueChannel.unsubscribe();
+      opportunitiesChannel.unsubscribe();
+    };
+  }, [userId]);
 
   async function fetchAllData() {
-    await Promise.all([fetchFinanceData(), fetchOpportunities(), fetchMissions()]);
+    await Promise.all([
+      fetchFinanceDataOptimized(),
+      fetchOpportunitiesOptimized(),
+      fetchMissionsOptimized()
+    ]);
   }
 
-  async function fetchFinanceData() {
-  if (!userId) return;
+  // ========== REQUÊTES OPTIMISÉES (colonnes spécifiques + limites) ==========
   
-  setIsFinanceLoading(true);
-  
-  const { data: spendingData } = await supabase
-    .from("spending")
-    .select("*")
-    .eq("user_id", userId)
-    .order("date", { ascending: false });
-  
-  const { data: revenueData } = await supabase
-    .from("revenue")
-    .select("*")
-    .eq("user_id", userId)
-    .order("date", { ascending: false });
-  
-  setSpending(spendingData || []);
-  setRevenue(revenueData || []);
-  setIsFinanceLoading(false);
-}
+  async function fetchFinanceDataOptimized() {
+    if (!userId) return;
+    
+    setIsFinanceLoading(true);
+    
+    const [spendingResult, revenueResult] = await Promise.all([
+      supabase
+        .from("spending")
+        .select("id, title, amount, category, project, date, notes")  // ← colonnes nécessaires
+        .eq("user_id", userId)
+        .order("date", { ascending: false })
+        .limit(200),  // ← limite
+      supabase
+        .from("revenue")
+        .select("id, source, amount, project, date, notes")  // ← colonnes nécessaires
+        .eq("user_id", userId)
+        .order("date", { ascending: false })
+        .limit(200)  // ← limite
+    ]);
+    
+    setSpending(spendingResult.data || []);
+    setRevenue(revenueResult.data || []);
+    setIsFinanceLoading(false);
+  }
 
- async function fetchOpportunities() {
-  if (!userId) return;
-  
-  setIsOpportunityLoading(true);
-  const { data } = await supabase
-    .from("opportunities")
-    .select("*")
-    .eq("user_id", userId)
-    .order("estimated_value", { ascending: false });
-  setOpportunities(data || []);
-  setIsOpportunityLoading(false);
-}
+  async function fetchOpportunitiesOptimized() {
+    if (!userId) return;
+    
+    setIsOpportunityLoading(true);
+    const { data } = await supabase
+      .from("opportunities")
+      .select("id, title, type, estimated_value, stage, deadline, probability, next_action, notes, created_at")  // ← colonnes nécessaires
+      .eq("user_id", userId)
+      .order("estimated_value", { ascending: false })
+      .limit(100);  // ← limite
+    
+    setOpportunities(data || []);
+    setIsOpportunityLoading(false);
+  }
 
-async function fetchMissions() {
-  if (!userId) return;
-  
-  const { data } = await supabase
-    .from("missions")
-    .select("id, name")
-    .eq("user_id", userId)
-    .eq("status", "active");
-  setMissions(data || []);
-}
+  async function fetchMissionsOptimized() {
+    if (!userId) return;
+    
+    const { data } = await supabase
+      .from("missions")
+      .select("id, name")  // ← seulement id et name
+      .eq("user_id", userId)
+      .eq("status", "active")
+      .limit(50);
+    
+    setMissions(data || []);
+  }
 
-  // =====================================================
-  // GESTION DES FINANCES
-  // =====================================================
+  // ========== GESTION DES FINANCES ==========
 
   async function addFinanceEntry() {
+    if (!userId) return;
+    
     const table = financeFormType === "spending" ? "spending" : "revenue";
     const data = {
       title: financeFormData.title,
@@ -331,13 +329,12 @@ async function fetchMissions() {
       date: financeFormData.date,
       notes: financeFormData.notes || null,
       user_id: userId 
-
     };
     
     const { error } = await supabase.from(table).insert(data);
     if (!error) {
       resetFinanceForm();
-      fetchFinanceData();
+      fetchFinanceDataOptimized();
       toast.success(financeFormType === "spending" ? "Dépense ajoutée" : "Revenu ajouté");
     } else {
       toast.error("Erreur: " + error.message);
@@ -345,6 +342,8 @@ async function fetchMissions() {
   }
 
   async function updateFinanceEntry() {
+    if (!userId) return;
+    
     const table = financeFormType === "spending" ? "spending" : "revenue";
     const data = {
       title: financeFormData.title,
@@ -359,7 +358,7 @@ async function fetchMissions() {
     const { error } = await supabase.from(table).update(data).eq("id", editingFinanceId);
     if (!error) {
       resetFinanceForm();
-      fetchFinanceData();
+      fetchFinanceDataOptimized();
       toast.success("Modifié");
     } else {
       toast.error("Erreur: " + error.message);
@@ -370,7 +369,7 @@ async function fetchMissions() {
     if (confirm("Supprimer cette entrée ?")) {
       const { error } = await supabase.from(table).delete().eq("id", id);
       if (!error) {
-        fetchFinanceData();
+        fetchFinanceDataOptimized();
         toast.success("Supprimé");
       }
     }
@@ -388,7 +387,9 @@ async function fetchMissions() {
     });
     setEditingFinanceId(entry.id);
     setShowFinanceForm(true);
-    scrollToForm();
+    setTimeout(() => {
+      document.getElementById("form-container")?.scrollIntoView({ behavior: "smooth" });
+    }, 100);
   }
 
   function resetFinanceForm() {
@@ -404,11 +405,11 @@ async function fetchMissions() {
     });
   }
 
-  // =====================================================
-  // GESTION DES OPPORTUNITÉS
-  // =====================================================
+  // ========== GESTION DES OPPORTUNITÉS ==========
 
   async function saveOpportunity() {
+    if (!userId) return;
+    
     const data = {
       title: opportunityFormData.title,
       type: opportunityFormData.type,
@@ -420,7 +421,6 @@ async function fetchMissions() {
       next_action: opportunityFormData.next_action || null,
       notes: opportunityFormData.notes || null,
       user_id: userId 
-
     };
     
     let error;
@@ -434,7 +434,7 @@ async function fetchMissions() {
     
     if (!error) {
       resetOpportunityForm();
-      fetchOpportunities();
+      fetchOpportunitiesOptimized();
       toast.success(editingOpportunityId ? "Opportunité modifiée" : "Opportunité ajoutée");
     } else {
       toast.error("Erreur: " + error.message);
@@ -443,14 +443,14 @@ async function fetchMissions() {
 
   async function updateOpportunityStage(id: string, newStage: Opportunity["stage"]) {
     const { error } = await supabase.from("opportunities").update({ stage: newStage }).eq("id", id);
-    if (!error) fetchOpportunities();
+    if (!error) fetchOpportunitiesOptimized();
   }
 
   async function deleteOpportunity(id: string) {
     if (confirm("Supprimer cette opportunité ?")) {
       const { error } = await supabase.from("opportunities").delete().eq("id", id);
       if (!error) {
-        fetchOpportunities();
+        fetchOpportunitiesOptimized();
         toast.success("Opportunité supprimée");
       }
     }
@@ -470,7 +470,9 @@ async function fetchMissions() {
       notes: opp.notes || ""
     });
     setShowOpportunityForm(true);
-    scrollToForm();
+    setTimeout(() => {
+      document.getElementById("form-container")?.scrollIntoView({ behavior: "smooth" });
+    }, 100);
   }
 
   function resetOpportunityForm() {
@@ -492,11 +494,12 @@ async function fetchMissions() {
   async function scanOpportunities() {
     toast.info("🔍 Scan en cours...");
     try {
+      const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://sovereign-bridge.onrender.com';
       const response = await fetch(`${API_URL}/api/opportunities/scan`, { method: "POST" });
       const data = await response.json();
       if (data.success && data.count > 0) {
         toast.success(`🎯 ${data.count} opportunité(s) détectée(s) !`);
-        fetchOpportunities();
+        fetchOpportunitiesOptimized();
       } else if (data.success) {
         toast.info("Aucune nouvelle opportunité détectée");
       } else {
@@ -507,43 +510,49 @@ async function fetchMissions() {
     }
   }
 
-  // =====================================================
-  // FILTRES & CALCULS FINANCES
-  // =====================================================
+  // ========== FILTRES & CALCULS MEMOIZED ==========
 
-  const filteredSpending = spending.filter(s => {
-    if (filterProject !== "all" && s.project !== filterProject) return false;
-    if (filterMonth !== "all") {
-      const month = new Date(s.date).toLocaleString('fr-FR', { month: 'long', year: 'numeric' });
-      if (month !== filterMonth) return false;
-    }
-    return true;
-  });
+  const filteredSpending = useMemo(() => {
+    return spending.filter(s => {
+      if (filterProject !== "all" && s.project !== filterProject) return false;
+      if (filterMonth !== "all") {
+        const month = new Date(s.date).toLocaleString('fr-FR', { month: 'long', year: 'numeric' });
+        if (month !== filterMonth) return false;
+      }
+      return true;
+    });
+  }, [spending, filterProject, filterMonth]);
 
-  const filteredRevenue = revenue.filter(r => {
-    if (filterProject !== "all" && r.project !== filterProject) return false;
-    if (filterMonth !== "all") {
-      const month = new Date(r.date).toLocaleString('fr-FR', { month: 'long', year: 'numeric' });
-      if (month !== filterMonth) return false;
-    }
-    return true;
-  });
+  const filteredRevenue = useMemo(() => {
+    return revenue.filter(r => {
+      if (filterProject !== "all" && r.project !== filterProject) return false;
+      if (filterMonth !== "all") {
+        const month = new Date(r.date).toLocaleString('fr-FR', { month: 'long', year: 'numeric' });
+        if (month !== filterMonth) return false;
+      }
+      return true;
+    });
+  }, [revenue, filterProject, filterMonth]);
 
-  const totalSpending = filteredSpending.reduce((sum, s) => sum + (s.amount || 0), 0);
-  const totalRevenue = filteredRevenue.reduce((sum, r) => sum + (r.amount || 0), 0);
+  const totalSpending = useMemo(() => filteredSpending.reduce((sum, s) => sum + (s.amount || 0), 0), [filteredSpending]);
+  const totalRevenue = useMemo(() => filteredRevenue.reduce((sum, r) => sum + (r.amount || 0), 0), [filteredRevenue]);
   const balance = totalRevenue - totalSpending;
 
-  const spendingByCategory = categories.map(cat => ({
-    ...cat,
-    total: filteredSpending.filter(s => s.category === cat.value).reduce((sum, s) => sum + s.amount, 0)
-  })).filter(c => c.total > 0);
+  const spendingByCategory = useMemo(() => {
+    return categories.map(cat => ({
+      ...cat,
+      total: filteredSpending.filter(s => s.category === cat.value).reduce((sum, s) => sum + s.amount, 0)
+    })).filter(c => c.total > 0);
+  }, [filteredSpending]);
 
-  const availableMonths = [...new Set([
-    ...spending.map(s => new Date(s.date).toLocaleString('fr-FR', { month: 'long', year: 'numeric' })),
-    ...revenue.map(r => new Date(r.date).toLocaleString('fr-FR', { month: 'long', year: 'numeric' }))
-  ])];
+  const availableMonths = useMemo(() => {
+    return [...new Set([
+      ...spending.map(s => new Date(s.date).toLocaleString('fr-FR', { month: 'long', year: 'numeric' })),
+      ...revenue.map(r => new Date(r.date).toLocaleString('fr-FR', { month: 'long', year: 'numeric' }))
+    ])];
+  }, [spending, revenue]);
 
-  const categoryChartData = {
+  const categoryChartData = useMemo(() => ({
     labels: spendingByCategory.map(c => c.label),
     datasets: [{
       label: 'Dépenses (CFA)',
@@ -552,18 +561,16 @@ async function fetchMissions() {
       borderColor: '#D4AF37',
       borderWidth: 1,
     }]
-  };
+  }), [spendingByCategory]);
 
-  const getMonthlyEvolution = () => {
+  const getMonthlyEvolution = useMemo(() => {
     const monthlyData: { [key: string]: { revenue: number; spending: number } } = {};
-    
     [...spending, ...revenue].forEach(item => {
       const month = new Date(item.date).toLocaleString('fr-FR', { month: 'short', year: 'numeric' });
       if (!monthlyData[month]) monthlyData[month] = { revenue: 0, spending: 0 };
       if ('source' in item) monthlyData[month].revenue += item.amount;
       else monthlyData[month].spending += item.amount;
     });
-    
     const months = Object.keys(monthlyData).slice(-6);
     return {
       labels: months,
@@ -572,52 +579,42 @@ async function fetchMissions() {
         { label: 'Dépenses', data: months.map(m => monthlyData[m].spending), backgroundColor: 'rgba(239, 68, 68, 0.6)', borderColor: '#ef4444', borderWidth: 2 }
       ]
     };
-  };
+  }, [spending, revenue]);
 
-  // =====================================================
-  // FILTRES OPPORTUNITÉS
-  // =====================================================
+  // ========== FILTRES OPPORTUNITÉS ==========
 
-  const filteredOpportunities = opportunities.filter(opp => {
-    if (filterStage !== "all" && opp.stage !== filterStage) return false;
-    if (filterType !== "all" && opp.type !== filterType) return false;
-    return true;
-  });
+  const filteredOpportunities = useMemo(() => {
+    return opportunities.filter(opp => {
+      if (filterStage !== "all" && opp.stage !== filterStage) return false;
+      if (filterType !== "all" && opp.type !== filterType) return false;
+      return true;
+    });
+  }, [opportunities, filterStage, filterType]);
 
-  const sortedOpportunities = [...filteredOpportunities].sort((a, b) => {
-    if (sortBy === "value") return (b.estimated_value || 0) - (a.estimated_value || 0);
-    if (sortBy === "score") return calculateOpportunityScore(b) - calculateOpportunityScore(a);
-    if (sortBy === "deadline") return (a.deadline || "9999") > (b.deadline || "9999") ? 1 : -1;
-    return 0;
-  });
+  const sortedOpportunities = useMemo(() => {
+    return [...filteredOpportunities].sort((a, b) => {
+      if (sortBy === "value") return (b.estimated_value || 0) - (a.estimated_value || 0);
+      if (sortBy === "score") return calculateOpportunityScore(b) - calculateOpportunityScore(a);
+      if (sortBy === "deadline") return (a.deadline || "9999") > (b.deadline || "9999") ? 1 : -1;
+      return 0;
+    });
+  }, [filteredOpportunities, sortBy]);
 
-  const oppStats = {
+  const oppStats = useMemo(() => ({
     total: opportunities.length,
     totalValue: opportunities.reduce((sum, o) => sum + (o.estimated_value || 0), 0),
     won: opportunities.filter(o => o.stage === "won").length,
     inProgress: opportunities.filter(o => !["won", "lost"].includes(o.stage)).length,
     highProbability: opportunities.filter(o => o.probability === "high" && !["won", "lost"].includes(o.stage)).length
-  };
+  }), [opportunities]);
 
-  // =====================================================
-  // RENDU
-  // =====================================================
-
-  if (userIdLoading) {
-  return (
-    <div className="flex items-center justify-center min-h-[400px]">
-      <Loader2 className="w-8 h-8 text-gold-500 animate-spin" />
-    </div>
-  );
-}
-
-if (!userId) {
-  return (
-    <div className="flex items-center justify-center min-h-[400px]">
-      <p className="text-gray-500">Veuillez vous connecter</p>
-    </div>
-  );
-}
+  if (!userId) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <p className="text-gray-500">Veuillez vous connecter</p>
+      </div>
+    );
+  }
 
   if (isFinanceLoading && isOpportunityLoading) {
     return (
@@ -699,7 +696,7 @@ if (!userId) {
                 <option value="all">📅 Tous les mois</option>
                 {availableMonths.map(m => <option key={m} value={m}>{m}</option>)}
               </select>
-              <button onClick={() => fetchFinanceData()} className="p-2 bg-white/5 rounded-full hover:bg-white/10"><RefreshCw className="w-4 h-4 text-gray-400" /></button>
+              <button onClick={() => fetchFinanceDataOptimized()} className="p-2 bg-white/5 rounded-full hover:bg-white/10"><RefreshCw className="w-4 h-4 text-gray-400" /></button>
             </div>
 
             {/* STATS CARTES */}
@@ -728,7 +725,7 @@ if (!userId) {
               )}
               <div className="bg-white/5 border border-white/10 rounded-2xl p-5">
                 <h2 className="text-sm font-serif text-gold-500 mb-4">📈 Évolution 6 mois</h2>
-                <div className="h-64"><Bar data={getMonthlyEvolution()} options={{ responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'top', labels: { color: '#F5F5F0' } } }, scales: { x: { ticks: { color: '#9CA3AF' } }, y: { ticks: { color: '#9CA3AF' } } } }} /></div>
+                <div className="h-64"><Bar data={getMonthlyEvolution} options={{ responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'top', labels: { color: '#F5F5F0' } } }, scales: { x: { ticks: { color: '#9CA3AF' } }, y: { ticks: { color: '#9CA3AF' } } } }} /></div>
               </div>
             </div>
 
@@ -806,10 +803,10 @@ if (!userId) {
 
             {/* BOUTONS D'AJOUT */}
             <div className="flex gap-4 mt-6">
-              <button onClick={() => { setFinanceFormType("spending"); setShowFinanceForm(true); setEditingFinanceId(null); scrollToForm(); }} className="bg-red-500/20 text-red-400 px-5 py-2 rounded-full text-sm font-medium hover:bg-red-500/30 transition-all flex items-center gap-2">
+              <button onClick={() => { setFinanceFormType("spending"); setShowFinanceForm(true); setEditingFinanceId(null); setTimeout(() => document.getElementById("form-container")?.scrollIntoView({ behavior: "smooth" }), 100); }} className="bg-red-500/20 text-red-400 px-5 py-2 rounded-full text-sm font-medium hover:bg-red-500/30 transition-all flex items-center gap-2">
                 <Plus className="w-4 h-4" /> Dépense
               </button>
-              <button onClick={() => { setFinanceFormType("revenue"); setShowFinanceForm(true); setEditingFinanceId(null); scrollToForm(); }} className="bg-emerald-500/20 text-emerald-400 px-5 py-2 rounded-full text-sm font-medium hover:bg-emerald-500/30 transition-all flex items-center gap-2">
+              <button onClick={() => { setFinanceFormType("revenue"); setShowFinanceForm(true); setEditingFinanceId(null); setTimeout(() => document.getElementById("form-container")?.scrollIntoView({ behavior: "smooth" }), 100); }} className="bg-emerald-500/20 text-emerald-400 px-5 py-2 rounded-full text-sm font-medium hover:bg-emerald-500/30 transition-all flex items-center gap-2">
                 <Plus className="w-4 h-4" /> Revenu
               </button>
             </div>
@@ -853,7 +850,7 @@ if (!userId) {
               <button onClick={scanOpportunities} className="bg-purple-500/20 text-purple-400 px-4 py-2 rounded-full text-sm font-medium flex items-center gap-2 hover:bg-purple-500/30 transition-colors">
                 <Brain className="w-4 h-4" /> Scanner les opportunités
               </button>
-              <button onClick={() => { setShowOpportunityForm(true); setEditingOpportunityId(null); scrollToForm(); }} className="bg-gold-500 text-midnight px-4 py-2 rounded-full text-sm font-medium flex items-center gap-2 hover:bg-gold-400 transition-colors">
+              <button onClick={() => { setShowOpportunityForm(true); setEditingOpportunityId(null); setTimeout(() => document.getElementById("form-container")?.scrollIntoView({ behavior: "smooth" }), 100); }} className="bg-gold-500 text-midnight px-4 py-2 rounded-full text-sm font-medium flex items-center gap-2 hover:bg-gold-400 transition-colors">
                 <Plus className="w-4 h-4" /> Nouvelle opportunité
               </button>
             </div>
