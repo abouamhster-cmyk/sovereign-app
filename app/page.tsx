@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useMemo, useCallback, lazy, Suspense } from "react";
+import { useEffect, useState, useMemo, useCallback } from "react";
 import { supabase } from "@/lib/supabase";
 import { motion } from "framer-motion";
 import Link from "next/link";
@@ -14,8 +14,36 @@ import {
   PieChart, LineChart, Activity, CreditCard, Wallet, Clock
 } from "lucide-react";
 import { toast } from "sonner";
+import {
+  Chart as ChartJS,
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  BarElement,
+  ArcElement,
+  Title,
+  Tooltip,
+  Legend,
+  Filler
+} from 'chart.js';
+import { Line, Bar, Doughnut } from 'react-chartjs-2';
 
-// Types optimisés (seulement les champs nécessaires)
+// Enregistrement des composants Chart.js
+ChartJS.register(
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  BarElement,
+  ArcElement,
+  Title,
+  Tooltip,
+  Legend,
+  Filler
+);
+
+// Types optimisés
 type Priority = { id: string; title: string; priority_reason: string; score: number };
 type Task = { id: string; title: string; due_date: string | null; status: string; priority: string };
 type Mission = { id: string; name: string; status: string; priority: string };
@@ -36,27 +64,16 @@ const chartColors = {
   cyan: '#06B6D4'
 };
 
-// ========== CHARGEMENT LAZY DES GRAPHIQUES (lourds) ==========
-const LazyLine = lazy(() => import('react-chartjs-2').then(mod => ({ default: mod.Line })));
-const LazyBar = lazy(() => import('react-chartjs-2').then(mod => ({ default: mod.Bar })));
-const LazyDoughnut = lazy(() => import('react-chartjs-2').then(mod => ({ default: mod.Doughnut })));
-
-// Composant Skeleton pour les graphiques
-const ChartSkeleton = () => (
-  <div className="h-40 w-full bg-white/5 rounded-lg animate-pulse" />
-);
-
 export default function DashboardPage() {
   const router = useRouter();
-  const { user } = useAuth();  // ← OPTIMISATION 1: Utiliser useAuth() au lieu de fetchUser()
+  const { user } = useAuth();  // ← Utilisation directe du contexte auth
   const userId = user?.id || null;
   
   const [greeting, setGreeting] = useState("");
   const [userName, setUserName] = useState("Rebecca");
   const [isLoading, setIsLoading] = useState(true);
-  const [isInitialLoad, setIsInitialLoad] = useState(true);
   
-  // Données avec chargement progressif (priorité à l'affichage)
+  // Données
   const [priorities, setPriorities] = useState<Priority[]>([]);
   const [urgentTasks, setUrgentTasks] = useState<Task[]>([]);
   const [activeMissions, setActiveMissions] = useState<Mission[]>([]);
@@ -64,7 +81,7 @@ export default function DashboardPage() {
   const [becksMessage, setBecksMessage] = useState("");
   const [mood, setMood] = useState<string | null>(null);
   
-  // Données secondaires (chargées en arrière-plan)
+  // Données secondaires
   const [overloadData, setOverloadData] = useState<any>(null);
   const [recentSpending, setRecentSpending] = useState<Spending[]>([]);
   const [recentRevenue, setRecentRevenue] = useState<Revenue[]>([]);
@@ -75,50 +92,9 @@ export default function DashboardPage() {
   const [completionRate, setCompletionRate] = useState(0);
   const [farmNextAction, setFarmNextAction] = useState("Vérifier l'avancement");
   
-  // États de chargement granulaires
   const [isLoadingMemories, setIsLoadingMemories] = useState(true);
-  const [isLoadingSecondary, setIsLoadingSecondary] = useState(false);
 
-  // ========== OPTIMISATION 2: useMemo pour les calculs coûteux ==========
-  const financialCards = useMemo(() => ({
-    revenue: financialSummary.revenue,
-    spending: financialSummary.spending,
-    balance: financialSummary.balance
-  }), [financialSummary.revenue, financialSummary.spending, financialSummary.balance]);
-
-  const moodButtons = useMemo(() => [
-    { value: "excellent", emoji: "🌟", label: "Excellent", color: "text-emerald-400" },
-    { value: "bien", emoji: "😊", label: "Bien", color: "text-green-400" },
-    { value: "neutre", emoji: "😐", label: "Neutre", color: "text-gray-400" },
-    { value: "fatiguée", emoji: "😴", label: "Fatiguée", color: "text-yellow-400" },
-    { value: "stressée", emoji: "😰", label: "Stressée", color: "text-red-400" }
-  ], []);
-
-  // ========== OPTIMISATION 3: useCallback pour éviter les re-créations ==========
-  const handleSaveMood = useCallback(async (selectedMood: string) => {
-    if (!userId) return;
-    const today = new Date().toISOString().split('T')[0];
-    setMood(selectedMood);
-    localStorage.setItem("todayMood", selectedMood);
-    localStorage.setItem("todayMoodDate", today);
-    
-    try {
-      await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'https://sovereign-bridge.onrender.com'}/api/mood/save`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ mood: selectedMood, user_id: userId })
-      });
-      window.dispatchEvent(new CustomEvent('moodChange', { detail: { mood: selectedMood } }));
-    } catch (error) {
-      console.error("Erreur save mood:", error);
-    }
-  }, [userId]);
-
-  const handleHelpMeMoveForward = useCallback(() => {
-    router.push("/chat?mode=fais-le-avec-moi");
-  }, [router]);
-
-  // ========== OPTIMISATION 4: Fusion des effets et chargement parallèle ==========
+  // Salutation
   useEffect(() => {
     const hour = new Date().getHours();
     if (hour < 12) setGreeting("Bonjour");
@@ -131,21 +107,18 @@ export default function DashboardPage() {
     if (savedMood && savedDate === today) setMood(savedMood);
   }, []);
 
+  // Chargement des données
   useEffect(() => {
     if (!userId) return;
     
-    // Affichage immédiat du prénom depuis le cache local si disponible
     const cachedName = localStorage.getItem("user_preferred_name");
     if (cachedName) setUserName(cachedName);
     
     fetchAllData();
   }, [userId]);
 
-  // ========== OPTIMISATION 5: Chargement prioritaire ==========
   async function fetchAllData() {
     if (!userId) return;
-    
-    // 1. D'abord charger les données essentielles (affichage rapide)
     setIsLoading(true);
     
     // Chargement parallèle des données prioritaires
@@ -155,7 +128,6 @@ export default function DashboardPage() {
       fetchRecentMemoriesOptimized()
     ]);
     
-    // Mise à jour immédiate de l'UI avec les données prioritaires
     if (profileData) setUserName(profileData);
     if (dashboardData) {
       if (dashboardData.greeting) setBecksMessage(dashboardData.greeting);
@@ -167,21 +139,14 @@ export default function DashboardPage() {
     
     setIsLoading(false);
     
-    // 2. Charger les données secondaires en arrière-plan (ne bloquent pas l'UI)
-    setIsLoadingSecondary(true);
-    
-    // Chargement non bloquant pour le reste
+    // Chargement secondaire non bloquant
     Promise.all([
       fetchChartDataOptimized(),
       fetchOverloadDetectionOptimized(),
       fetchFarmStatusOptimized()
-    ]).catch(console.error).finally(() => {
-      setIsLoadingSecondary(false);
-      setIsInitialLoad(false);
-    });
+    ]).catch(console.error);
   }
 
-  // ========== OPTIMISATION 6: Requêtes optimisées (colonnes spécifiques + limites) ==========
   async function fetchUserNameOptimized(): Promise<string | null> {
     const { data: profile } = await supabase
       .from("user_profile")
@@ -199,10 +164,7 @@ export default function DashboardPage() {
   async function fetchDashboardDataOptimized() {
     try {
       const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://sovereign-bridge.onrender.com';
-      const response = await fetch(`${API_URL}/api/dashboard/today?user_id=${userId}`, {
-        // Cache pour 30 secondes
-        headers: { 'Cache-Control': 'max-age=30' }
-      });
+      const response = await fetch(`${API_URL}/api/dashboard/today?user_id=${userId}`);
       const data = await response.json();
       
       if (data.success) {
@@ -249,50 +211,23 @@ export default function DashboardPage() {
     const startOfWeekStr = startOfWeek.toISOString().split('T')[0];
     const todayStr = today.toISOString().split('T')[0];
     
-    // OPTIMISATION: Requêtes avec colonnes spécifiques uniquement
     const [spendingResult, revenueResult, tasksResult, upcomingResult] = await Promise.all([
-      supabase
-        .from("spending")
-        .select("amount, date")
-        .eq("user_id", userId)
-        .gte("date", sevenDaysAgoStr)
-        .limit(100),
-      supabase
-        .from("revenue")
-        .select("amount, date")
-        .eq("user_id", userId)
-        .gte("date", sevenDaysAgoStr)
-        .limit(100),
-      supabase
-        .from("tasks")
-        .select("status, created_at, updated_at")
-        .eq("user_id", userId)
-        .gte("created_at", startOfWeekStr)
-        .limit(500),
-      supabase
-        .from("tasks")
-        .select("id, title, due_date, priority")
-        .eq("user_id", userId)
-        .gte("due_date", todayStr)
-        .lte("due_date", new Date(today.getTime() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0])
-        .neq("status", "done")
-        .order("due_date", { ascending: true })
-        .limit(5)
+      supabase.from("spending").select("amount, date").eq("user_id", userId).gte("date", sevenDaysAgoStr).limit(100),
+      supabase.from("revenue").select("amount, date").eq("user_id", userId).gte("date", sevenDaysAgoStr).limit(100),
+      supabase.from("tasks").select("status, created_at, updated_at").eq("user_id", userId).gte("created_at", startOfWeekStr).limit(500),
+      supabase.from("tasks").select("id, title, due_date, priority").eq("user_id", userId).gte("due_date", todayStr).lte("due_date", new Date(today.getTime() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]).neq("status", "done").order("due_date", { ascending: true }).limit(5)
     ]);
     
-    // Calculs financiers
     const totalRevenue = (revenueResult.data || []).reduce((sum, r) => sum + (r.amount || 0), 0);
     const totalSpending = (spendingResult.data || []).reduce((sum, s) => sum + (s.amount || 0), 0);
     setFinancialSummary({ revenue: totalRevenue, spending: totalSpending, balance: totalRevenue - totalSpending });
     
-    // Progression hebdomadaire
     const days = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
     const tasksData = tasksResult.data || [];
     const weekly = days.map((day, i) => {
       const dayDate = new Date(startOfWeek);
       dayDate.setDate(startOfWeek.getDate() + i);
       const dateStr = dayDate.toISOString().split('T')[0];
-      
       return {
         day,
         completed: tasksData.filter(t => t.status === 'done' && t.updated_at?.startsWith(dateStr)).length,
@@ -301,21 +236,15 @@ export default function DashboardPage() {
     });
     setWeeklyProgress(weekly);
     
-    // Tâches par statut
     const statusCounts: Record<string, number> = {};
     tasksData.forEach(t => { statusCounts[t.status] = (statusCounts[t.status] || 0) + 1; });
     setTasksByStatus(Object.entries(statusCounts).map(([status, count]) => ({ status, count })));
     
-    // Taux de complétion
     const totalTasks = tasksData.length;
     const completedTasks = tasksData.filter(t => t.status === 'done').length;
     setCompletionRate(totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0);
     
-    // Tâches à venir
     setUpcomingTasks((upcomingResult.data || []) as Task[]);
-    
-    // Mise en cache des données fréquentes
-    localStorage.setItem("cached_financial_summary", JSON.stringify({ totalRevenue, totalSpending, balance: totalRevenue - totalSpending }));
   }
 
   async function fetchOverloadDetectionOptimized() {
@@ -338,18 +267,8 @@ export default function DashboardPage() {
     if (!userId) return;
     try {
       const [infraResult, productionResult] = await Promise.all([
-        supabase
-          .from("farm_infrastructure")
-          .select("name, status")
-          .in("status", ["in_progress", "setup"])
-          .eq("user_id", userId)
-          .limit(5),
-        supabase
-          .from("farm_production_units")
-          .select("name, status")
-          .in("status", ["setup", "in_progress"])
-          .eq("user_id", userId)
-          .limit(5)
+        supabase.from("farm_infrastructure").select("name, status").in("status", ["in_progress", "setup"]).eq("user_id", userId).limit(5),
+        supabase.from("farm_production_units").select("name, status").in("status", ["setup", "in_progress"]).eq("user_id", userId).limit(5)
       ]);
       const infra = infraResult.data || [];
       const production = productionResult.data || [];
@@ -361,7 +280,30 @@ export default function DashboardPage() {
     }
   }
 
-  // ========== OPTIMISATION 7: Données de graphiques memoized ==========
+  const handleSaveMood = useCallback(async (selectedMood: string) => {
+    if (!userId) return;
+    const today = new Date().toISOString().split('T')[0];
+    setMood(selectedMood);
+    localStorage.setItem("todayMood", selectedMood);
+    localStorage.setItem("todayMoodDate", today);
+    
+    try {
+      await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'https://sovereign-bridge.onrender.com'}/api/mood/save`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ mood: selectedMood, user_id: userId })
+      });
+      window.dispatchEvent(new CustomEvent('moodChange', { detail: { mood: selectedMood } }));
+    } catch (error) {
+      console.error("Erreur save mood:", error);
+    }
+  }, [userId]);
+
+  const handleHelpMeMoveForward = useCallback(() => {
+    router.push("/chat?mode=fais-le-avec-moi");
+  }, [router]);
+
+  // Données memoized pour les graphiques
   const spendingChartData = useMemo(() => ({
     labels: weeklyProgress.length ? weeklyProgress.map(w => w.day) : ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'],
     datasets: [
@@ -430,10 +372,17 @@ export default function DashboardPage() {
     };
   }, [tasksByStatus]);
 
+  const moodButtons = [
+    { value: "excellent", emoji: "🌟", label: "Excellent", color: "text-emerald-400" },
+    { value: "bien", emoji: "😊", label: "Bien", color: "text-green-400" },
+    { value: "neutre", emoji: "😐", label: "Neutre", color: "text-gray-400" },
+    { value: "fatiguée", emoji: "😴", label: "Fatiguée", color: "text-yellow-400" },
+    { value: "stressée", emoji: "😰", label: "Stressée", color: "text-red-400" }
+  ];
+
   const currentMood = moodButtons.find(m => m.value === mood);
 
-  // ========== OPTIMISATION 8: Loader progressif ==========
-  if (isInitialLoad && isLoading) {
+  if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
         <div className="w-8 h-8 border-2 border-gold-500 border-t-transparent rounded-full animate-spin" />
@@ -484,34 +433,32 @@ export default function DashboardPage() {
         <div className="bg-gradient-to-br from-emerald-500/10 to-transparent border border-emerald-500/20 rounded-xl p-3 text-center">
           <Wallet className="w-4 h-4 text-emerald-400 mx-auto mb-1" />
           <p className="text-xs text-gray-500">Revenus (7j)</p>
-          <p className="text-lg font-serif text-emerald-400">{financialCards.revenue.toLocaleString()} CFA</p>
+          <p className="text-lg font-serif text-emerald-400">{financialSummary.revenue.toLocaleString()} CFA</p>
         </div>
         <div className="bg-gradient-to-br from-red-500/10 to-transparent border border-red-500/20 rounded-xl p-3 text-center">
           <CreditCard className="w-4 h-4 text-red-400 mx-auto mb-1" />
           <p className="text-xs text-gray-500">Dépenses (7j)</p>
-          <p className="text-lg font-serif text-red-400">{financialCards.spending.toLocaleString()} CFA</p>
+          <p className="text-lg font-serif text-red-400">{financialSummary.spending.toLocaleString()} CFA</p>
         </div>
-        <div className={`bg-gradient-to-br ${financialCards.balance >= 0 ? 'from-emerald-500/10' : 'from-red-500/10'} to-transparent border ${financialCards.balance >= 0 ? 'border-emerald-500/20' : 'border-red-500/20'} rounded-xl p-3 text-center`}>
+        <div className={`bg-gradient-to-br ${financialSummary.balance >= 0 ? 'from-emerald-500/10' : 'from-red-500/10'} to-transparent border ${financialSummary.balance >= 0 ? 'border-emerald-500/20' : 'border-red-500/20'} rounded-xl p-3 text-center`}>
           <Activity className="w-4 h-4 mx-auto mb-1" />
           <p className="text-xs text-gray-500">Solde net</p>
-          <p className={`text-lg font-serif ${financialCards.balance >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>{financialCards.balance.toLocaleString()} CFA</p>
+          <p className={`text-lg font-serif ${financialSummary.balance >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>{financialSummary.balance.toLocaleString()} CFA</p>
         </div>
       </div>
 
-      {/* ========== GRAPHIQUE DES FLUX FINANCIERS (LAZY LOAD) ========== */}
+      {/* ========== GRAPHIQUE DES FLUX FINANCIERS ========== */}
       <div className="bg-white/5 border border-white/10 rounded-2xl p-4">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-sm font-serif text-gold-500 flex items-center gap-2"><LineChart className="w-4 h-4" /> Flux financiers (7 jours)</h2>
           <span className="text-[10px] text-gray-500">Revenus vs Dépenses</span>
         </div>
         <div className="h-48">
-          <Suspense fallback={<ChartSkeleton />}>
-            <LazyLine data={spendingChartData} options={{ responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom', labels: { color: '#9CA3AF', font: { size: 10 } } } }, scales: { x: { ticks: { color: '#9CA3AF' } }, y: { ticks: { color: '#9CA3AF' } } } }} />
-          </Suspense>
+          <Line data={spendingChartData} options={{ responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom', labels: { color: '#9CA3AF', font: { size: 10 } } } }, scales: { x: { ticks: { color: '#9CA3AF' } }, y: { ticks: { color: '#9CA3AF' } } } }} />
         </div>
       </div>
 
-      {/* ========== DOUBLE GRAPHIQUE (LAZY LOAD) ========== */}
+      {/* ========== DOUBLE GRAPHIQUE ========== */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {/* Progression des tâches */}
         <div className="bg-white/5 border border-white/10 rounded-2xl p-4">
@@ -520,20 +467,18 @@ export default function DashboardPage() {
             <div className="flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-blue-500" /><span className="text-[10px] text-gray-500">Créées</span><div className="w-2 h-2 rounded-full bg-green-500 ml-2" /><span className="text-[10px] text-gray-500">Terminées</span></div>
           </div>
           <div className="h-40">
-            <Suspense fallback={<ChartSkeleton />}>
-              <LazyBar 
-                data={tasksProgressData} 
-                options={{ 
-                  responsive: true, 
-                  maintainAspectRatio: false, 
-                  plugins: { legend: { display: false } }, 
-                  scales: { 
-                    x: { ticks: { color: '#9CA3AF', font: { size: 9 } } }, 
-                    y: { ticks: { color: '#9CA3AF' } } 
-                  } 
-                }} 
-              />
-            </Suspense>
+            <Bar 
+              data={tasksProgressData} 
+              options={{ 
+                responsive: true, 
+                maintainAspectRatio: false, 
+                plugins: { legend: { display: false } }, 
+                scales: { 
+                  x: { ticks: { color: '#9CA3AF', font: { size: 9 } } }, 
+                  y: { ticks: { color: '#9CA3AF' } } 
+                } 
+              }} 
+            />
           </div>
         </div>
       
@@ -544,18 +489,16 @@ export default function DashboardPage() {
             <span className="text-[10px] text-gray-500">Taux complétion: {completionRate}%</span>
           </div>
           <div className="h-40 flex items-center justify-center">
-            <Suspense fallback={<ChartSkeleton />}>
-              <LazyDoughnut 
-                data={tasksStatusData} 
-                options={{ 
-                  responsive: true, 
-                  maintainAspectRatio: false, 
-                  plugins: { 
-                    legend: { position: 'right', labels: { color: '#9CA3AF', font: { size: 9 } } } 
-                  } 
-                }} 
-              />
-            </Suspense>
+            <Doughnut 
+              data={tasksStatusData} 
+              options={{ 
+                responsive: true, 
+                maintainAspectRatio: false, 
+                plugins: { 
+                  legend: { position: 'right', labels: { color: '#9CA3AF', font: { size: 9 } } } 
+                } 
+              }} 
+            />
           </div>
         </div>
       </div>
@@ -616,7 +559,7 @@ export default function DashboardPage() {
 
       {/* 4 MOVES */}
       <div className="grid grid-cols-2 gap-3">
-        <Link href="/money-opportunities" className="block"><div className="bg-gradient-to-br from-emerald-500/5 to-transparent border border-emerald-500/20 rounded-xl p-4 hover:border-emerald-500/40"><div className="flex items-center gap-2 mb-2"><DollarSign className="w-4 h-4 text-emerald-400" /><span className="text-xs text-emerald-400/70 uppercase tracking-wider">Move Argent</span></div><p className="text-sm text-ivory">{financialCards.balance >= 0 ? `Solde positif: ${financialCards.balance.toLocaleString()} CFA` : `Solde négatif: ${Math.abs(financialCards.balance).toLocaleString()} CFA`}</p><span className="text-xs text-gold-500 opacity-0 group-hover:opacity-100 transition-opacity mt-2 inline-block">Voir les finances →</span></div></Link>
+        <Link href="/money-opportunities" className="block"><div className="bg-gradient-to-br from-emerald-500/5 to-transparent border border-emerald-500/20 rounded-xl p-4 hover:border-emerald-500/40"><div className="flex items-center gap-2 mb-2"><DollarSign className="w-4 h-4 text-emerald-400" /><span className="text-xs text-emerald-400/70 uppercase tracking-wider">Move Argent</span></div><p className="text-sm text-ivory">{financialSummary.balance >= 0 ? `Solde positif: ${financialSummary.balance.toLocaleString()} CFA` : `Solde négatif: ${Math.abs(financialSummary.balance).toLocaleString()} CFA`}</p><span className="text-xs text-gold-500 opacity-0 group-hover:opacity-100 transition-opacity mt-2 inline-block">Voir les finances →</span></div></Link>
         <Link href="/family" className="block"><div className="bg-gradient-to-br from-pink-500/5 to-transparent border border-pink-500/20 rounded-xl p-4 hover:border-pink-500/40"><div className="flex items-center gap-2 mb-2"><Heart className="w-4 h-4 text-pink-400" /><span className="text-xs text-pink-400/70 uppercase tracking-wider">Move Famille</span></div><p className="text-sm text-ivory">Prendre des nouvelles des enfants</p><span className="text-xs text-gold-500 opacity-0 group-hover:opacity-100 transition-opacity mt-2 inline-block">Voir famille →</span></div></Link>
         <Link href="/farm" className="block"><div className="bg-gradient-to-br from-green-500/5 to-transparent border border-green-500/20 rounded-xl p-4 hover:border-green-500/40"><div className="flex items-center gap-2 mb-2"><Sprout className="w-4 h-4 text-green-400" /><span className="text-xs text-green-400/70 uppercase tracking-wider">Move Ferme</span></div><p className="text-sm text-ivory">{farmNextAction}</p><span className="text-xs text-gold-500 opacity-0 group-hover:opacity-100 transition-opacity mt-2 inline-block">Voir ferme →</span></div></Link>
         <Link href="/rescue-wins" className="block"><div className="bg-gradient-to-br from-yellow-500/5 to-transparent border border-yellow-500/20 rounded-xl p-4 hover:border-yellow-500/40"><div className="flex items-center gap-2 mb-2"><Sun className="w-4 h-4 text-yellow-400" /><span className="text-xs text-yellow-400/70 uppercase tracking-wider">Move Stabilisation</span></div><p className="text-sm text-ivory">Prendre 5 minutes pour respirer</p><span className="text-xs text-gold-500 opacity-0 group-hover:opacity-100 transition-opacity mt-2 inline-block">S'aligner →</span></div></Link>
