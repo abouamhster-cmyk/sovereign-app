@@ -28,6 +28,16 @@ import {
   Filler
 } from 'chart.js';
 
+
+// En haut du fichier, après les imports
+type SpendingWithCategory = {
+  id: string;
+  title: string;
+  amount: number;
+  category: string;
+  date: string;
+};
+
 // Enregistrement des composants Chart.js
 ChartJS.register(
   CategoryScale,
@@ -241,12 +251,16 @@ export default function DashboardPage() {
     setBalance(totalRev - totalSpend);
     
     // Dépenses par catégorie
-    const categoryMap = new Map<string, number>();
-    spendingData.forEach(s => {
-      const cat = s.category || "other";
-      categoryMap.set(cat, (categoryMap.get(cat) || 0) + s.amount);
-    });
-    setSpendingByCategory(Array.from(categoryMap.entries()).map(([category, total]) => ({ category, total })));
+spendingData.forEach((s: SpendingWithCategory) => {
+  const cat = s.category || "other";
+  const currentTotal = categoryMap.get(cat) || 0;
+  categoryMap.set(cat, currentTotal + s.amount);
+});
+const categoriesArray: { category: string; total: number }[] = [];
+categoryMap.forEach((total, category) => {
+  categoriesArray.push({ category, total });
+});
+setSpendingByCategory(categoriesArray);
   }
 
   async function fetchStats() {
