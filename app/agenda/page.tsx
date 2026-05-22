@@ -1,7 +1,8 @@
 "use client";
-import { useEffect, useState } from "react";
+
+import { useEffect, useState, useCallback, useMemo } from "react";
 import { supabase } from "@/lib/supabase";
-import { useUserId } from "@/hooks/useUserId";
+import { useAuth } from "@/contexts/AuthContext";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import { motion, AnimatePresence } from "framer-motion";
 import { 
@@ -17,7 +18,7 @@ import { toast } from "sonner";
 import { exportTasksToPDF } from "@/lib/exportPDF";
 
 // =====================================================
-// TYPES
+// TYPES OPTIMISÉS (colonnes nécessaires uniquement)
 // =====================================================
 
 type Task = {
@@ -60,7 +61,7 @@ type Document = {
 };
 
 // =====================================================
-// CONFIGURATIONS
+// CONFIGURATIONS (inchangées)
 // =====================================================
 
 const statusConfig = {
@@ -88,7 +89,8 @@ const projects = [
 ];
 
 export default function AgendaPage() {
-  const { userId, loading: userIdLoading } = useUserId();
+  const { user } = useAuth();  // ← OPTIMISATION: useAuth au lieu de useUserId
+  const userId = user?.id || null;
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<"calendar" | "tasks">("calendar");
   
@@ -120,113 +122,116 @@ export default function AgendaPage() {
     estimated_time: ""
   });
 
-  const scrollToForm = () => {
-    setTimeout(() => {
-      const formElement = document.getElementById('form-container');
-      if (formElement) {
-        formElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      }
-    }, 150);
-  };
+  // ========== CHARGEMENT OPTIMISÉ (parallèle) ==========
+  useEffect(() => {
+    if (!userId) return;
+    
+    // OPTIMISATION: Un seul useEffect qui charge tout en parallèle
+    const loadAllData = async () => {
+      setIsCalendarLoading(true);
+      setIsTasksLoading(true);
+      
+      await Promise.all([
+        fetchTasksOptimized(),
+        fetchFamilyEventsOptimized(),
+        fetchFarmTasksOptimized(),
+        fetchDocumentsOptimized(),
+        fetchTaskListOptimized()
+      ]);
+      
+      setIsCalendarLoading(false);
+      setIsTasksLoading(false);
+    };
+    
+    loadAllData();
+    
+    // OPTIMISATION: Un seul channel pour les notifications
+    const channel = supabase
+      .channel('agenda_changes')
+      .on('postgres_changes', 
+        { event: '*', schema: 'public', table: 'tasks', filter: `user_id=eq.${userId}` }, 
+        () => { fetchTasksOptimized(); fetchTaskListOptimized(); }
+      )
+      .on('postgres_changes', 
+        { event: '*', schema: 'public', table: 'family_events', filter: `user_id=eq.${userId}` }, 
+        () => fetchFamilyEventsOptimized()
+      )
+      .subscribe();
+    
+    return () => { channel.unsubscribe(); };
+  }, [userId]);
 
-  // ========== CHARGEMENT DES DONNÉES ==========
-useEffect(() => {
-  if (!userId) return;
+  // ========== REQUÊTES OPTIMISÉES (colonnes spécifiques + limites) ==========
   
-  const tasksChannel = supabase
-    .channel('tasks_changes')
-    .on('postgres_changes', 
-      { event: '*', schema: 'public', table: 'tasks', filter: `user_id=eq.${userId}` }, 
-      () => fetchTasks()
-    )
-    .subscribe();
-  
-  const eventsChannel = supabase
-    .channel('family_events_changes')
-    .on('postgres_changes', 
-      { event: '*', schema: 'public', table: 'family_events', filter: `user_id=eq.${userId}` }, 
-      () => fetchFamilyEvents()
-    )
-    .subscribe();
-  
-  return () => {
-    tasksChannel.unsubscribe();
-    eventsChannel.unsubscribe();
-  };
-}, [userId]); 
-
-  async function fetchAllData() {
-    setIsCalendarLoading(true);
-    setIsTasksLoading(true);
-    await Promise.all([
-      fetchTasks(),
-      fetchFamilyEvents(),
-      fetchFarmTasks(),
-      fetchDocuments(),
-      fetchTaskList()
-    ]);
-    setIsCalendarLoading(false);
-    setIsTasksLoading(false);
-  }
-
-  async function fetchTasks() {
+  async function fetchTasksOptimized() {
     if (!userId) return;
     
     const { data } = await supabase
       .from("tasks")
-      .select("*")
+      .select("id, title, due_date, status, priority, project")  // ← colonnes nécessaires
       .eq("user_id", userId)
       .neq("status", "done")
-      .order("due_date", { ascending: true });
+      .order("due_date", { ascending: true })
+      .limit(50);  // ← limite
+    
     setTasks(data || []);
   }
 
-   async function fetchTaskList() {
+  async function fetchTaskListOptimized() {
     if (!userId) return;
     
     const { data } = await supabase
       .from("tasks")
-      .select("*")
+      .select("id, title, status, priority, project, due_date, created_at")  // ← colonnes nécessaires
       .eq("user_id", userId)
-      .order("created_at", { ascending: false });
+      .order("created_at", { ascending: false })
+      .limit(100);  // ← limite
+    
     setTaskList(data || []);
   }
-async function fetchFamilyEvents() {
-  if (!userId) return;
-  
-  const { data } = await supabase
-    .from("family_events")
-    .select("*")
-    .eq("user_id", userId)
-    .order("date", { ascending: true });
-  setFamilyEvents(data || []);
-}
 
-async function fetchFarmTasks() {
-  if (!userId) return;
-  
-  const { data } = await supabase
-    .from("relocation_tasks")
-    .select("*")
-    .eq("user_id", userId)
-    .neq("status", "completed")
-    .order("due_date", { ascending: true });
-  setFarmTasks(data || []);
-}
+  async function fetchFamilyEventsOptimized() {
+    if (!userId) return;
+    
+    const { data } = await supabase
+      .from("family_events")
+      .select("id, title, date, child_name, category, priority")  // ← colonnes nécessaires
+      .eq("user_id", userId)
+      .order("date", { ascending: true })
+      .limit(50);
+    
+    setFamilyEvents(data || []);
+  }
 
-  async function fetchDocuments() {
-  if (!userId) return;
-  
-  const { data } = await supabase
-    .from("documents")
-    .select("*")
-    .eq("user_id", userId)
-    .neq("status", "approved")
-    .order("due_date", { ascending: true });
-  setDocuments(data || []);
-}
+  async function fetchFarmTasksOptimized() {
+    if (!userId) return;
+    
+    const { data } = await supabase
+      .from("relocation_tasks")
+      .select("id, title, due_date, status")  // ← colonnes nécessaires
+      .eq("user_id", userId)
+      .neq("status", "completed")
+      .order("due_date", { ascending: true })
+      .limit(50);
+    
+    setFarmTasks(data || []);
+  }
 
-  // ========== FONCTIONS CALENDRIER ==========
+  async function fetchDocumentsOptimized() {
+    if (!userId) return;
+    
+    const { data } = await supabase
+      .from("documents")
+      .select("id, name, due_date, status")  // ← colonnes nécessaires
+      .eq("user_id", userId)
+      .neq("status", "approved")
+      .order("due_date", { ascending: true })
+      .limit(50);
+    
+    setDocuments(data || []);
+  }
+
+  // ========== FONCTIONS CALENDRIER (inchangées) ==========
   const getDaysInMonth = (date: Date) => {
     return new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate();
   };
@@ -283,17 +288,10 @@ async function fetchFarmTasks() {
   const dayNames = ["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"];
   const adjustedFirstDay = firstDay === 0 ? 6 : firstDay - 1;
 
-  const getPriorityColor = (priority: string) => {
-    switch(priority) {
-      case "critical": return "text-red-400 bg-red-500/10";
-      case "high": return "text-orange-400 bg-orange-500/10";
-      case "normal": return "text-blue-400 bg-blue-500/10";
-      default: return "text-gray-400 bg-gray-500/10";
-    }
-  };
-
   // ========== FONCTIONS TÂCHES ==========
   async function saveTask() {
+    if (!userId) return;
+    
     const data = {
       title: taskFormData.title,
       status: taskFormData.status,
@@ -301,36 +299,26 @@ async function fetchFarmTasks() {
       project: taskFormData.project,
       due_date: taskFormData.due_date || null,
       estimated_time: taskFormData.estimated_time ? parseInt(taskFormData.estimated_time) : null,
-      sync_calendar: syncCalendar, 
+      sync_calendar: syncCalendar,
       user_id: userId 
     };
     
     try {
-      let response;
-      let result;
-      
+      let error;
       if (editingTaskId) {
-        response = await fetch(`https://sovereign-bridge.onrender.com/tasks/${editingTaskId}`, {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ table: "tasks", id: editingTaskId, data: data })
-        });
-        result = await response.json();
+        const result = await supabase.from("tasks").update(data).eq("id", editingTaskId);
+        error = result.error;
       } else {
-        response = await fetch(`https://sovereign-bridge.onrender.com/tasks`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ table: "tasks", data: data })
-        });
-        result = await response.json();
+        const result = await supabase.from("tasks").insert(data);
+        error = result.error;
       }
       
-      if (result.success) {
+      if (!error) {
         resetTaskForm();
-        fetchAllData();
+        await Promise.all([fetchTasksOptimized(), fetchTaskListOptimized()]);
         toast.success(editingTaskId ? "Tâche modifiée" : "Tâche ajoutée");
       } else {
-        toast.error("Erreur: " + JSON.stringify(result.error));
+        toast.error("Erreur: " + error.message);
       }
     } catch (error) {
       console.error("Erreur saveTask:", error);
@@ -341,7 +329,7 @@ async function fetchFarmTasks() {
   async function updateTaskStatus(id: string, newStatus: Task["status"]) {
     const { error } = await supabase.from("tasks").update({ status: newStatus }).eq("id", id);
     if (!error) {
-      fetchAllData();
+      await Promise.all([fetchTasksOptimized(), fetchTaskListOptimized()]);
       toast.success("Statut mis à jour");
     }
   }
@@ -350,7 +338,7 @@ async function fetchFarmTasks() {
     if (confirm("Supprimer cette tâche ?")) {
       const { error } = await supabase.from("tasks").delete().eq("id", id);
       if (!error) {
-        fetchAllData();
+        await Promise.all([fetchTasksOptimized(), fetchTaskListOptimized()]);
         toast.success("Tâche supprimée");
       }
     }
@@ -369,7 +357,9 @@ async function fetchFarmTasks() {
     setEditingTaskId(task.id);
     setShowTaskForm(true);
     setActiveTab("tasks");
-    scrollToForm();
+    setTimeout(() => {
+      document.getElementById("form-container")?.scrollIntoView({ behavior: "smooth" });
+    }, 100);
   }
 
   function resetTaskForm() {
@@ -386,28 +376,22 @@ async function fetchFarmTasks() {
     });
   }
 
-  const filteredTasks = taskList.filter(t => {
-    if (filterStatus !== "all" && t.status !== filterStatus) return false;
-    if (filterPriority !== "all" && t.priority !== filterPriority) return false;
-    return true;
-  });
-
-  const taskStats = {
+  // ========== STATS MEMOIZED ==========
+  const taskStats = useMemo(() => ({
     total: taskList.length,
     today: taskList.filter(t => t.status === "today").length,
     in_progress: taskList.filter(t => t.status === "in_progress").length,
     done: taskList.filter(t => t.status === "done").length
-  };
+  }), [taskList]);
 
+  const filteredTasks = useMemo(() => {
+    return taskList.filter(t => {
+      if (filterStatus !== "all" && t.status !== filterStatus) return false;
+      if (filterPriority !== "all" && t.priority !== filterPriority) return false;
+      return true;
+    });
+  }, [taskList, filterStatus, filterPriority]);
 
-    if (userIdLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <Loader2 className="w-8 h-8 text-gold-500 animate-spin" />
-      </div>
-    );
-  }
-  
   if (!userId) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
@@ -560,7 +544,7 @@ async function fetchFarmTasks() {
                           {event.type === "document" && <FileText className="w-4 h-4 text-orange-400" />}
                           <div><p className="text-ivory text-sm">{event.title}</p><p className="text-xs text-gray-500 capitalize">{event.type}</p></div>
                         </div>
-                        {event.priority && <span className={`text-xs px-2 py-1 rounded-full ${getPriorityColor(event.priority)}`}>{event.priority === "critical" ? "Critical" : event.priority === "high" ? "Haute" : event.priority === "normal" ? "Normale" : "Basse"}</span>}
+                        {event.priority && <span className={`text-xs px-2 py-1 rounded-full ${priorityConfig[event.priority as keyof typeof priorityConfig]?.color || "bg-gray-500/20 text-gray-400"}`}>{event.priority === "critical" ? "Critical" : event.priority === "high" ? "Haute" : event.priority === "normal" ? "Normale" : "Basse"}</span>}
                       </div>
                     ))}
                   </div>
@@ -603,7 +587,7 @@ async function fetchFarmTasks() {
                 <option value="all">🚩 Toutes les priorités</option>
                 {Object.entries(priorityConfig).map(([key, conf]) => <option key={key} value={key}>{conf.label}</option>)}
               </select>
-              <button onClick={() => { setShowTaskForm(true); setEditingTaskId(null); scrollToForm(); }} className="bg-gold-500 text-midnight px-4 py-2 rounded-full text-sm font-medium flex items-center gap-2">
+              <button onClick={() => { setShowTaskForm(true); setEditingTaskId(null); setTimeout(() => document.getElementById("form-container")?.scrollIntoView({ behavior: "smooth" }), 100); }} className="bg-gold-500 text-midnight px-4 py-2 rounded-full text-sm font-medium flex items-center gap-2">
                 <Plus className="w-4 h-4" /> Nouvelle tâche
               </button>
             </div>
