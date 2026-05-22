@@ -531,10 +531,21 @@ export default function DashboardPage() {
             <div className="flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-blue-500" /><span className="text-[10px] text-gray-500">Créées</span><div className="w-2 h-2 rounded-full bg-green-500 ml-2" /><span className="text-[10px] text-gray-500">Terminées</span></div>
           </div>
           <div className="h-40">
-            <Bar data={tasksProgressData} options={{ responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { ticks: { color: '#9CA3AF', font: { size: 9 } } }, y: { ticks: { color: '#9CA3AF' } } }, barPercentage: 0.7 }} />
+            <Bar 
+              data={tasksProgressData} 
+              options={{ 
+                responsive: true, 
+                maintainAspectRatio: false, 
+                plugins: { legend: { display: false } }, 
+                scales: { 
+                  x: { ticks: { color: '#9CA3AF', font: { size: 9 } } }, 
+                  y: { ticks: { color: '#9CA3AF' } } 
+                } 
+              }} 
+            />
           </div>
         </div>
-
+      
         {/* Répartition des tâches par statut */}
         <div className="bg-white/5 border border-white/10 rounded-2xl p-4">
           <div className="flex items-center justify-between mb-3">
@@ -542,7 +553,16 @@ export default function DashboardPage() {
             <span className="text-[10px] text-gray-500">Taux complétion: {completionRate}%</span>
           </div>
           <div className="h-40 flex items-center justify-center">
-            <Doughnut data={tasksStatusData} options={{ responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'right', labels: { color: '#9CA3AF', font: { size: 9 } } } } }} />
+            <Doughnut 
+              data={tasksStatusData} 
+              options={{ 
+                responsive: true, 
+                maintainAspectRatio: false, 
+                plugins: { 
+                  legend: { position: 'right', labels: { color: '#9CA3AF', font: { size: 9 } } } 
+                } 
+              }} 
+            />
           </div>
         </div>
       </div>
