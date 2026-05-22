@@ -1,7 +1,8 @@
 "use client";
-import { useEffect, useState, useCallback } from "react";
+
+import { useEffect, useState, useCallback, useMemo } from "react";
 import { supabase } from "@/lib/supabase";
-import { useUserId } from "@/hooks/useUserId";
+import { useAuth } from "@/contexts/AuthContext";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import { motion, AnimatePresence } from "framer-motion";
 import { useDropzone } from "react-dropzone";
@@ -14,7 +15,9 @@ import {
 import { toast } from "sonner";
 import { exportDocumentsToPDF } from "@/lib/exportPDF";
 
-const API_URL = "https://sovereign-bridge.onrender.com";
+// =====================================================
+// TYPES OPTIMISÉS
+// =====================================================
 
 type Document = {
   id: string;
@@ -30,6 +33,10 @@ type Document = {
   notes: string | null;
   created_at: string;
 };
+
+// =====================================================
+// CONFIGURATIONS
+// =====================================================
 
 const documentTypeConfig: Record<string, { label: string; color: string }> = {
   proposal: { label: "📄 Proposition", color: "bg-blue-500/20 text-blue-400" },
@@ -50,8 +57,11 @@ const statusConfig: Record<string, { label: string; icon: any; color: string }> 
   rejected: { label: "❌ Rejeté", icon: AlertCircle, color: "bg-red-500/20 text-red-400" }
 };
 
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://sovereign-bridge.onrender.com";
+
 export default function CommunicationsPage() {
-  const { userId, loading: userIdLoading } = useUserId();
+  const { user } = useAuth();  // ← OPTIMISATION: useAuth au lieu de useUserId
+  const userId = user?.id || null;
   const [activeTab, setActiveTab] = useState<"documents" | "email">("documents");
   
   // ========== ÉTATS DOCUMENTS ==========
@@ -81,51 +91,53 @@ export default function CommunicationsPage() {
   const [body, setBody] = useState("");
   const [isSending, setIsSending] = useState(false);
 
-  const scrollToForm = () => {
-    setTimeout(() => {
-      const formElement = document.getElementById('form-container');
-      if (formElement) {
-        formElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      }
-    }, 150);
-  };
-
-  // ========== CHARGEMENT DOCUMENTS ==========
+  // ========== CHARGEMENT OPTIMISÉ ==========
   useEffect(() => {
     if (!userId) return;
     
-    fetchDocuments();
+    const loadDocuments = async () => {
+      setIsDocumentsLoading(true);
+      await fetchDocumentsOptimized();
+      setIsDocumentsLoading(false);
+    };
+    
+    loadDocuments();
     
     const channel = supabase
       .channel('documents_changes')
       .on('postgres_changes', 
         { event: '*', schema: 'public', table: 'documents', filter: `user_id=eq.${userId}` }, 
-        () => fetchDocuments()
+        () => fetchDocumentsOptimized()
       )
       .subscribe();
     
-    return () => {
-      channel.unsubscribe();
-    };
+    return () => { channel.unsubscribe(); };
   }, [userId]);
-  
-  async function fetchDocuments() {
+
+  // ========== REQUÊTE OPTIMISÉE ==========
+  async function fetchDocumentsOptimized() {
     if (!userId) return;
     
-    setIsDocumentsLoading(true);
     const { data } = await supabase
       .from("documents")
-      .select("*")
+      .select("id, name, type, status, mission_id, due_date, url, file_url, file_name, missing_pieces, notes, created_at")  // ← colonnes nécessaires
       .eq("user_id", userId)
-      .order("created_at", { ascending: false });
+      .order("created_at", { ascending: false })
+      .limit(200);  // ← limite
+    
     setDocuments(data || []);
-    setIsDocumentsLoading(false);
   }
 
   // ========== UPLOAD DOCUMENTS ==========
   const onDrop = useCallback(async (acceptedFiles: File[]) => {
     const file = acceptedFiles[0];
     if (!file) return;
+    
+    // Limiter la taille du fichier à 10MB
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error("Fichier trop volumineux (max 10MB)");
+      return;
+    }
     
     setIsUploading(true);
     try {
@@ -167,7 +179,8 @@ export default function CommunicationsPage() {
       'application/vnd.ms-excel': ['.xls', '.xlsx'],
       'application/zip': ['.zip', '.rar']
     },
-    maxFiles: 1
+    maxFiles: 1,
+    maxSize: 10 * 1024 * 1024  // 10MB
   });
 
   // ========== CRUD DOCUMENTS ==========
@@ -198,7 +211,7 @@ export default function CommunicationsPage() {
     
     if (!error) {
       resetDocumentForm();
-      fetchDocuments();
+      fetchDocumentsOptimized();
       toast.success(editingDoc ? "Document modifié" : "Document ajouté");
     } else {
       toast.error("Erreur: " + error.message);
@@ -206,19 +219,15 @@ export default function CommunicationsPage() {
   }
 
   async function updateDocumentStatus(id: string, newStatus: string) {
-    if (!userId) return;
-    
     const { error } = await supabase.from("documents").update({ status: newStatus }).eq("id", id);
-    if (!error) fetchDocuments();
+    if (!error) fetchDocumentsOptimized();
   }
 
   async function deleteDocument(id: string) {
-    if (!userId) return;
-    
     if (confirm("Supprimer ce document ?")) {
       const { error } = await supabase.from("documents").delete().eq("id", id);
       if (!error) {
-        fetchDocuments();
+        fetchDocumentsOptimized();
         toast.success("Document supprimé");
       }
     }
@@ -238,7 +247,9 @@ export default function CommunicationsPage() {
       notes: doc.notes || ""
     });
     setShowDocumentForm(true);
-    scrollToForm();
+    setTimeout(() => {
+      document.getElementById("form-container")?.scrollIntoView({ behavior: "smooth" });
+    }, 100);
   }
 
   function resetDocumentForm() {
@@ -256,30 +267,6 @@ export default function CommunicationsPage() {
       notes: ""
     });
   }
-
-  // ========== FILTRES DOCUMENTS ==========
-  const filteredDocuments = documents.filter(doc => {
-    const matchesFilter = filter === "all" || doc.status === filter;
-    const matchesSearch = doc.name.toLowerCase().includes(searchTerm.toLowerCase());
-    return matchesFilter && matchesSearch;
-  });
-
-  const documentStats = {
-    total: documents.length,
-    pending: documents.filter(d => d.status === "draft" || d.status === "review").length,
-    completed: documents.filter(d => d.status === "approved" || d.status === "ready").length,
-    submitted: documents.filter(d => d.status === "submitted").length
-  };
-
-  const getFileIcon = (fileName: string) => {
-    if (!fileName) return <File className="w-4 h-4" />;
-    const ext = fileName.split('.').pop()?.toLowerCase();
-    if (ext === 'pdf') return <FileText className="w-4 h-4 text-red-400" />;
-    if (['jpg', 'jpeg', 'png', 'gif'].includes(ext || '')) return <Image className="w-4 h-4 text-blue-400" />;
-    if (['zip', 'rar', '7z'].includes(ext || '')) return <FileArchive className="w-4 h-4 text-yellow-400" />;
-    if (['xls', 'xlsx', 'csv'].includes(ext || '')) return <FileSpreadsheet className="w-4 h-4 text-green-400" />;
-    return <File className="w-4 h-4" />;
-  };
 
   // ========== EMAIL ==========
   const handleSendEmail = async () => {
@@ -312,14 +299,40 @@ export default function CommunicationsPage() {
     }
   };
 
-  // ========== GESTION DU CHARGEMENT ==========
-  if (userIdLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <Loader2 className="w-8 h-8 text-gold-500 animate-spin" />
-      </div>
-    );
-  }
+  // ========== STATS ET FILTRES MEMOIZED ==========
+  const documentStats = useMemo(() => ({
+    total: documents.length,
+    pending: documents.filter(d => d.status === "draft" || d.status === "review").length,
+    completed: documents.filter(d => d.status === "approved" || d.status === "ready").length,
+    submitted: documents.filter(d => d.status === "submitted").length
+  }), [documents]);
+
+  const filteredDocuments = useMemo(() => {
+    return documents.filter(doc => {
+      const matchesFilter = filter === "all" || doc.status === filter;
+      const matchesSearch = doc.name.toLowerCase().includes(searchTerm.toLowerCase());
+      return matchesFilter && matchesSearch;
+    });
+  }, [documents, filter, searchTerm]);
+
+  const getFileIcon = useCallback((fileName: string) => {
+    if (!fileName) return <File className="w-4 h-4" />;
+    const ext = fileName.split('.').pop()?.toLowerCase();
+    if (ext === 'pdf') return <FileText className="w-4 h-4 text-red-400" />;
+    if (['jpg', 'jpeg', 'png', 'gif'].includes(ext || '')) return <Image className="w-4 h-4 text-blue-400" />;
+    if (['zip', 'rar', '7z'].includes(ext || '')) return <FileArchive className="w-4 h-4 text-yellow-400" />;
+    if (['xls', 'xlsx', 'csv'].includes(ext || '')) return <FileSpreadsheet className="w-4 h-4 text-green-400" />;
+    return <File className="w-4 h-4" />;
+  }, []);
+
+  const scrollToForm = () => {
+    setTimeout(() => {
+      const formElement = document.getElementById('form-container');
+      if (formElement) {
+        formElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    }, 150);
+  };
 
   if (!userId) {
     return (
@@ -363,8 +376,7 @@ export default function CommunicationsPage() {
             <div>
               <p className="text-sm text-orange-400 font-medium">Becks - Communications</p>
               <p className="text-sm text-ivory">
-                📄 {documents.filter(d => d.status === "draft").length} brouillon(s) • 
-                📧 Prêt à envoyer des emails
+                📄 {documentStats.pending} document(s) en attente • 📧 Prêt à envoyer des emails
               </p>
             </div>
           </div>
@@ -471,7 +483,7 @@ export default function CommunicationsPage() {
                         <input {...getInputProps()} />
                         <Upload className="w-8 h-8 text-gray-500 mx-auto mb-2" />
                         <p className="text-sm text-gray-400">{isDragActive ? "Dépose le fichier ici..." : "Glisse ou clique pour uploader un fichier"}</p>
-                        <p className="text-xs text-gray-600 mt-1">PDF, Word, Excel, Images, ZIP (max 50MB)</p>
+                        <p className="text-xs text-gray-600 mt-1">PDF, Word, Excel, Images, ZIP (max 10MB)</p>
                       </div>
                       {isUploading && <div className="mt-2 text-center text-sm text-gold-500 animate-pulse">Upload en cours...</div>}
                       {documentFormData.file_name && (
