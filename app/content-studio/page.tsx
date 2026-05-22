@@ -1,7 +1,8 @@
 "use client";
-import { useEffect, useState } from "react";
+
+import { useEffect, useState, useMemo, useCallback } from "react";
 import { supabase } from "@/lib/supabase";
-import { useUserId } from "@/hooks/useUserId";
+import { useAuth } from "@/contexts/AuthContext";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import { motion, AnimatePresence } from "framer-motion";
 import { 
@@ -11,10 +12,13 @@ import {
   ChevronLeft, ChevronRight, Brain, LayoutGrid, Loader2,
   RefreshCw
 } from "lucide-react";
+import Link from "next/link";
 import { exportToPDF } from "@/lib/exportPDF";
 import { toast } from "sonner";
 
-const API_URL = "https://sovereign-bridge.onrender.com";
+// =====================================================
+// TYPES OPTIMISÉS
+// =====================================================
 
 type Content = {
   id: string;
@@ -35,6 +39,10 @@ type Suggestion = {
   suggested_type: string;
   suggested_theme: string;
 };
+
+// =====================================================
+// CONFIGURATIONS
+// =====================================================
 
 const platformConfig = {
   instagram: { label: "Instagram", icon: Image, emoji: "📸", color: "bg-gradient-to-r from-pink-500 to-purple-600 text-white" },
@@ -64,8 +72,11 @@ const contentTypeConfig = {
   behind_scenes: "🎬 Behind the Scenes"
 };
 
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://sovereign-bridge.onrender.com";
+
 export default function ContentStudioPage() {
-  const { userId, loading: userIdLoading } = useUserId();
+  const { user } = useAuth();  // ← OPTIMISATION: useAuth au lieu de useUserId
+  const userId = user?.id || null;
   const [activeTab, setActiveTab] = useState<"list" | "calendar" | "generate">("list");
   
   // États pour la liste
@@ -82,11 +93,13 @@ export default function ContentStudioPage() {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [calendarStats, setCalendarStats] = useState({ total: 0, scheduled: 0, published: 0, draft: 0 });
+  const [isCalendarLoading, setIsCalendarLoading] = useState(true);
   
   // États pour la génération IA
   const [showIdeaModal, setShowIdeaModal] = useState(false);
   const [generatingIdea, setGeneratingIdea] = useState(false);
   const [generatedIdea, setGeneratedIdea] = useState<any>(null);
+  const [isGeneratingCalendar, setIsGeneratingCalendar] = useState(false);
   
   const [formData, setFormData] = useState({
     title: "",
@@ -98,78 +111,93 @@ export default function ContentStudioPage() {
     cta: ""
   });
 
-  const scrollToForm = () => {
-    setTimeout(() => {
-      const formElement = document.getElementById('form-container');
-      if (formElement) {
-        formElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      }
-    }, 150);
-  };
-
-  // =====================================================
-  // CHARGEMENT DES DONNÉES
-  // =====================================================
-  
+  // ========== CHARGEMENT OPTIMISÉ ==========
   useEffect(() => {
     if (!userId) return;
-    fetchAllData();
+    
+    const loadAllData = async () => {
+      setIsLoading(true);
+      await fetchContentOptimized();
+      setIsLoading(false);
+    };
+    
+    loadAllData();
     
     const channel = supabase
       .channel('content_changes')
       .on('postgres_changes', 
         { event: '*', schema: 'public', table: 'content', filter: `user_id=eq.${userId}` }, 
-        () => fetchAllData()
+        () => fetchContentOptimized()
       )
       .subscribe();
     
-    return () => {
-      channel.unsubscribe();
-    };
-  }, [currentDate, userId]);
+    return () => { channel.unsubscribe(); };
+  }, [userId]);
 
-  async function fetchAllData() {
-    setIsLoading(true);
-    await Promise.all([
-      fetchContent(),
-      fetchCalendarData()
-    ]);
-    setIsLoading(false);
-  }
-
-  async function fetchContent() {
+  // ========== REQUÊTES OPTIMISÉES ==========
+  async function fetchContentOptimized() {
     if (!userId) return;
     
     const { data } = await supabase
       .from("content")
-      .select("*")
+      .select("id, title, hook, platform, content_type, status, mission_id, publish_date, cta, created_at")  // ← colonnes nécessaires
       .eq("user_id", userId)
-      .order("publish_date", { ascending: true, nullsFirst: false });
+      .order("publish_date", { ascending: true, nullsFirst: false })
+      .limit(200);  // ← limite
+    
     setContents(data || []);
   }
 
-  async function fetchCalendarData() {
-    const year = currentDate.getFullYear();
-    const month = currentDate.getMonth() + 1;
+  async function fetchCalendarDataOptimized(year: number, month: number) {
+    if (!userId) return;
     
-    try {
-      const response = await fetch(`${API_URL}/api/content/calendar?month=${month}&year=${year}`);
-      const data = await response.json();
-      
-      if (data.success) {
-        setCalendarData(data.calendar);
-        setSuggestions(data.suggestions || []);
-        setCalendarStats(data.stats);
+    setIsCalendarLoading(true);
+    
+    const startDate = new Date(year, month - 1, 1).toISOString().split('T')[0];
+    const endDate = new Date(year, month, 0).toISOString().split('T')[0];
+    
+    const { data } = await supabase
+      .from("content")
+      .select("id, title, platform, status, publish_date, content_type")
+      .eq("user_id", userId)
+      .gte("publish_date", startDate)
+      .lte("publish_date", endDate)
+      .order("publish_date", { ascending: true })
+      .limit(100);
+    
+    // Organiser par date
+    const calendar: Record<string, Content[]> = {};
+    (data || []).forEach(item => {
+      const date = item.publish_date;
+      if (date) {
+        if (!calendar[date]) calendar[date] = [];
+        calendar[date].push(item as Content);
       }
-    } catch (error) {
-      console.error("Erreur chargement calendrier:", error);
-    }
+    });
+    
+    setCalendarData(calendar);
+    
+    // Statistiques
+    const stats = {
+      total: data?.length || 0,
+      scheduled: (data?.filter(c => c.status === "scheduled") || []).length,
+      published: (data?.filter(c => c.status === "posted") || []).length,
+      draft: (data?.filter(c => c.status === "draft") || []).length
+    };
+    setCalendarStats(stats);
+    
+    setIsCalendarLoading(false);
   }
 
-  // =====================================================
-  // GESTION DES CONTENUS
-  // =====================================================
+  // ========== CHARGEMENT DU CALENDRIER AU CHANGEMENT DE MOIS ==========
+  useEffect(() => {
+    if (!userId) return;
+    const year = currentDate.getFullYear();
+    const month = currentDate.getMonth() + 1;
+    fetchCalendarDataOptimized(year, month);
+  }, [currentDate, userId]);
 
+  // ========== GESTION DES CONTENUS ==========
   async function saveContent() {
     if (!userId) return;
     
@@ -195,7 +223,11 @@ export default function ContentStudioPage() {
     
     if (!error) {
       resetForm();
-      fetchAllData();
+      fetchContentOptimized();
+      // Rafraîchir le calendrier aussi
+      const year = currentDate.getFullYear();
+      const month = currentDate.getMonth() + 1;
+      fetchCalendarDataOptimized(year, month);
       toast.success(editingContent ? "Contenu modifié" : "Contenu ajouté");
     } else {
       toast.error("Erreur: " + error.message);
@@ -204,14 +236,22 @@ export default function ContentStudioPage() {
 
   async function updateStatus(id: string, newStatus: string) {
     const { error } = await supabase.from("content").update({ status: newStatus }).eq("id", id);
-    if (!error) fetchContent();
+    if (!error) {
+      fetchContentOptimized();
+      const year = currentDate.getFullYear();
+      const month = currentDate.getMonth() + 1;
+      fetchCalendarDataOptimized(year, month);
+    }
   }
 
   async function deleteContent(id: string) {
     if (confirm("Supprimer ce contenu ?")) {
       const { error } = await supabase.from("content").delete().eq("id", id);
       if (!error) {
-        fetchAllData();
+        fetchContentOptimized();
+        const year = currentDate.getFullYear();
+        const month = currentDate.getMonth() + 1;
+        fetchCalendarDataOptimized(year, month);
         toast.success("Contenu supprimé");
       }
     }
@@ -230,7 +270,9 @@ export default function ContentStudioPage() {
     });
     setShowForm(true);
     setActiveTab("list");
-    scrollToForm();
+    setTimeout(() => {
+      document.getElementById("form-container")?.scrollIntoView({ behavior: "smooth" });
+    }, 100);
   }
 
   function resetForm() {
@@ -247,10 +289,7 @@ export default function ContentStudioPage() {
     });
   }
 
-  // =====================================================
-  // CALENDRIER
-  // =====================================================
-
+  // ========== FONCTIONS CALENDRIER ==========
   const getDaysInMonth = (date: Date) => {
     return new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate();
   };
@@ -274,35 +313,14 @@ export default function ContentStudioPage() {
     setSelectedDate(null);
   };
 
-  const monthNames = ["Janvier", "Février", "Mars", "Avril", "Mai", "Juin", "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre"];
-  const dayNames = ["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"];
-  
-  const year = currentDate.getFullYear();
-  const month = currentDate.getMonth();
-  const daysInMonth = getDaysInMonth(currentDate);
-  const firstDay = getFirstDayOfMonth(currentDate);
-  const adjustedFirstDay = firstDay === 0 ? 6 : firstDay - 1;
-  const today = new Date().toISOString().split('T')[0];
-
-  const getContentsForDate = (day: number) => {
-    const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+  const getContentsForDate = useCallback((day: number) => {
+    const year = currentDate.getFullYear();
+    const month = currentDate.getMonth() + 1;
+    const dateStr = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
     return calendarData[dateStr] || [];
-  };
+  }, [currentDate, calendarData]);
 
-  const getSuggestionForDate = (day: number) => {
-    const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-    return suggestions.find(s => s.date === dateStr);
-  };
-
-  const handleDateClick = (day: number) => {
-    const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-    setSelectedDate(dateStr);
-  };
-
-  // =====================================================
-  // GÉNÉRATION IA
-  // =====================================================
-
+  // ========== GÉNÉRATION IA ==========
   async function generateIdea(platform: string = "instagram", topic: string = "") {
     setGeneratingIdea(true);
     try {
@@ -319,8 +337,9 @@ export default function ContentStudioPage() {
       }
     } catch (error) {
       toast.error("Erreur de connexion");
+    } finally {
+      setGeneratingIdea(false);
     }
-    setGeneratingIdea(false);
   }
 
   async function saveGeneratedIdea() {
@@ -344,42 +363,46 @@ export default function ContentStudioPage() {
       toast.success("Idée sauvegardée !");
       setShowIdeaModal(false);
       setGeneratedIdea(null);
-      fetchAllData();
+      fetchContentOptimized();
+      const year = currentDate.getFullYear();
+      const month = currentDate.getMonth() + 1;
+      fetchCalendarDataOptimized(year, month);
     } else {
       toast.error("Erreur: " + error.message);
     }
   }
 
-  // =====================================================
-  // UTILITAIRES
-  // =====================================================
-
-  const stats = {
+  // ========== STATS MEMOIZED ==========
+  const stats = useMemo(() => ({
     total: contents.length,
     posted: contents.filter(c => c.status === "posted").length,
     scheduled: contents.filter(c => c.status === "scheduled").length,
     draft: contents.filter(c => c.status === "draft").length
-  };
+  }), [contents]);
 
-  const filteredContents = contents.filter(c => {
-    if (filterStatus !== "all" && c.status !== filterStatus) return false;
-    if (filterPlatform !== "all" && c.platform !== filterPlatform) return false;
-    return true;
-  });
+  const filteredContents = useMemo(() => {
+    return contents.filter(c => {
+      if (filterStatus !== "all" && c.status !== filterStatus) return false;
+      if (filterPlatform !== "all" && c.platform !== filterPlatform) return false;
+      return true;
+    });
+  }, [contents, filterStatus, filterPlatform]);
 
-  const PlatformIcon = ({ platform }: { platform: string }) => {
+  const monthNames = ["Janvier", "Février", "Mars", "Avril", "Mai", "Juin", "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre"];
+  const dayNames = ["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"];
+  
+  const year = currentDate.getFullYear();
+  const month = currentDate.getMonth();
+  const daysInMonth = getDaysInMonth(currentDate);
+  const firstDay = getFirstDayOfMonth(currentDate);
+  const adjustedFirstDay = firstDay === 0 ? 6 : firstDay - 1;
+  const today = new Date().toISOString().split('T')[0];
+
+  const PlatformIcon = useCallback(({ platform }: { platform: string }) => {
     const config = platformConfig[platform as keyof typeof platformConfig];
     if (!config) return <Sparkles className="w-4 h-4" />;
     return <config.icon className="w-4 h-4" />;
-  };
-
-  if (userIdLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <Loader2 className="w-8 h-8 text-gold-500 animate-spin" />
-      </div>
-    );
-  }
+  }, []);
 
   if (!userId) {
     return (
@@ -444,6 +467,19 @@ export default function ContentStudioPage() {
           </div>
         </div>
 
+        {/* Bloc Becks */}
+        <div className="bg-purple-500/10 border border-purple-500/20 rounded-xl p-4 mb-6">
+          <div className="flex items-center gap-3">
+            <Megaphone className="w-5 h-5 text-purple-400" />
+            <div>
+              <p className="text-sm text-purple-400 font-medium">Becks - Content Studio</p>
+              <p className="text-sm text-ivory">
+                📝 {stats.draft} brouillon(s) • 📅 {stats.scheduled} programmé(s) • 🎯 {stats.posted} publié(s)
+              </p>
+            </div>
+          </div>
+        </div>
+
         {/* TABS */}
         <div className="flex flex-wrap gap-2 border-b border-white/10 mb-6 overflow-x-auto pb-2">
           <button
@@ -501,7 +537,7 @@ export default function ContentStudioPage() {
               </div>
               
               <button
-                onClick={() => { setShowForm(true); setEditingContent(null); scrollToForm(); }}
+                onClick={() => { setShowForm(true); setEditingContent(null); setTimeout(() => document.getElementById("form-container")?.scrollIntoView({ behavior: "smooth" }), 100); }}
                 className="bg-gold-500 text-midnight px-4 py-2 rounded-full text-sm font-medium flex items-center gap-2 hover:bg-gold-400 transition-colors"
               >
                 <Plus className="w-4 h-4" /> Nouveau contenu
@@ -626,36 +662,62 @@ export default function ContentStudioPage() {
               <button onClick={nextMonth} className="p-2 hover:bg-white/10 rounded-lg"><ChevronRight className="w-5 h-5" /></button>
             </div>
 
-            {/* Grille calendrier */}
-            <div className="bg-white/5 border border-white/10 rounded-2xl overflow-hidden">
-              <div className="grid grid-cols-7 border-b border-white/10">
-                {dayNames.map(day => <div key={day} className="p-3 text-center text-xs text-gray-500 font-medium">{day}</div>)}
-              </div>
-              <div className="grid grid-cols-7 auto-rows-fr">
-                {Array.from({ length: adjustedFirstDay }).map((_, i) => <div key={`empty-${i}`} className="min-h-[120px] p-2 border-r border-b border-white/5 bg-black/20" />)}
-                {Array.from({ length: daysInMonth }).map((_, i) => {
-                  const day = i + 1;
-                  const dayContents = getContentsForDate(day);
-                  const suggestion = getSuggestionForDate(day);
-                  const isToday = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}` === today;
-                  const isSelected = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}` === selectedDate;
-                  
-                  return (
-                    <div onClick={() => handleDateClick(day)} className={`min-h-[120px] p-2 border-r border-b border-white/5 cursor-pointer transition-all hover:bg-white/5 ${isToday ? "bg-gold-500/5" : ""} ${isSelected ? "bg-gold-500/10 border-gold-500/30" : ""}`}>
-                      <div className={`text-right mb-1 text-sm ${isToday ? "text-gold-500 font-bold" : "text-gray-400"}`}>{day}</div>
-                      <div className="space-y-1">
-                        {dayContents.slice(0, 2).map((content, idx) => {
-                          const emoji = platformConfig[content.platform as keyof typeof platformConfig]?.emoji || "📝";
-                          return <div key={idx} className="text-[10px] p-1 rounded bg-white/5 truncate flex items-center gap-1"><span>{emoji}</span><span className="text-gray-300 truncate flex-1">{content.title}</span></div>;
-                        })}
-                        {dayContents.length > 2 && <div className="text-[10px] text-gray-500 text-center">+{dayContents.length - 2} autre(s)</div>}
-                        {suggestion && dayContents.length === 0 && <div className="text-[10px] p-1 rounded bg-gold-500/10 border border-gold-500/20 text-gold-400 text-center truncate">💡 {suggestion.suggested_theme}</div>}
-                      </div>
+            {isCalendarLoading ? (
+              <div className="flex justify-center py-12"><Loader2 className="w-8 h-8 text-gold-500 animate-spin" /></div>
+            ) : (
+              <>
+                {/* Grille calendrier */}
+                <div className="bg-white/5 border border-white/10 rounded-2xl overflow-hidden">
+                  <div className="grid grid-cols-7 border-b border-white/10">
+                    {dayNames.map(day => <div key={day} className="p-3 text-center text-xs text-gray-500 font-medium">{day}</div>)}
+                  </div>
+                  <div className="grid grid-cols-7 auto-rows-fr">
+                    {Array.from({ length: adjustedFirstDay }).map((_, i) => <div key={`empty-${i}`} className="min-h-[120px] p-2 border-r border-b border-white/5 bg-black/20" />)}
+                    {Array.from({ length: daysInMonth }).map((_, i) => {
+                      const day = i + 1;
+                      const dayContents = getContentsForDate(day);
+                      const isToday = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}` === today;
+                      const isSelected = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}` === selectedDate;
+                      
+                      return (
+                        <div onClick={() => setSelectedDate(`${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`)} className={`min-h-[120px] p-2 border-r border-b border-white/5 cursor-pointer transition-all hover:bg-white/5 ${isToday ? "bg-gold-500/5" : ""} ${isSelected ? "bg-gold-500/10 border-gold-500/30" : ""}`}>
+                          <div className={`text-right mb-1 text-sm ${isToday ? "text-gold-500 font-bold" : "text-gray-400"}`}>{day}</div>
+                          <div className="space-y-1">
+                            {dayContents.slice(0, 2).map((content, idx) => {
+                              const emoji = platformConfig[content.platform as keyof typeof platformConfig]?.emoji || "📝";
+                              return <div key={idx} className="text-[10px] p-1 rounded bg-white/5 truncate flex items-center gap-1"><span>{emoji}</span><span className="text-gray-300 truncate flex-1">{content.title}</span></div>;
+                            })}
+                            {dayContents.length > 2 && <div className="text-[10px] text-gray-500 text-center">+{dayContents.length - 2} autre(s)</div>}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Formulaire rapide pour la date sélectionnée */}
+                {selectedDate && (
+                  <div className="mt-6 p-4 bg-white/10 rounded-xl">
+                    <div className="flex justify-between items-center mb-3">
+                      <h3 className="text-sm font-serif text-gold-500">
+                        📅 {new Date(selectedDate).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })}
+                      </h3>
+                      <button
+                        onClick={() => {
+                          setFormData(prev => ({ ...prev, publish_date: selectedDate }));
+                          setActiveTab("list");
+                          setShowForm(true);
+                          setTimeout(() => document.getElementById("form-container")?.scrollIntoView({ behavior: "smooth" }), 100);
+                        }}
+                        className="text-xs bg-gold-500/20 text-gold-500 px-3 py-1 rounded-full hover:bg-gold-500/30"
+                      >
+                        + Ajouter un contenu
+                      </button>
                     </div>
-                  );
-                })}
-              </div>
-            </div>
+                  </div>
+                )}
+              </>
+            )}
 
             {/* Bouton flottant génération IA */}
             <button
