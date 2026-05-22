@@ -26,6 +26,10 @@ ChartJS.register(ArcElement, Tooltip, Legend, CategoryScale, LinearScale, BarEle
 // TYPES OPTIMISÉS (colonnes nécessaires uniquement)
 // =====================================================
 
+// =====================================================
+// TYPES OPTIMISÉS (colonnes nécessaires uniquement)
+// =====================================================
+
 type Spending = {
   id: string;
   title: string;
@@ -51,7 +55,7 @@ type Opportunity = {
   id: string;
   title: string;
   type: "client" | "grant" | "contract" | "investor" | "partnership" | "product" | "content" | "other";
-  mission_id: string | null;
+  mission_id?: string | null;  
   estimated_value: number;
   stage: "idea" | "researching" | "preparing" | "submitted" | "follow_up" | "won" | "lost";
   deadline: string | null;
@@ -65,7 +69,6 @@ type Mission = {
   id: string;
   name: string;
 };
-
 // =====================================================
 // CONFIGURATIONS
 // =====================================================
