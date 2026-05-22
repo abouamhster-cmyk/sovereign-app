@@ -1,7 +1,8 @@
 "use client";
-import { useEffect, useState } from "react";
+
+import { useEffect, useState, useMemo, useCallback } from "react";
 import { supabase } from "@/lib/supabase";
-import { useUserId } from "@/hooks/useUserId";
+import { useAuth } from "@/contexts/AuthContext";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import { motion, AnimatePresence } from "framer-motion";
 import { 
@@ -12,7 +13,7 @@ import {
 } from "lucide-react";
 
 // =====================================================
-// TYPES
+// TYPES OPTIMISÉS (colonnes nécessaires uniquement)
 // =====================================================
 
 type FamilyEvent = {
@@ -79,7 +80,8 @@ const childrenList = [
 // =====================================================
 
 export default function FamilyPage() {
-  const { userId, loading: userIdLoading } = useUserId();
+  const { user } = useAuth();  // ← OPTIMISATION: useAuth au lieu de useUserId
+  const userId = user?.id || null;
   const [activeTab, setActiveTab] = useState<"overview" | "events" | "records">("overview");
   
   // Événements
@@ -118,81 +120,78 @@ export default function FamilyPage() {
     notes: ""
   });
 
-  // =====================================================
-  // CHARGEMENT DES DONNÉES
-  // =====================================================
+  // ========== CHARGEMENT OPTIMISÉ ==========
+  useEffect(() => {
+    if (!userId) return;
+    
+    const loadAllData = async () => {
+      setIsLoading(true);
+      await Promise.all([
+        fetchEventsOptimized(),
+        fetchKidsRecordsOptimized()
+      ]);
+      setIsLoading(false);
+    };
+    
+    loadAllData();
+    
+    // Channel unifié pour les changements
+    const channel = supabase
+      .channel('family_changes')
+      .on('postgres_changes', 
+        { event: '*', schema: 'public', table: 'family_events', filter: `user_id=eq.${userId}` }, 
+        () => fetchEventsOptimized()
+      )
+      .on('postgres_changes', 
+        { event: '*', schema: 'public', table: 'kids_records', filter: `user_id=eq.${userId}` }, 
+        () => fetchKidsRecordsOptimized()
+      )
+      .subscribe();
+    
+    return () => { channel.unsubscribe(); };
+  }, [userId]);
 
-useEffect(() => {
-  if (!userId) return;
-  
-  fetchAllData();
-  
-  const eventsChannel = supabase
-    .channel('family_events_changes')
-    .on('postgres_changes', 
-      { event: '*', schema: 'public', table: 'family_events', filter: `user_id=eq.${userId}` }, 
-      () => fetchEvents()
-    )
-    .subscribe();
-  
-  const kidsChannel = supabase
-    .channel('kids_records_changes')
-    .on('postgres_changes', 
-      { event: '*', schema: 'public', table: 'kids_records', filter: `user_id=eq.${userId}` }, 
-      () => fetchKidsRecords()
-    )
-    .subscribe();
-  
-  return () => {
-    eventsChannel.unsubscribe();
-    kidsChannel.unsubscribe();
-  };
-}, [userId]);
-  
-
-  async function fetchAllData() {
-    setIsLoading(true);
-    await Promise.all([fetchEvents(), fetchKidsRecords()]);
-    setIsLoading(false);
+  // ========== REQUÊTES OPTIMISÉES ==========
+  async function fetchEventsOptimized() {
+    if (!userId) return;
+    
+    const { data } = await supabase
+      .from("family_events")
+      .select("id, title, child_name, category, priority, status, date, notes, created_at")  // ← colonnes nécessaires
+      .eq("user_id", userId)
+      .order("date", { ascending: true, nullsFirst: false })
+      .limit(100);  // ← limite
+    
+    setEvents(data || []);
   }
-
-async function fetchEvents() {
-  if (!userId) return;
   
-  const { data } = await supabase
-    .from("family_events")
-    .select("*")
-    .eq("user_id", userId)
-    .order("date", { ascending: true, nullsFirst: false });
-  setEvents(data || []);
-}
-  
-   async function fetchKidsRecords() {
+  async function fetchKidsRecordsOptimized() {
     if (!userId) return;
     
     const { data } = await supabase
       .from("kids_records")
-      .select("*")
+      .select("id, name, child_name, type, status, file_url, expiry_date, notes, created_at")  // ← colonnes nécessaires
       .eq("user_id", userId)
-      .order("created_at", { ascending: false });
+      .order("created_at", { ascending: false })
+      .limit(100);  // ← limite
+    
     setRecords(data || []);
   }
 
-  // =====================================================
-  // GESTION DES ÉVÉNEMENTS
-  // =====================================================
-
- async function saveEvent() {
-  const data = {
-    title: eventForm.title,
-    child_name: eventForm.child_name || null,
-    category: eventForm.category,
-    priority: eventForm.priority,
-    status: eventForm.status,
-    date: eventForm.date || null,
-    notes: eventForm.notes || null,
-    user_id: userId  
-  };
+  // ========== GESTION DES ÉVÉNEMENTS ==========
+  async function saveEvent() {
+    if (!userId) return;
+    
+    const data = {
+      title: eventForm.title,
+      child_name: eventForm.child_name || null,
+      category: eventForm.category,
+      priority: eventForm.priority,
+      status: eventForm.status,
+      date: eventForm.date || null,
+      notes: eventForm.notes || null,
+      user_id: userId  
+    };
     
     let error;
     if (editingEventId) {
@@ -205,22 +204,23 @@ async function fetchEvents() {
     
     if (!error) {
       resetEventForm();
-      fetchEvents();
+      fetchEventsOptimized();
+      toast.success(editingEventId ? "Événement modifié" : "Événement ajouté");
     } else {
-      alert("Erreur: " + error.message);
+      toast.error("Erreur: " + error.message);
     }
   }
 
   async function deleteEvent(id: string) {
     if (confirm("Supprimer cet événement ?")) {
       const { error } = await supabase.from("family_events").delete().eq("id", id);
-      if (!error) fetchEvents();
+      if (!error) fetchEventsOptimized();
     }
   }
 
   async function updateEventStatus(id: string, newStatus: FamilyEvent["status"]) {
     const { error } = await supabase.from("family_events").update({ status: newStatus }).eq("id", id);
-    if (!error) fetchEvents();
+    if (!error) fetchEventsOptimized();
   }
 
   function editEvent(event: FamilyEvent) {
@@ -235,7 +235,9 @@ async function fetchEvents() {
     });
     setEditingEventId(event.id);
     setShowEventForm(true);
-    scrollToForm();
+    setTimeout(() => {
+      document.getElementById("form-container")?.scrollIntoView({ behavior: "smooth" });
+    }, 100);
   }
 
   function resetEventForm() {
@@ -252,11 +254,10 @@ async function fetchEvents() {
     });
   }
 
-  // =====================================================
-  // GESTION DES DOSSIERS ENFANTS
-  // =====================================================
-
-   async function saveRecord() {
+  // ========== GESTION DES DOSSIERS ENFANTS ==========
+  async function saveRecord() {
+    if (!userId) return;
+    
     const data = {
       name: recordForm.name,
       child_name: recordForm.child_name || null,
@@ -278,16 +279,17 @@ async function fetchEvents() {
     
     if (!error) {
       resetRecordForm();
-      fetchKidsRecords();
+      fetchKidsRecordsOptimized();
+      toast.success(editingRecordId ? "Dossier modifié" : "Dossier ajouté");
     } else {
-      alert("Erreur: " + error.message);
+      toast.error("Erreur: " + error.message);
     }
   }
 
   async function deleteRecord(id: string) {
     if (confirm("Supprimer ce dossier ?")) {
       const { error } = await supabase.from("kids_records").delete().eq("id", id);
-      if (!error) fetchKidsRecords();
+      if (!error) fetchKidsRecordsOptimized();
     }
   }
 
@@ -302,7 +304,9 @@ async function fetchEvents() {
     });
     setEditingRecordId(record.id);
     setShowRecordForm(true);
-    scrollToForm();
+    setTimeout(() => {
+      document.getElementById("form-container")?.scrollIntoView({ behavior: "smooth" });
+    }, 100);
   }
 
   function resetRecordForm() {
@@ -318,9 +322,68 @@ async function fetchEvents() {
     });
   }
 
-  // =====================================================
-  // UTILITAIRES
-  // =====================================================
+  // ========== UTILITAIRES MEMOIZED ==========
+  const formatDate = useCallback((dateStr: string) => {
+    if (!dateStr) return "Date non définie";
+    const date = new Date(dateStr);
+    const today = new Date();
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    
+    if (date.toDateString() === today.toDateString()) return "Aujourd'hui";
+    if (date.toDateString() === tomorrow.toDateString()) return "Demain";
+    return date.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' });
+  }, []);
+
+  const getRecordStatusIcon = useCallback((status: string) => {
+    const name = status?.toLowerCase() || "";
+    if (name.includes("valid") || name.includes("fait") || name.includes("ok") || name.includes("done")) 
+      return <CheckCircle className="w-4 h-4 text-emerald-400" />;
+    if (name.includes("urgent") || name.includes("important")) 
+      return <AlertCircle className="w-4 h-4 text-red-400" />;
+    return <Clock className="w-4 h-4 text-yellow-400" />;
+  }, []);
+
+  const getRecordStatusColor = useCallback((status: string) => {
+    const name = status?.toLowerCase() || "";
+    if (name.includes("valid") || name.includes("fait") || name.includes("ok") || name.includes("done")) 
+      return "bg-emerald-500/20 text-emerald-400";
+    if (name.includes("urgent") || name.includes("important")) 
+      return "bg-red-500/20 text-red-400";
+    return "bg-yellow-500/20 text-yellow-400";
+  }, []);
+
+  // ========== STATS ET FILTRES MEMOIZED ==========
+  const stats = useMemo(() => ({
+    totalEvents: events.length,
+    pendingEvents: events.filter(e => e.status === "pending").length,
+    todayEvents: events.filter(e => e.date === new Date().toISOString().split('T')[0]).length,
+    criticalEvents: events.filter(e => e.priority === "critical").length,
+    totalRecords: records.length,
+    completedRecords: records.filter(r => {
+      const status = r.status || "";
+      return status.toLowerCase().includes("valid") || status.toLowerCase().includes("fait") || status.toLowerCase().includes("done");
+    }).length,
+  }), [events, records]);
+
+  const upcomingEvents = useMemo(() => {
+    return events.filter(item => {
+      if (!item.date) return false;
+      const eventDate = new Date(item.date);
+      const today = new Date();
+      const nextWeek = new Date(today);
+      nextWeek.setDate(today.getDate() + 7);
+      return eventDate >= today && eventDate <= nextWeek && item.status !== "done";
+    }).slice(0, 5);
+  }, [events]);
+
+  const filteredEvents = useMemo(() => {
+    return events.filter(e => {
+      if (filterChild !== "Tous" && e.child_name !== filterChild) return false;
+      if (filterStatus !== "all" && e.status !== filterStatus) return false;
+      return true;
+    });
+  }, [events, filterChild, filterStatus]);
 
   const scrollToForm = () => {
     setTimeout(() => {
@@ -331,76 +394,6 @@ async function fetchEvents() {
     }, 150);
   };
 
-  const formatDate = (dateStr: string) => {
-    if (!dateStr) return "Date non définie";
-    const date = new Date(dateStr);
-    const today = new Date();
-    const tomorrow = new Date(today);
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    
-    if (date.toDateString() === today.toDateString()) return "Aujourd'hui";
-    if (date.toDateString() === tomorrow.toDateString()) return "Demain";
-    return date.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' });
-  };
-
-  const getRecordStatusIcon = (status: string) => {
-    const name = status?.toLowerCase() || "";
-    if (name.includes("valid") || name.includes("fait") || name.includes("ok") || name.includes("done")) 
-      return <CheckCircle className="w-4 h-4 text-emerald-400" />;
-    if (name.includes("urgent") || name.includes("important")) 
-      return <AlertCircle className="w-4 h-4 text-red-400" />;
-    return <Clock className="w-4 h-4 text-yellow-400" />;
-  };
-
-  const getRecordStatusColor = (status: string) => {
-    const name = status?.toLowerCase() || "";
-    if (name.includes("valid") || name.includes("fait") || name.includes("ok") || name.includes("done")) 
-      return "bg-emerald-500/20 text-emerald-400";
-    if (name.includes("urgent") || name.includes("important")) 
-      return "bg-red-500/20 text-red-400";
-    return "bg-yellow-500/20 text-yellow-400";
-  };
-
-  // Statistiques
-  const stats = {
-    totalEvents: events.length,
-    pendingEvents: events.filter(e => e.status === "pending").length,
-    todayEvents: events.filter(e => e.date === new Date().toISOString().split('T')[0]).length,
-    criticalEvents: events.filter(e => e.priority === "critical").length,
-    totalRecords: records.length,
-    completedRecords: records.filter(r => {
-      const status = r.status || "";
-      return status.toLowerCase().includes("valid") || status.toLowerCase().includes("fait") || status.toLowerCase().includes("done");
-    }).length,
-  };
-
-  const upcomingEvents = events.filter(item => {
-    if (!item.date) return false;
-    const eventDate = new Date(item.date);
-    const today = new Date();
-    const nextWeek = new Date(today);
-    nextWeek.setDate(today.getDate() + 7);
-    return eventDate >= today && eventDate <= nextWeek && item.status !== "done";
-  }).slice(0, 5);
-
-  const filteredEvents = events.filter(e => {
-    if (filterChild !== "Tous" && e.child_name !== filterChild) return false;
-    if (filterStatus !== "all" && e.status !== filterStatus) return false;
-    return true;
-  });
-
-  // =====================================================
-  // RENDU
-  // =====================================================
-
-    if (userIdLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <Loader2 className="w-8 h-8 text-gold-500 animate-spin" />
-      </div>
-    );
-  }
-  
   if (!userId) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
@@ -570,13 +563,13 @@ async function fetchEvents() {
             {/* Actions rapides */}
             <div className="grid grid-cols-2 gap-3">
               <button
-                onClick={() => { setActiveTab("events"); setShowEventForm(true); }}
+                onClick={() => { setActiveTab("events"); setShowEventForm(true); scrollToForm(); }}
                 className="py-3 bg-blue-500/20 text-blue-400 rounded-xl text-sm font-medium hover:bg-blue-500/30 transition-colors"
               >
                 + Ajouter un événement
               </button>
               <button
-                onClick={() => { setActiveTab("records"); setShowRecordForm(true); }}
+                onClick={() => { setActiveTab("records"); setShowRecordForm(true); scrollToForm(); }}
                 className="py-3 bg-emerald-500/20 text-emerald-400 rounded-xl text-sm font-medium hover:bg-emerald-500/30 transition-colors"
               >
                 + Ajouter un dossier
