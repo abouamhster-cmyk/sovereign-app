@@ -9,11 +9,10 @@ import {
   Crown, Settings, Sparkles, Target, DollarSign, Heart, Sprout, Brain,
   Calendar, AlertCircle, ArrowRight, Loader2, Edit2, Inbox, CheckSquare, 
   Briefcase, Globe, Trophy, Users, Zap, ShieldAlert, Map, Mail, FileText, 
-  TrendingUp, CalendarDays, FolderOpen, Star, Sun, Moon, TrendingDown,
-  Activity, Clock, Award, PieChart, BarChart3, LineChart, Wallet
+  TrendingUp, CalendarDays, FolderOpen, Star, Sun, Moon, BarChart3,
+  PieChart, LineChart, Activity, CreditCard, Wallet, Clock
 } from "lucide-react";
 import { toast } from "sonner";
-import { Line, Bar, Doughnut } from "react-chartjs-2";
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -27,6 +26,7 @@ import {
   Legend,
   Filler
 } from 'chart.js';
+import { Line, Bar, Pie, Doughnut } from 'react-chartjs-2';
 
 // Enregistrement des composants Chart.js
 ChartJS.register(
@@ -52,6 +52,22 @@ type Spending = { id: string; title: string; amount: number; category: string; d
 type Revenue = { id: string; source: string; amount: number; date: string };
 type Memory = { id: string; key: string; value: string; category: string; created_at: string };
 
+// Configuration des couleurs
+const chartColors = {
+  gold: '#D4AF37',
+  goldLight: 'rgba(212, 175, 55, 0.2)',
+  red: '#EF4444',
+  redLight: 'rgba(239, 68, 68, 0.2)',
+  green: '#10B981',
+  greenLight: 'rgba(16, 185, 129, 0.2)',
+  blue: '#3B82F6',
+  blueLight: 'rgba(59, 130, 246, 0.2)',
+  purple: '#8B5CF6',
+  orange: '#F59E0B',
+  pink: '#EC4899',
+  cyan: '#06B6D4'
+};
+
 export default function DashboardPage() {
   const router = useRouter();
   const [greeting, setGreeting] = useState("");
@@ -59,37 +75,28 @@ export default function DashboardPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [userId, setUserId] = useState<string | null>(null);
   
-  // Données Dashboard
+  // Données existantes
   const [priorities, setPriorities] = useState<Priority[]>([]);
-  const [recentTasks, setRecentTasks] = useState<Task[]>([]);
-  const [upcomingTasks, setUpcomingTasks] = useState<Task[]>([]);
-  const [mood, setMood] = useState<string | null>(null);
+  const [urgentTasks, setUrgentTasks] = useState<Task[]>([]);
   const [activeMissions, setActiveMissions] = useState<Mission[]>([]);
   const [recentMemories, setRecentMemories] = useState<Memory[]>([]);
-  
-  // Données financières
-  const [weeklySpending, setWeeklySpending] = useState<Spending[]>([]);
-  const [weeklyRevenue, setWeeklyRevenue] = useState<Revenue[]>([]);
-  const [monthlySpending, setMonthlySpending] = useState<Spending[]>([]);
-  const [monthlyRevenue, setMonthlyRevenue] = useState<Revenue[]>([]);
-  const [spendingByCategory, setSpendingByCategory] = useState<{ category: string; total: number }[]>([]);
-  
-  // Stats globales
-  const [totalRevenue, setTotalRevenue] = useState(0);
-  const [totalSpending, setTotalSpending] = useState(0);
-  const [balance, setBalance] = useState(0);
-  const [completionRate, setCompletionRate] = useState(0);
-  const [overdueCount, setOverdueCount] = useState(0);
-  const [winsThisWeek, setWinsThisWeek] = useState(0);
-  
-  // Suggestion
-  const [nextActionSuggestion, setNextActionSuggestion] = useState("");
-  const [showSuggestion, setShowSuggestion] = useState(false);
+  const [overloadData, setOverloadData] = useState<any>(null);
+  const [isLoadingMemories, setIsLoadingMemories] = useState(true);
   const [becksMessage, setBecksMessage] = useState("");
   const [isLoadingMessage, setIsLoadingMessage] = useState(true);
+  const [mood, setMood] = useState<string | null>(null);
   
-  // États pour les graphs
-  const [selectedPeriod, setSelectedPeriod] = useState<"week" | "month">("week");
+  // NOUVELLES DONNÉES POUR GRAPHIQUES
+  const [recentSpending, setRecentSpending] = useState<Spending[]>([]);
+  const [recentRevenue, setRecentRevenue] = useState<Revenue[]>([]);
+  const [weeklyProgress, setWeeklyProgress] = useState<{ day: string; completed: number; created: number }[]>([]);
+  const [tasksByStatus, setTasksByStatus] = useState<{ status: string; count: number }[]>([]);
+  const [upcomingTasks, setUpcomingTasks] = useState<Task[]>([]);
+  const [financialSummary, setFinancialSummary] = useState({ revenue: 0, spending: 0, balance: 0 });
+  const [completionRate, setCompletionRate] = useState(0);
+  
+  // Stats pour les moves
+  const [farmNextAction, setFarmNextAction] = useState("Vérifier l'avancement");
 
   // Récupérer l'utilisateur
   useEffect(() => {
@@ -99,22 +106,6 @@ export default function DashboardPage() {
     };
     fetchUser();
   }, []);
-
-  // Suggestion toast
-  useEffect(() => {
-    if (nextActionSuggestion && showSuggestion) {
-      toast.info(nextActionSuggestion, {
-        duration: 8000,
-        icon: "💡",
-        position: "bottom-right",
-        style: {
-          background: "rgba(212, 175, 55, 0.1)",
-          border: "1px solid rgba(212, 175, 55, 0.3)",
-          color: "#D4AF37"
-        }
-      });
-    }
-  }, [nextActionSuggestion, showSuggestion]);
 
   useEffect(() => {
     const hour = new Date().getHours();
@@ -130,26 +121,16 @@ export default function DashboardPage() {
     if (userId) fetchAllData();
   }, [userId]);
 
-  // Recharger le nom quand le profil est mis à jour
-  useEffect(() => {
-    const handleProfileUpdate = () => { if (userId) fetchUserName(); };
-    window.addEventListener('profileUpdated', handleProfileUpdate);
-    return () => window.removeEventListener('profileUpdated', handleProfileUpdate);
-  }, [userId]);
-
-  // Chargement du nom
-  useEffect(() => {
-    if (userId) fetchUserName();
-  }, [userId]);
-
   async function fetchAllData() {
     if (!userId) return;
     setIsLoading(true);
     await Promise.all([
       fetchUserName(),
       fetchDashboardData(),
-      fetchFinancialData(),
-      fetchStats()
+      fetchChartData(),
+      fetchRecentMemories(),
+      fetchOverloadDetection(),
+      fetchFarmStatus()
     ]);
     setIsLoading(false);
   }
@@ -160,7 +141,6 @@ export default function DashboardPage() {
       .select("preferred_name")
       .eq("user_id", userId)
       .maybeSingle();
-    
     if (profile?.preferred_name) setUserName(profile.preferred_name);
   }
 
@@ -180,16 +160,9 @@ export default function DashboardPage() {
         })) || [];
         setPriorities(formattedPriorities);
         
-        setRecentTasks(data.tasks_today?.slice(0, 3) || []);
+        const allTasks = [...(data.overdue_tasks || []), ...(data.tasks_today || [])];
+        setUrgentTasks(allTasks.slice(0, 5));
         setActiveMissions(data.active_missions || []);
-        
-        if (data.stats) {
-          setCompletionRate(data.stats.completion_rate || 0);
-          setOverdueCount(data.stats.overdue_count || 0);
-        }
-      } else {
-        await generateDynamicGreeting();
-        setIsLoadingMessage(false);
       }
     } catch (error) {
       console.error("Erreur dashboard:", error);
@@ -198,81 +171,10 @@ export default function DashboardPage() {
     }
   }
 
-  async function fetchFinancialData() {
-    if (!userId) return;
-    
-    const now = new Date();
-    const weekAgo = new Date(now);
-    weekAgo.setDate(now.getDate() - 7);
-    const monthAgo = new Date(now);
-    monthAgo.setMonth(now.getMonth() - 1);
-    
-    const weekAgoStr = weekAgo.toISOString().split('T')[0];
-    const monthAgoStr = monthAgo.toISOString().split('T')[0];
-    
-    // Dépenses
-    const { data: allSpending } = await supabase
-      .from("spending")
-      .select("*")
-      .eq("user_id", userId)
-      .gte("date", monthAgoStr);
-    
-    // Revenus
-    const { data: allRevenue } = await supabase
-      .from("revenue")
-      .select("*")
-      .eq("user_id", userId)
-      .gte("date", monthAgoStr);
-    
-    const spendingData = allSpending || [];
-    const revenueData = allRevenue || [];
-    
-    // Filtres par période
-    setWeeklySpending(spendingData.filter(s => s.date >= weekAgoStr));
-    setWeeklyRevenue(revenueData.filter(r => r.date >= weekAgoStr));
-    setMonthlySpending(spendingData);
-    setMonthlyRevenue(revenueData);
-    
-    // Totaux
-    const totalRev = revenueData.reduce((sum, r) => sum + r.amount, 0);
-    const totalSpend = spendingData.reduce((sum, s) => sum + s.amount, 0);
-    setTotalRevenue(totalRev);
-    setTotalSpending(totalSpend);
-    setBalance(totalRev - totalSpend);
-    
-    // Dépenses par catégorie - Version corrigée sans Map
-    const categoriesTotal: { [key: string]: number } = {};
-    spendingData.forEach((s: Spending) => {
-      const cat = s.category || "other";
-      categoriesTotal[cat] = (categoriesTotal[cat] || 0) + s.amount;
-    });
-    const categoriesArray = Object.entries(categoriesTotal).map(([category, total]) => ({ 
-      category: category, 
-      total: total 
-    }));
-    setSpendingByCategory(categoriesArray);
-  }
-
-  async function fetchStats() {
-    if (!userId) return;
-    
-    const weekAgo = new Date();
-    weekAgo.setDate(weekAgo.getDate() - 7);
-    const weekAgoStr = weekAgo.toISOString().split('T')[0];
-    
-    // Victoires cette semaine
-    const { data: wins } = await supabase
-      .from("wins")
-      .select("title")
-      .eq("user_id", userId)
-      .gte("date", weekAgoStr);
-    setWinsThisWeek(wins?.length || 0);
-  }
-
   async function generateDynamicGreeting() {
     if (!userId) return;
-    
     const today = new Date().toISOString().split('T')[0];
+    
     const [tasksRes, overdueRes, winsRes, missionsRes, moodRes] = await Promise.all([
       supabase.from("tasks").select("*").eq("user_id", userId).eq("due_date", today).neq("status", "done"),
       supabase.from("tasks").select("*").eq("user_id", userId).lt("due_date", today).neq("status", "done"),
@@ -310,8 +212,128 @@ export default function DashboardPage() {
     if (tasksCount > 0) return `${greetingText} ${userName}. Tu as ${tasksCount} chose(s) à faire aujourd'hui. Je suis là si tu veux. ✨`;
     if (winsCount > 0) return `${greetingText} ${userName}. ${winsCount} victoire(s) récente(s) ! C'est bien. Continue comme ça. 🏆`;
     if (missionsCount > 0) return `${greetingText} ${userName}. ${missionsCount} mission(s) active(s). Tu veux qu'on avance sur l'une d'elles ? 🎯`;
-    const naturalGreetings = [`${greetingText} ${userName}. Rien de prévu aujourd'hui. Tu veux qu'on avance sur un projet ou tu préfères souffler ? 🌱`, `${greetingText} ${userName}. Journée calme. Profites-en pour respirer ou pour prendre de l'avance. 🌸`, `${greetingText} ${userName}. Tout est calme. Besoin de quoi ? 💫`];
-    return naturalGreetings[Math.floor(Math.random() * naturalGreetings.length)];
+    return `${greetingText} ${userName}. Rien de prévu aujourd'hui. Tu veux qu'on avance sur un projet ou tu préfères souffler ? 🌱`;
+  }
+
+  async function fetchChartData() {
+    if (!userId) return;
+    
+    const today = new Date();
+    const startOfWeek = new Date(today);
+    startOfWeek.setDate(today.getDate() - today.getDay());
+    const endOfWeek = new Date(today);
+    endOfWeek.setDate(today.getDate() + (6 - today.getDay()));
+    
+    // 1. Dépenses des 7 derniers jours
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+    const { data: spendingData } = await supabase
+      .from("spending")
+      .select("amount, date")
+      .eq("user_id", userId)
+      .gte("date", sevenDaysAgo.toISOString().split('T')[0]);
+    setRecentSpending(spendingData || []);
+    
+    // 2. Revenus des 7 derniers jours
+    const { data: revenueData } = await supabase
+      .from("revenue")
+      .select("amount, date")
+      .eq("user_id", userId)
+      .gte("date", sevenDaysAgo.toISOString().split('T')[0]);
+    setRecentRevenue(revenueData || []);
+    
+    // 3. Calcul des totaux financiers
+    const totalRevenue = (revenueData || []).reduce((sum, r) => sum + r.amount, 0);
+    const totalSpending = (spendingData || []).reduce((sum, s) => sum + s.amount, 0);
+    setFinancialSummary({ revenue: totalRevenue, spending: totalSpending, balance: totalRevenue - totalSpending });
+    
+    // 4. Progression hebdomadaire des tâches
+    const { data: tasksData } = await supabase
+      .from("tasks")
+      .select("title, status, created_at, updated_at")
+      .eq("user_id", userId)
+      .gte("created_at", startOfWeek.toISOString().split('T')[0]);
+    
+    const days = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
+    const weekly = days.map((day, i) => {
+      const dayDate = new Date(startOfWeek);
+      dayDate.setDate(startOfWeek.getDate() + i);
+      const dateStr = dayDate.toISOString().split('T')[0];
+      
+      const completed = (tasksData || []).filter(t => 
+        t.status === 'done' && t.updated_at?.startsWith(dateStr)
+      ).length;
+      const created = (tasksData || []).filter(t => 
+        t.created_at?.startsWith(dateStr)
+      ).length;
+      
+      return { day, completed, created };
+    });
+    setWeeklyProgress(weekly);
+    
+    // 5. Tâches par statut
+    const { data: allTasks } = await supabase
+      .from("tasks")
+      .select("status")
+      .eq("user_id", userId);
+    
+    const statusCounts: Record<string, number> = {};
+    (allTasks || []).forEach(t => {
+      statusCounts[t.status] = (statusCounts[t.status] || 0) + 1;
+    });
+    setTasksByStatus(Object.entries(statusCounts).map(([status, count]) => ({ status, count })));
+    
+    // 6. Taux de complétion global
+    const totalTasks = (allTasks || []).length;
+    const completedTasks = (allTasks || []).filter(t => t.status === 'done').length;
+    setCompletionRate(totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0);
+    
+    // 7. Tâches à échéance proche (7 jours)
+    const nextWeek = new Date();
+    nextWeek.setDate(today.getDate() + 7);
+    const { data: upcoming } = await supabase
+      .from("tasks")
+      .select("id, title, due_date, priority")
+      .eq("user_id", userId)
+      .gte("due_date", today.toISOString().split('T')[0])
+      .lte("due_date", nextWeek.toISOString().split('T')[0])
+      .neq("status", "done")
+      .order("due_date", { ascending: true })
+      .limit(5);
+    setUpcomingTasks(upcoming || []);
+  }
+
+  async function fetchFarmStatus() {
+    if (!userId) return;
+    try {
+      const [infraResult, productionResult] = await Promise.all([
+        supabase.from("farm_infrastructure").select("*").in("status", ["in_progress", "setup"]).eq("user_id", userId),
+        supabase.from("farm_production_units").select("*").in("status", ["setup", "in_progress"]).eq("user_id", userId)
+      ]);
+      const infra = infraResult.data || [];
+      const production = productionResult.data || [];
+      if (production[0] || infra[0]) setFarmNextAction(`Finaliser ${(production[0] || infra[0]).name}`);
+    } catch (error) { console.error("Erreur farm status:", error); }
+  }
+
+  async function fetchOverloadDetection() {
+    if (!userId) return;
+    try {
+      const response = await fetch(`${API_URL}/api/rescue/detect-overload`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ user_id: userId }) });
+      const data = await response.json();
+      if (data.success) setOverloadData(data);
+    } catch (error) { console.error("Erreur détection surcharge:", error); }
+  }
+
+  async function fetchRecentMemories() {
+    if (!userId) return;
+    setIsLoadingMemories(true);
+    try {
+      const response = await fetch(`${API_URL}/api/memory/get?user_id=${userId}&limit=5`);
+      const data = await response.json();
+      if (data.success && data.data) setRecentMemories(data.data.slice(0, 5));
+    } catch (error) { console.error("Erreur fetch memories:", error); }
+    finally { setIsLoadingMemories(false); }
   }
 
   async function saveMood(selectedMood: string) {
@@ -324,52 +346,72 @@ export default function DashboardPage() {
     window.dispatchEvent(new CustomEvent('moodChange', { detail: { mood: selectedMood } }));
   }
 
-  // Préparation des données pour les graphiques
-  const getChartData = () => {
-    const spendingData = selectedPeriod === "week" ? weeklySpending : monthlySpending;
-    const revenueData = selectedPeriod === "week" ? weeklyRevenue : monthlyRevenue;
-    
-    // Grouper par jour/semaine
-    const dateMap = new Map<string, { spending: number; revenue: number }>();
-    
-    [...spendingData, ...revenueData].forEach(item => {
-      const date = item.date;
-      if (!dateMap.has(date)) dateMap.set(date, { spending: 0, revenue: 0 });
-      const entry = dateMap.get(date)!;
-      if ('amount' in item) {
-        if ('category' in item) entry.spending += item.amount;
-        else entry.revenue += item.amount;
+  // Configuration des graphiques
+  const spendingChartData = {
+    labels: ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'],
+    datasets: [
+      {
+        label: 'Dépenses (CFA)',
+        data: weeklyProgress.map(w => {
+          const daySpending = recentSpending.filter(s => new Date(s.date).getDay() === weeklyProgress.findIndex(w2 => w2.day === w.day));
+          return daySpending.reduce((sum, s) => sum + s.amount, 0);
+        }),
+        borderColor: chartColors.red,
+        backgroundColor: chartColors.redLight,
+        fill: true,
+        tension: 0.4,
+        pointBackgroundColor: chartColors.red,
+        pointBorderColor: '#fff',
+        pointRadius: 4,
+        pointHoverRadius: 6
+      },
+      {
+        label: 'Revenus (CFA)',
+        data: weeklyProgress.map(w => {
+          const dayRevenue = recentRevenue.filter(r => new Date(r.date).getDay() === weeklyProgress.findIndex(w2 => w2.day === w.day));
+          return dayRevenue.reduce((sum, r) => sum + r.amount, 0);
+        }),
+        borderColor: chartColors.green,
+        backgroundColor: chartColors.greenLight,
+        fill: true,
+        tension: 0.4,
+        pointBackgroundColor: chartColors.green,
+        pointBorderColor: '#fff',
+        pointRadius: 4,
+        pointHoverRadius: 6
       }
-    });
-    
-    const sortedDates = Array.from(dateMap.keys()).sort();
-    const labels = sortedDates.map(d => new Date(d).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' }));
-    const spendingAmounts = sortedDates.map(d => dateMap.get(d)?.spending || 0);
-    const revenueAmounts = sortedDates.map(d => dateMap.get(d)?.revenue || 0);
-    
-    return { labels, spendingAmounts, revenueAmounts };
+    ]
   };
 
-  const getCategoryChartData = () => {
-    const categories = spendingByCategory.slice(0, 6);
-    const categoryNames: Record<string, string> = {
-      materials: "Matériaux", construction: "Construction", labor: "Main d'œuvre",
-      livestock: "Élevage", crops: "Cultures", transport: "Transport",
-      equipment: "Équipement", food: "Alimentation", other: "Autre"
-    };
-    
-    return {
-      labels: categories.map(c => categoryNames[c.category] || c.category),
-      datasets: [{
-        data: categories.map(c => c.total),
-        backgroundColor: ['#D4AF37', '#10B981', '#3B82F6', '#EF4444', '#8B5CF6', '#F59E0B'],
-        borderWidth: 0
-      }]
-    };
+  const tasksProgressData = {
+    labels: weeklyProgress.map(w => w.day),
+    datasets: [
+      {
+        label: 'Tâches créées',
+        data: weeklyProgress.map(w => w.created),
+        backgroundColor: chartColors.blue,
+        borderRadius: 8
+      },
+      {
+        label: 'Tâches terminées',
+        data: weeklyProgress.map(w => w.completed),
+        backgroundColor: chartColors.green,
+        borderRadius: 8
+      }
+    ]
   };
 
-  const chartData = getChartData();
-  const categoryChartData = getCategoryChartData();
+  const tasksStatusData = {
+    labels: tasksByStatus.map(t => {
+      const statusMap: Record<string, string> = { not_started: 'À faire', today: 'Aujourd\'hui', in_progress: 'En cours', waiting: 'En attente', done: 'Terminé' };
+      return statusMap[t.status] || t.status;
+    }),
+    datasets: [{
+      data: tasksByStatus.map(t => t.count),
+      backgroundColor: [chartColors.blue, chartColors.orange, chartColors.purple, chartColors.cyan, chartColors.green],
+      borderWidth: 0
+    }]
+  };
 
   const moods = [
     { value: "excellent", emoji: "🌟", label: "Excellent", color: "text-emerald-400" },
@@ -378,6 +420,8 @@ export default function DashboardPage() {
     { value: "fatiguée", emoji: "😴", label: "Fatiguée", color: "text-yellow-400" },
     { value: "stressée", emoji: "😰", label: "Stressée", color: "text-red-400" }
   ];
+
+  const handleHelpMeMoveForward = () => router.push("/chat?mode=fais-le-avec-moi");
   const currentMood = moods.find(m => m.value === mood);
 
   if (isLoading) {
@@ -414,30 +458,6 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* STATS CARDS */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <div className="bg-gradient-to-br from-emerald-500/10 to-transparent border border-emerald-500/20 rounded-xl p-4">
-          <div className="flex items-center justify-between"><DollarSign className="w-5 h-5 text-emerald-400" /><TrendingUp className="w-4 h-4 text-emerald-400/50" /></div>
-          <p className="text-2xl font-serif text-ivory mt-2">{totalRevenue.toLocaleString()} <span className="text-xs text-gray-500">CFA</span></p>
-          <p className="text-xs text-gray-500">Revenus (30j)</p>
-        </div>
-        <div className="bg-gradient-to-br from-red-500/10 to-transparent border border-red-500/20 rounded-xl p-4">
-          <div className="flex items-center justify-between"><TrendingDown className="w-5 h-5 text-red-400" /><Activity className="w-4 h-4 text-red-400/50" /></div>
-          <p className="text-2xl font-serif text-ivory mt-2">{totalSpending.toLocaleString()} <span className="text-xs text-gray-500">CFA</span></p>
-          <p className="text-xs text-gray-500">Dépenses (30j)</p>
-        </div>
-        <div className={`bg-gradient-to-br ${balance >= 0 ? 'from-emerald-500/10' : 'from-red-500/10'} to-transparent border ${balance >= 0 ? 'border-emerald-500/20' : 'border-red-500/20'} rounded-xl p-4`}>
-          <div className="flex items-center justify-between"><Wallet className="w-5 h-5 text-gold-500" /><Target className="w-4 h-4 text-gold-500/50" /></div>
-          <p className={`text-2xl font-serif mt-2 ${balance >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>{balance.toLocaleString()} <span className="text-xs text-gray-500">CFA</span></p>
-          <p className="text-xs text-gray-500">Solde net</p>
-        </div>
-        <div className="bg-gradient-to-br from-gold-500/10 to-transparent border border-gold-500/20 rounded-xl p-4">
-          <div className="flex items-center justify-between"><Target className="w-5 h-5 text-gold-500" /><CheckSquare className="w-4 h-4 text-gold-500/50" /></div>
-          <p className="text-2xl font-serif text-ivory mt-2">{completionRate}%</p>
-          <p className="text-xs text-gray-500">Taux complétion</p>
-        </div>
-      </div>
-
       {/* HUMEUR DU JOUR */}
       <div className="bg-white/5 border border-white/10 rounded-xl p-4">
         {mood ? (
@@ -450,60 +470,149 @@ export default function DashboardPage() {
         )}
       </div>
 
-      {/* GRAPHIQUE DES FLUX FINANCIERS */}
-      <div className="bg-white/5 border border-white/10 rounded-2xl p-5">
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-2"><BarChart3 className="w-4 h-4 text-gold-500" /><h2 className="text-sm font-serif text-gold-500">FLUX FINANCIERS</h2></div>
-          <div className="flex gap-2"><button onClick={() => setSelectedPeriod("week")} className={`px-3 py-1 rounded-full text-xs transition-colors ${selectedPeriod === "week" ? "bg-gold-500 text-midnight" : "bg-white/5 text-gray-400"}`}>Semaine</button><button onClick={() => setSelectedPeriod("month")} className={`px-3 py-1 rounded-full text-xs transition-colors ${selectedPeriod === "month" ? "bg-gold-500 text-midnight" : "bg-white/5 text-gray-400"}`}>Mois</button></div>
+      {/* ========== CARTES FINANCIÈRES ========== */}
+      <div className="grid grid-cols-3 gap-3">
+        <div className="bg-gradient-to-br from-emerald-500/10 to-transparent border border-emerald-500/20 rounded-xl p-3 text-center">
+          <Wallet className="w-4 h-4 text-emerald-400 mx-auto mb-1" />
+          <p className="text-xs text-gray-500">Revenus (7j)</p>
+          <p className="text-lg font-serif text-emerald-400">{financialSummary.revenue.toLocaleString()} CFA</p>
         </div>
-        {chartData.labels.length > 0 ? (
-          <div className="h-64">
-            <Line data={{ labels: chartData.labels, datasets: [{ label: 'Revenus', data: chartData.revenueAmounts, borderColor: '#10B981', backgroundColor: 'rgba(16, 185, 129, 0.1)', fill: true, tension: 0.4 }, { label: 'Dépenses', data: chartData.spendingAmounts, borderColor: '#EF4444', backgroundColor: 'rgba(239, 68, 68, 0.1)', fill: true, tension: 0.4 }] }} options={{ responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'top', labels: { color: '#9CA3AF' } }, tooltip: { callbacks: { label: (ctx) => `${ctx.dataset.label}: ${ctx.raw.toLocaleString()} CFA` } } }, scales: { x: { ticks: { color: '#9CA3AF' } }, y: { ticks: { color: '#9CA3AF', callback: (value) => `${value.toLocaleString()} CFA` } } } }} />
-          </div>
-        ) : (<div className="h-64 flex items-center justify-center text-gray-500">Aucune donnée financière récente</div>)}
+        <div className="bg-gradient-to-br from-red-500/10 to-transparent border border-red-500/20 rounded-xl p-3 text-center">
+          <CreditCard className="w-4 h-4 text-red-400 mx-auto mb-1" />
+          <p className="text-xs text-gray-500">Dépenses (7j)</p>
+          <p className="text-lg font-serif text-red-400">{financialSummary.spending.toLocaleString()} CFA</p>
+        </div>
+        <div className={`bg-gradient-to-br ${financialSummary.balance >= 0 ? 'from-emerald-500/10' : 'from-red-500/10'} to-transparent border ${financialSummary.balance >= 0 ? 'border-emerald-500/20' : 'border-red-500/20'} rounded-xl p-3 text-center`}>
+          <Activity className="w-4 h-4 mx-auto mb-1" />
+          <p className="text-xs text-gray-500">Solde net</p>
+          <p className={`text-lg font-serif ${financialSummary.balance >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>{financialSummary.balance.toLocaleString()} CFA</p>
+        </div>
       </div>
 
-      {/* TOP 3 PRIORITÉS */}
+      {/* ========== GRAPHIQUE DES FLUX FINANCIERS ========== */}
+      <div className="bg-white/5 border border-white/10 rounded-2xl p-4">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-sm font-serif text-gold-500 flex items-center gap-2"><LineChart className="w-4 h-4" /> Flux financiers (7 jours)</h2>
+          <span className="text-[10px] text-gray-500">Revenus vs Dépenses</span>
+        </div>
+        <div className="h-48">
+          <Line data={spendingChartData} options={{ responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom', labels: { color: '#9CA3AF', font: { size: 10 } } } }, scales: { x: { ticks: { color: '#9CA3AF' } }, y: { ticks: { color: '#9CA3AF' } } } }} />
+        </div>
+      </div>
+
+      {/* ========== DOUBLE GRAPHIQUE ========== */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {/* Progression des tâches */}
+        <div className="bg-white/5 border border-white/10 rounded-2xl p-4">
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-sm font-serif text-gold-500 flex items-center gap-2"><BarChart3 className="w-4 h-4" /> Progression hebdo</h2>
+            <div className="flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-blue-500" /><span className="text-[10px] text-gray-500">Créées</span><div className="w-2 h-2 rounded-full bg-green-500 ml-2" /><span className="text-[10px] text-gray-500">Terminées</span></div>
+          </div>
+          <div className="h-40">
+            <Bar data={tasksProgressData} options={{ responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { ticks: { color: '#9CA3AF', font: { size: 9 } } }, y: { ticks: { color: '#9CA3AF' } } }, barPercentage: 0.7 }} />
+          </div>
+        </div>
+
+        {/* Répartition des tâches par statut */}
+        <div className="bg-white/5 border border-white/10 rounded-2xl p-4">
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-sm font-serif text-gold-500 flex items-center gap-2"><PieChart className="w-4 h-4" /> Répartition des tâches</h2>
+            <span className="text-[10px] text-gray-500">Taux complétion: {completionRate}%</span>
+          </div>
+          <div className="h-40 flex items-center justify-center">
+            <Doughnut data={tasksStatusData} options={{ responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'right', labels: { color: '#9CA3AF', font: { size: 9 } } } } }} />
+          </div>
+        </div>
+      </div>
+
+      {/* ========== TOP 3 PRIORITÉS ========== */}
       <div className="bg-white/5 border border-white/10 rounded-2xl overflow-hidden">
-        <div className="px-5 pt-4 pb-2 flex items-center justify-between"><h2 className="text-sm font-serif text-gold-500 flex items-center gap-2"><Target className="w-4 h-4" />🎯 TES 3 PRIORITÉS</h2>{priorities.length > 0 && <span className="text-[10px] text-gray-500">Basé sur l'IA</span>}</div>
+        <div className="px-5 pt-4 pb-2 flex items-center justify-between">
+          <h2 className="text-sm font-serif text-gold-500 flex items-center gap-2"><Target className="w-4 h-4" /> 🎯 TES 3 PRIORITÉS</h2>
+          {priorities.length > 0 && <span className="text-[10px] text-gray-500">Basé sur l'IA</span>}
+        </div>
         <div className="p-5 pt-2">
           {priorities.length > 0 ? (
-            <div className="space-y-4">{priorities.slice(0, 3).map((priority, idx) => (<div key={priority.id} className="group"><div className="flex items-start gap-3"><div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 ${idx === 0 ? "bg-red-500/20 text-red-400" : idx === 1 ? "bg-orange-500/20 text-orange-400" : "bg-gold-500/20 text-gold-500"}`}>{idx + 1}</div><div className="flex-1"><p className="text-ivory text-sm font-medium">{priority.title}</p><p className="text-xs text-gray-500 mt-0.5">{priority.priority_reason}</p></div></div>{idx < priorities.length - 1 && idx < 2 && <div className="ml-9 mt-3 h-px bg-white/10" />}</div>))}</div>
-          ) : (<div className="text-center py-6"><Target className="w-8 h-8 mx-auto mb-2 opacity-30" /><p className="text-sm text-gray-500">Aucune priorité pour le moment</p><button onClick={() => router.push("/agenda")} className="text-xs text-gold-500 mt-2 hover:underline">+ Créer une tâche</button></div>)}
+            <div className="space-y-4">
+              {priorities.slice(0, 3).map((priority, idx) => (
+                <div key={priority.id} className="group">
+                  <div className="flex items-start gap-3">
+                    <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 ${idx === 0 ? "bg-red-500/20 text-red-400" : idx === 1 ? "bg-orange-500/20 text-orange-400" : "bg-gold-500/20 text-gold-500"}`}>{idx + 1}</div>
+                    <div className="flex-1"><p className="text-ivory text-sm font-medium">{priority.title}</p><p className="text-xs text-gray-500 mt-0.5">{priority.priority_reason}</p></div>
+                  </div>
+                  {idx < priorities.length - 1 && idx < 2 && <div className="ml-9 mt-3 h-px bg-white/10" />}
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-6"><Target className="w-8 h-8 mx-auto mb-2 opacity-30" /><p className="text-sm text-gray-500">Aucune priorité pour le moment</p><button onClick={() => router.push("/agenda")} className="text-xs text-gold-500 mt-2 hover:underline">+ Créer une tâche</button></div>
+          )}
         </div>
       </div>
 
-      {/* RÉPARTITION DES DÉPENSES + GRAPHIQUE */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div className="bg-white/5 border border-white/10 rounded-2xl p-5">
-          <div className="flex items-center gap-2 mb-4"><PieChart className="w-4 h-4 text-gold-500" /><h2 className="text-sm font-serif text-gold-500">DÉPENSES PAR CATÉGORIE</h2></div>
-          {categoryChartData.labels.length > 0 ? (
-            <div className="h-48"><Doughnut data={categoryChartData} options={{ responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom', labels: { color: '#9CA3AF', font: { size: 10 } } } } }} /></div>
-          ) : (<div className="h-48 flex items-center justify-center text-gray-500">Aucune dépense enregistrée</div>)}
-        </div>
-
-        <div className="bg-white/5 border border-white/10 rounded-2xl p-5">
-          <div className="flex items-center gap-2 mb-4"><Activity className="w-4 h-4 text-gold-500" /><h2 className="text-sm font-serif text-gold-500">ACTIVITÉ RÉCENTE</h2></div>
-          <div className="space-y-3">
-            <div className="flex justify-between items-center"><div className="flex items-center gap-2"><CheckSquare className="w-4 h-4 text-emerald-400" /><span className="text-sm text-gray-300">Tâches aujourd'hui</span></div><span className="text-ivory font-medium">{recentTasks.length}</span></div>
-            <div className="flex justify-between items-center"><div className="flex items-center gap-2"><Target className="w-4 h-4 text-blue-400" /><span className="text-sm text-gray-300">Missions actives</span></div><span className="text-ivory font-medium">{activeMissions.length}</span></div>
-            <div className="flex justify-between items-center"><div className="flex items-center gap-2"><AlertCircle className="w-4 h-4 text-red-400" /><span className="text-sm text-gray-300">Tâches en retard</span></div><span className="text-ivory font-medium">{overdueCount}</span></div>
-            <div className="flex justify-between items-center"><div className="flex items-center gap-2"><Award className="w-4 h-4 text-yellow-400" /><span className="text-sm text-gray-300">Victoires (7j)</span></div><span className="text-ivory font-medium">{winsThisWeek}</span></div>
+      {/* ========== TÂCHES À ÉCHÉANCE ========== */}
+      <div className="bg-white/5 border border-white/10 rounded-xl p-4">
+        <div className="flex items-center gap-2 mb-3"><Clock className="w-4 h-4 text-orange-400" /><h3 className="text-sm font-medium text-ivory">📅 Tâches à échéance (7 prochains jours)</h3></div>
+        {upcomingTasks.length > 0 ? (
+          <div className="space-y-2">
+            {upcomingTasks.map((task) => (
+              <div key={task.id} className="flex items-center justify-between text-sm p-2 hover:bg-white/5 rounded-lg">
+                <span className="text-gray-300">{task.title}</span>
+                <span className={`text-xs px-2 py-0.5 rounded-full ${task.priority === 'critical' ? 'bg-red-500/20 text-red-400' : task.priority === 'high' ? 'bg-orange-500/20 text-orange-400' : 'bg-blue-500/20 text-blue-400'}`}>
+                  📅 {new Date(task.due_date!).toLocaleDateString('fr-FR')}
+                </span>
+              </div>
+            ))}
           </div>
-          <div className="mt-4 pt-3 border-t border-white/10"><div className="w-full bg-white/10 rounded-full h-1.5"><div className="bg-gold-500 h-1.5 rounded-full" style={{ width: `${Math.min(100, (recentTasks.length / Math.max(1, recentTasks.length + overdueCount)) * 100)}%` }} /></div><p className="text-xs text-gray-500 text-center mt-2">Progression du jour</p></div>
-        </div>
+        ) : (
+          <p className="text-sm text-gray-500 text-center py-4">Aucune tâche à échéance proche</p>
+        )}
+        <Link href="/agenda" className="text-xs text-gold-500 hover:underline block text-center mt-3">Voir toutes les tâches →</Link>
       </div>
 
-      {/* TÂCHES À VENIR */}
-      {upcomingTasks.length > 0 && (
-        <div className="bg-white/5 border border-white/10 rounded-xl p-4">
-          <div className="flex items-center gap-2 mb-3"><Clock className="w-4 h-4 text-gold-500" /><h3 className="text-sm font-medium text-ivory">📋 TÂCHES À VENIR</h3></div>
-          <div className="space-y-2">{upcomingTasks.map((task) => (<div key={task.id} className="flex items-center justify-between text-sm"><span className="text-gray-300">{task.title}</span>{task.due_date && <span className="text-xs text-gray-500">📅 {new Date(task.due_date).toLocaleDateString('fr-FR')}</span>}</div>))}</div>
+      {/* TÂCHES URGENTES */}
+      {urgentTasks.length > 0 && (
+        <div className="bg-red-950/20 border border-red-500/30 rounded-xl p-4">
+          <div className="flex items-center gap-2 mb-3"><AlertCircle className="w-4 h-4 text-red-400" /><h3 className="text-sm font-medium text-ivory">⚠️ TÂCHES URGENTES</h3></div>
+          <div className="space-y-2">{urgentTasks.map((task) => (<div key={task.id} className="flex items-center justify-between text-sm"><span className="text-gray-300">{task.title}</span>{task.due_date && <span className="text-xs text-red-400">📅 {new Date(task.due_date).toLocaleDateString('fr-FR')}</span>}</div>))}</div>
+          <Link href="/agenda" className="text-xs text-gold-500 hover:underline block text-center mt-3">Voir toutes les tâches →</Link>
         </div>
       )}
 
+      {/* 4 MOVES */}
+      <div className="grid grid-cols-2 gap-3">
+        <Link href="/money-opportunities" className="block"><div className="bg-gradient-to-br from-emerald-500/5 to-transparent border border-emerald-500/20 rounded-xl p-4 hover:border-emerald-500/40"><div className="flex items-center gap-2 mb-2"><DollarSign className="w-4 h-4 text-emerald-400" /><span className="text-xs text-emerald-400/70 uppercase tracking-wider">Move Argent</span></div><p className="text-sm text-ivory">{financialSummary.balance >= 0 ? `Solde positif: ${financialSummary.balance.toLocaleString()} CFA` : `Solde négatif: ${Math.abs(financialSummary.balance).toLocaleString()} CFA`}</p><span className="text-xs text-gold-500 opacity-0 group-hover:opacity-100 transition-opacity mt-2 inline-block">Voir les finances →</span></div></Link>
+        <Link href="/family" className="block"><div className="bg-gradient-to-br from-pink-500/5 to-transparent border border-pink-500/20 rounded-xl p-4 hover:border-pink-500/40"><div className="flex items-center gap-2 mb-2"><Heart className="w-4 h-4 text-pink-400" /><span className="text-xs text-pink-400/70 uppercase tracking-wider">Move Famille</span></div><p className="text-sm text-ivory">Prendre des nouvelles des enfants</p><span className="text-xs text-gold-500 opacity-0 group-hover:opacity-100 transition-opacity mt-2 inline-block">Voir famille →</span></div></Link>
+        <Link href="/farm" className="block"><div className="bg-gradient-to-br from-green-500/5 to-transparent border border-green-500/20 rounded-xl p-4 hover:border-green-500/40"><div className="flex items-center gap-2 mb-2"><Sprout className="w-4 h-4 text-green-400" /><span className="text-xs text-green-400/70 uppercase tracking-wider">Move Ferme</span></div><p className="text-sm text-ivory">{farmNextAction}</p><span className="text-xs text-gold-500 opacity-0 group-hover:opacity-100 transition-opacity mt-2 inline-block">Voir ferme →</span></div></Link>
+        <Link href="/rescue-wins" className="block"><div className="bg-gradient-to-br from-yellow-500/5 to-transparent border border-yellow-500/20 rounded-xl p-4 hover:border-yellow-500/40"><div className="flex items-center gap-2 mb-2"><Sun className="w-4 h-4 text-yellow-400" /><span className="text-xs text-yellow-400/70 uppercase tracking-wider">Move Stabilisation</span></div><p className="text-sm text-ivory">Prendre 5 minutes pour respirer</p><span className="text-xs text-gold-500 opacity-0 group-hover:opacity-100 transition-opacity mt-2 inline-block">S'aligner →</span></div></Link>
+      </div>
+
+      {/* CE QUE BECKS SAIT DE TOI */}
+      <div className="bg-white/5 border border-white/10 rounded-xl p-4">
+        <div className="flex items-center justify-between mb-3"><div className="flex items-center gap-2"><Brain className="w-4 h-4 text-gold-500" /><h3 className="text-xs font-medium text-ivory">🧠 Becks se souvient de toi</h3></div><Link href="/memory" className="text-[10px] text-gold-500 hover:underline">Voir tout →</Link></div>
+        {isLoadingMemories ? (<div className="flex justify-center py-4"><Loader2 className="w-4 h-4 text-gold-500 animate-spin" /></div>) : recentMemories.length > 0 ? (<div className="space-y-2">{recentMemories.map((mem, idx) => (<div key={idx} className="flex items-center justify-between group"><div className="flex items-center gap-2 flex-1 min-w-0"><span className="text-gold-500 text-xs">✨</span><div className="flex-1 min-w-0"><span className="text-gray-400 text-xs">{mem.key}:</span><span className="text-ivory text-xs ml-1 truncate block sm:inline">{mem.value.length > 40 ? mem.value.substring(0, 40) + "..." : mem.value}</span></div></div><button onClick={() => router.push(`/memory?edit=${mem.id}`)} className="opacity-0 group-hover:opacity-100 transition-opacity text-gray-500 hover:text-gold-500"><Edit2 className="w-3 h-3" /></button></div>))}</div>) : (<div className="text-center py-4"><p className="text-xs text-gray-500">Aucun souvenir pour l'instant</p><button onClick={() => router.push("/memory")} className="text-xs text-gold-500 mt-2 hover:underline">+ Ajouter un souvenir</button></div>)}
+      </div>
+
+      {/* MISSIONS ACTIVES */}
+      {activeMissions.length > 0 && (
+        <div className="bg-white/5 border border-white/10 rounded-xl p-4">
+          <div className="flex items-center gap-2 mb-3"><Target className="w-4 h-4 text-gold-500" /><h3 className="text-sm font-medium text-ivory">🎯 Missions actives</h3></div>
+          <div className="space-y-2">{activeMissions.map((mission) => (<Link key={mission.id} href="/missions-business" className="flex items-center justify-between p-2 hover:bg-white/5 rounded-lg"><span className="text-sm text-gray-300">{mission.name}</span><ArrowRight className="w-3 h-3 text-gray-500" /></Link>))}</div>
+          <Link href="/missions-business" className="text-xs text-gold-500 hover:underline block text-center mt-3">Voir toutes les missions →</Link>
+        </div>
+      )}
+
+      {/* RESCUE MODE ALERT */}
+      {overloadData && overloadData.level !== "low" && (
+        <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className={`rounded-xl p-4 border-2 ${overloadData.level === "critical" ? "bg-red-950/30 border-red-500/50" : "bg-orange-950/30 border-orange-500/50"}`}>
+          <div className="flex items-center justify-between mb-3"><div className="flex items-center gap-2"><AlertCircle className={`w-5 h-5 ${overloadData.level === "critical" ? "text-red-400" : "text-orange-400"}`} /><h3 className="text-sm font-medium text-ivory">{overloadData.level === "critical" ? "⚠️ RESCUE MODE RECOMMANDÉ" : "🟡 CHARGE ÉLEVÉE"}</h3></div><div className="flex items-center gap-2"><div className="w-16 h-1.5 bg-white/10 rounded-full overflow-hidden"><div className={`h-full rounded-full ${overloadData.level === "critical" ? "bg-red-500" : "bg-orange-500"}`} style={{ width: `${overloadData.overload_score}%` }} /></div><span className="text-xs text-gray-400">{overloadData.overload_score}%</span></div></div>
+          <p className="text-sm text-ivory mb-3">{overloadData.message}</p>
+          <div className="flex flex-wrap gap-2">{overloadData.rescue_actions?.slice(0, 3).map((action: any, idx: number) => (<button key={idx} onClick={() => { if (action.type === "focus_task" && action.task_id) router.push(`/agenda?highlight=${action.task_id}`); else if (action.type === "breathing") toast.info("🌬️ Respire profondément...", { duration: 10000 }); else if (action.url) router.push(action.url); else router.push("/rescue-wins"); }} className="px-3 py-1.5 bg-white/10 rounded-full text-xs text-gray-300 hover:bg-white/20">{action.title}</button>))}<Link href="/rescue-wins" className="px-3 py-1.5 bg-gold-500/20 text-gold-500 rounded-full text-xs hover:bg-gold-500/30">Voir Rescue Mode →</Link></div>
+        </motion.div>
+      )}
+      
       {/* BOUTON D'AIDE */}
-      <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} onClick={() => router.push("/chat?mode=fais-le-avec-moi")} className="w-full py-4 bg-gradient-to-r from-gold-500/20 to-gold-500/5 border border-gold-500/30 rounded-xl text-gold-500 font-medium flex items-center justify-center gap-3 hover:bg-gold-500/30 transition-all"><Sparkles className="w-5 h-5" /><span>🧠 Aide-moi à avancer maintenant</span><ArrowRight className="w-4 h-4" /></motion.button>
+      <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} onClick={handleHelpMeMoveForward} className="w-full py-4 bg-gradient-to-r from-gold-500/20 to-gold-500/5 border border-gold-500/30 rounded-xl text-gold-500 font-medium flex items-center justify-center gap-3 hover:bg-gold-500/30"><Sparkles className="w-5 h-5" /><span>🧠 Aide-moi à avancer maintenant</span><ArrowRight className="w-4 h-4" /></motion.button>
 
       {/* ACCÈS RAPIDE */}
       <div className="pt-4 border-t border-white/10">
@@ -520,7 +629,7 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* BOUTON BRAIN DUMP RAPIDE */}
+      {/* BOUTON BRAIN DUMP FLOTTANT */}
       <button onClick={() => router.push("/inbox")} className="fixed bottom-6 right-6 z-40 bg-gold-500 text-midnight p-4 rounded-full shadow-lg hover:scale-105 transition-transform"><Brain className="w-6 h-6" /></button>
     </div>
   );
