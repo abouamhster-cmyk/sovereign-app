@@ -48,8 +48,24 @@ const API_URL = "https://sovereign-bridge.onrender.com";
 type Priority = { id: string; title: string; priority_reason: string; score: number };
 type Task = { id: string; title: string; due_date: string | null; status: string; priority: string };
 type Mission = { id: string; name: string; status: string; priority: string };
-type Spending = { id: string; title: string; amount: number; category: string; date: string };
-type Revenue = { id: string; source: string; amount: number; date: string };
+type Spending = { 
+  id: string; 
+  title: string; 
+  amount: number; 
+  category: string; 
+  date: string; 
+  notes?: string; 
+  project?: string;
+};
+
+type Revenue = { 
+  id: string; 
+  source: string; 
+  amount: number; 
+  date: string; 
+  notes?: string; 
+  project?: string;
+};
 type Memory = { id: string; key: string; value: string; category: string; created_at: string };
 
 // Configuration des couleurs
@@ -215,94 +231,100 @@ export default function DashboardPage() {
     return `${greetingText} ${userName}. Rien de prévu aujourd'hui. Tu veux qu'on avance sur un projet ou tu préfères souffler ? 🌱`;
   }
 
-  async function fetchChartData() {
-    if (!userId) return;
+ async function fetchChartData() {
+  if (!userId) return;
+  
+  const today = new Date();
+  const startOfWeek = new Date(today);
+  startOfWeek.setDate(today.getDate() - today.getDay());
+  const endOfWeek = new Date(today);
+  endOfWeek.setDate(today.getDate() + (6 - today.getDay()));
+  
+  const sevenDaysAgo = new Date();
+  sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+  const sevenDaysAgoStr = sevenDaysAgo.toISOString().split('T')[0];
+  
+  // 1. Dépenses des 7 derniers jours - CORRIGÉ
+  const { data: spendingData } = await supabase
+    .from("spending")
+    .select("id, title, amount, category, date")  // ← Ajout des champs manquants
+    .eq("user_id", userId)
+    .gte("date", sevenDaysAgoStr);
+  setRecentSpending((spendingData || []) as Spending[]);
+  
+  // 2. Revenus des 7 derniers jours - CORRIGÉ
+  const { data: revenueData } = await supabase
+    .from("revenue")
+    .select("id, source, amount, date")  // ← Ajout des champs
+    .eq("user_id", userId)
+    .gte("date", sevenDaysAgoStr);
+  setRecentRevenue((revenueData || []) as Revenue[]);
+  
+  // 3. Calcul des totaux financiers
+  const totalRevenue = (revenueData || []).reduce((sum, r) => sum + (r.amount || 0), 0);
+  const totalSpending = (spendingData || []).reduce((sum, s) => sum + (s.amount || 0), 0);
+  setFinancialSummary({ revenue: totalRevenue, spending: totalSpending, balance: totalRevenue - totalSpending });
+  
+  // 4. Progression hebdomadaire des tâches
+  const startOfWeekStr = startOfWeek.toISOString().split('T')[0];
+  const { data: tasksData } = await supabase
+    .from("tasks")
+    .select("title, status, created_at, updated_at")
+    .eq("user_id", userId)
+    .gte("created_at", startOfWeekStr);
+  
+  const days = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
+  const weekly = days.map((day, i) => {
+    const dayDate = new Date(startOfWeek);
+    dayDate.setDate(startOfWeek.getDate() + i);
+    const dateStr = dayDate.toISOString().split('T')[0];
     
-    const today = new Date();
-    const startOfWeek = new Date(today);
-    startOfWeek.setDate(today.getDate() - today.getDay());
-    const endOfWeek = new Date(today);
-    endOfWeek.setDate(today.getDate() + (6 - today.getDay()));
+    const completed = (tasksData || []).filter(t => 
+      t.status === 'done' && t.updated_at?.startsWith(dateStr)
+    ).length;
+    const created = (tasksData || []).filter(t => 
+      t.created_at?.startsWith(dateStr)
+    ).length;
     
-    // 1. Dépenses des 7 derniers jours
-    const sevenDaysAgo = new Date();
-    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-    const { data: spendingData } = await supabase
-      .from("spending")
-      .select("amount, date")
-      .eq("user_id", userId)
-      .gte("date", sevenDaysAgo.toISOString().split('T')[0]);
-    setRecentSpending(spendingData || []);
-    
-    // 2. Revenus des 7 derniers jours
-    const { data: revenueData } = await supabase
-      .from("revenue")
-      .select("amount, date")
-      .eq("user_id", userId)
-      .gte("date", sevenDaysAgo.toISOString().split('T')[0]);
-    setRecentRevenue(revenueData || []);
-    
-    // 3. Calcul des totaux financiers
-    const totalRevenue = (revenueData || []).reduce((sum, r) => sum + r.amount, 0);
-    const totalSpending = (spendingData || []).reduce((sum, s) => sum + s.amount, 0);
-    setFinancialSummary({ revenue: totalRevenue, spending: totalSpending, balance: totalRevenue - totalSpending });
-    
-    // 4. Progression hebdomadaire des tâches
-    const { data: tasksData } = await supabase
-      .from("tasks")
-      .select("title, status, created_at, updated_at")
-      .eq("user_id", userId)
-      .gte("created_at", startOfWeek.toISOString().split('T')[0]);
-    
-    const days = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
-    const weekly = days.map((day, i) => {
-      const dayDate = new Date(startOfWeek);
-      dayDate.setDate(startOfWeek.getDate() + i);
-      const dateStr = dayDate.toISOString().split('T')[0];
-      
-      const completed = (tasksData || []).filter(t => 
-        t.status === 'done' && t.updated_at?.startsWith(dateStr)
-      ).length;
-      const created = (tasksData || []).filter(t => 
-        t.created_at?.startsWith(dateStr)
-      ).length;
-      
-      return { day, completed, created };
-    });
-    setWeeklyProgress(weekly);
-    
-    // 5. Tâches par statut
-    const { data: allTasks } = await supabase
-      .from("tasks")
-      .select("status")
-      .eq("user_id", userId);
-    
-    const statusCounts: Record<string, number> = {};
-    (allTasks || []).forEach(t => {
-      statusCounts[t.status] = (statusCounts[t.status] || 0) + 1;
-    });
-    setTasksByStatus(Object.entries(statusCounts).map(([status, count]) => ({ status, count })));
-    
-    // 6. Taux de complétion global
-    const totalTasks = (allTasks || []).length;
-    const completedTasks = (allTasks || []).filter(t => t.status === 'done').length;
-    setCompletionRate(totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0);
-    
-    // 7. Tâches à échéance proche (7 jours)
-    const nextWeek = new Date();
-    nextWeek.setDate(today.getDate() + 7);
-    const { data: upcoming } = await supabase
-      .from("tasks")
-      .select("id, title, due_date, priority")
-      .eq("user_id", userId)
-      .gte("due_date", today.toISOString().split('T')[0])
-      .lte("due_date", nextWeek.toISOString().split('T')[0])
-      .neq("status", "done")
-      .order("due_date", { ascending: true })
-      .limit(5);
-    setUpcomingTasks(upcoming || []);
-  }
-
+    return { day, completed, created };
+  });
+  setWeeklyProgress(weekly);
+  
+  // 5. Tâches par statut
+  const { data: allTasks } = await supabase
+    .from("tasks")
+    .select("status")
+    .eq("user_id", userId);
+  
+  const statusCounts: Record<string, number> = {};
+  (allTasks || []).forEach(t => {
+    statusCounts[t.status] = (statusCounts[t.status] || 0) + 1;
+  });
+  setTasksByStatus(Object.entries(statusCounts).map(([status, count]) => ({ status, count })));
+  
+  // 6. Taux de complétion global
+  const totalTasks = (allTasks || []).length;
+  const completedTasks = (allTasks || []).filter(t => t.status === 'done').length;
+  setCompletionRate(totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0);
+  
+  // 7. Tâches à échéance proche (7 jours)
+  const nextWeek = new Date();
+  nextWeek.setDate(today.getDate() + 7);
+  const nextWeekStr = nextWeek.toISOString().split('T')[0];
+  const todayStr = today.toISOString().split('T')[0];
+  
+  const { data: upcoming } = await supabase
+    .from("tasks")
+    .select("id, title, due_date, priority")
+    .eq("user_id", userId)
+    .gte("due_date", todayStr)
+    .lte("due_date", nextWeekStr)
+    .neq("status", "done")
+    .order("due_date", { ascending: true })
+    .limit(5);
+  setUpcomingTasks((upcoming || []) as Task[]);
+}
+  
   async function fetchFarmStatus() {
     if (!userId) return;
     try {
