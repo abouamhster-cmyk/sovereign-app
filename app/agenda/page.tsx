@@ -18,7 +18,7 @@ import { toast } from "sonner";
 import { exportTasksToPDF } from "@/lib/exportPDF";
 
 // =====================================================
-// TYPES OPTIMISÉS (colonnes nécessaires uniquement)
+// TYPES OPTIMISÉS - CORRIGÉS
 // =====================================================
 
 type Task = {
@@ -28,9 +28,9 @@ type Task = {
   status: "not_started" | "today" | "in_progress" | "waiting" | "done";
   priority: "critical" | "high" | "normal" | "low";
   project: string;
-  estimated_time: number | null;
-  mission_id: string | null;
-  created_at: string;
+  estimated_time?: number | null;      // ← rendu optionnel
+  mission_id?: string | null;          // ← rendu optionnel
+  created_at?: string;                 // ← rendu optionnel
   sync_calendar?: boolean;
   calendar_synced?: boolean;
   calendar_link?: string;
@@ -61,7 +61,7 @@ type Document = {
 };
 
 // =====================================================
-// CONFIGURATIONS (inchangées)
+// CONFIGURATIONS
 // =====================================================
 
 const statusConfig = {
@@ -89,7 +89,7 @@ const projects = [
 ];
 
 export default function AgendaPage() {
-  const { user } = useAuth();  // ← OPTIMISATION: useAuth au lieu de useUserId
+  const { user } = useAuth();
   const userId = user?.id || null;
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<"calendar" | "tasks">("calendar");
@@ -122,11 +122,10 @@ export default function AgendaPage() {
     estimated_time: ""
   });
 
-  // ========== CHARGEMENT OPTIMISÉ (parallèle) ==========
+  // ========== CHARGEMENT OPTIMISÉ ==========
   useEffect(() => {
     if (!userId) return;
     
-    // OPTIMISATION: Un seul useEffect qui charge tout en parallèle
     const loadAllData = async () => {
       setIsCalendarLoading(true);
       setIsTasksLoading(true);
@@ -145,7 +144,6 @@ export default function AgendaPage() {
     
     loadAllData();
     
-    // OPTIMISATION: Un seul channel pour les notifications
     const channel = supabase
       .channel('agenda_changes')
       .on('postgres_changes', 
@@ -161,20 +159,21 @@ export default function AgendaPage() {
     return () => { channel.unsubscribe(); };
   }, [userId]);
 
-  // ========== REQUÊTES OPTIMISÉES (colonnes spécifiques + limites) ==========
+  // ========== REQUÊTES OPTIMISÉES ==========
   
   async function fetchTasksOptimized() {
     if (!userId) return;
     
     const { data } = await supabase
       .from("tasks")
-      .select("id, title, due_date, status, priority, project")  // ← colonnes nécessaires
+      .select("id, title, due_date, status, priority, project")
       .eq("user_id", userId)
       .neq("status", "done")
       .order("due_date", { ascending: true })
-      .limit(50);  // ← limite
+      .limit(50);
     
-    setTasks(data || []);
+    // Cast sécurisé avec les champs optionnels
+    setTasks((data || []) as Task[]);
   }
 
   async function fetchTaskListOptimized() {
@@ -182,12 +181,12 @@ export default function AgendaPage() {
     
     const { data } = await supabase
       .from("tasks")
-      .select("id, title, status, priority, project, due_date, created_at")  // ← colonnes nécessaires
+      .select("id, title, status, priority, project, due_date, created_at")
       .eq("user_id", userId)
       .order("created_at", { ascending: false })
-      .limit(100);  // ← limite
+      .limit(100);
     
-    setTaskList(data || []);
+    setTaskList((data || []) as Task[]);
   }
 
   async function fetchFamilyEventsOptimized() {
@@ -195,7 +194,7 @@ export default function AgendaPage() {
     
     const { data } = await supabase
       .from("family_events")
-      .select("id, title, date, child_name, category, priority")  // ← colonnes nécessaires
+      .select("id, title, date, child_name, category, priority")
       .eq("user_id", userId)
       .order("date", { ascending: true })
       .limit(50);
@@ -208,7 +207,7 @@ export default function AgendaPage() {
     
     const { data } = await supabase
       .from("relocation_tasks")
-      .select("id, title, due_date, status")  // ← colonnes nécessaires
+      .select("id, title, due_date, status")
       .eq("user_id", userId)
       .neq("status", "completed")
       .order("due_date", { ascending: true })
@@ -222,7 +221,7 @@ export default function AgendaPage() {
     
     const { data } = await supabase
       .from("documents")
-      .select("id, name, due_date, status")  // ← colonnes nécessaires
+      .select("id, name, due_date, status")
       .eq("user_id", userId)
       .neq("status", "approved")
       .order("due_date", { ascending: true })
@@ -231,7 +230,7 @@ export default function AgendaPage() {
     setDocuments(data || []);
   }
 
-  // ========== FONCTIONS CALENDRIER (inchangées) ==========
+  // ========== FONCTIONS CALENDRIER ==========
   const getDaysInMonth = (date: Date) => {
     return new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate();
   };
