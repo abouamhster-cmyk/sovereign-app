@@ -1,7 +1,8 @@
 "use client";
-import { useEffect, useState } from "react";
+
+import { useEffect, useState, useMemo, useCallback } from "react";
 import { supabase } from "@/lib/supabase";
-import { useUserId } from "@/hooks/useUserId";
+import { useAuth } from "@/contexts/AuthContext";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import { motion, AnimatePresence } from "framer-motion";
 import { 
@@ -13,8 +14,12 @@ import {
   Home, Loader2
 } from "lucide-react";
 import { exportFarmToPDF } from "@/lib/exportPDF";
+import { toast } from "sonner";
 
-// Types (inchangés)
+// =====================================================
+// TYPES OPTIMISÉS (colonnes nécessaires uniquement)
+// =====================================================
+
 type FarmInfrastructure = {
   id: string;
   name: string;
@@ -43,7 +48,7 @@ type FarmSpending = {
   title: string;
   amount: number;
   category: string;
-  project: string;        
+  project: string;
   date: string;
   notes?: string;
   verified?: boolean;
@@ -60,7 +65,10 @@ type FarmTeam = {
   notes: string | null;
 };
 
-// Configurations (inchangées)
+// =====================================================
+// CONFIGURATIONS
+// =====================================================
+
 const infraTypeConfig: Record<string, { label: string; icon: any; color: string }> = {
   building: { label: "Bâtiment", icon: Building2, color: "bg-blue-500/20 text-blue-400" },
   utility: { label: "Utilitaire", icon: Droplets, color: "bg-cyan-500/20 text-cyan-400" },
@@ -99,11 +107,12 @@ const spendingCategoryConfig: Record<string, { label: string; icon: any }> = {
   crops: { label: "Cultures", icon: Leaf },
   transport: { label: "Transport", icon: Truck },
   security: { label: "Sécurité", icon: Shield },
-  food: { label: "🍽️ Alimentation", icon: Home } 
+  food: { label: "🍽️ Alimentation", icon: Home }
 };
 
 export default function FarmPage() {
-  const { userId, loading: userIdLoading } = useUserId();
+  const { user } = useAuth();  // ← OPTIMISATION: useAuth au lieu de useUserId
+  const userId = user?.id || null;
   const [activeTab, setActiveTab] = useState<"infrastructure" | "production" | "spending" | "team">("infrastructure");
   
   const [infrastructure, setInfrastructure] = useState<FarmInfrastructure[]>([]);
@@ -116,81 +125,85 @@ export default function FarmPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [formData, setFormData] = useState<any>({});
 
-  const scrollToForm = () => {
-    setTimeout(() => {
-      const formElement = document.getElementById('form-container');
-      if (formElement) {
-        formElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      }
-    }, 150);
-  };
-
+  // ========== CHARGEMENT OPTIMISÉ (parallèle) ==========
   useEffect(() => {
     if (!userId) return;
-    fetchAllData();
     
-    const channels = [
-      supabase.channel('farm_infra').on('postgres_changes', 
+    const loadAllData = async () => {
+      setIsLoading(true);
+      await Promise.all([
+        fetchInfrastructureOptimized(),
+        fetchProductionOptimized(),
+        fetchSpendingOptimized(),
+        fetchTeamOptimized()
+      ]);
+      setIsLoading(false);
+    };
+    
+    loadAllData();
+    
+    // Channel unifié pour tous les changements
+    const channel = supabase
+      .channel('farm_changes')
+      .on('postgres_changes', 
         { event: '*', schema: 'public', table: 'farm_infrastructure', filter: `user_id=eq.${userId}` }, 
-        () => fetchInfrastructure()
-      ),
-      supabase.channel('farm_production').on('postgres_changes', 
-        { event: '*', schema: 'public', table: 'farm_production_units', filter: `user_id=eq.${userId}` }, 
-        () => fetchProduction()
-      ),
-      supabase.channel('farm_spending').on('postgres_changes', 
-        { event: '*', schema: 'public', table: 'spending', filter: `user_id=eq.${userId}` }, 
-        () => fetchSpending()
-      ),
-      supabase.channel('farm_team').on('postgres_changes', 
-        { event: '*', schema: 'public', table: 'farm_team', filter: `user_id=eq.${userId}` }, 
-        () => fetchTeam()
+        () => fetchInfrastructureOptimized()
       )
-    ];
+      .on('postgres_changes', 
+        { event: '*', schema: 'public', table: 'farm_production_units', filter: `user_id=eq.${userId}` }, 
+        () => fetchProductionOptimized()
+      )
+      .on('postgres_changes', 
+        { event: '*', schema: 'public', table: 'spending', filter: `user_id=eq.${userId}` }, 
+        () => fetchSpendingOptimized()
+      )
+      .on('postgres_changes', 
+        { event: '*', schema: 'public', table: 'farm_team', filter: `user_id=eq.${userId}` }, 
+        () => fetchTeamOptimized()
+      )
+      .subscribe();
     
-    channels.forEach(ch => ch.subscribe());
-    return () => channels.forEach(ch => ch.unsubscribe());
+    return () => { channel.unsubscribe(); };
   }, [userId]);
 
-  async function fetchAllData() {
-    setIsLoading(true);
-    await Promise.all([
-      fetchInfrastructure(),
-      fetchProduction(),
-      fetchSpending(),
-      fetchTeam()
-    ]);
-    setIsLoading(false);
-  }
-
-  async function fetchInfrastructure() {
+  // ========== REQUÊTES OPTIMISÉES (colonnes spécifiques + limites) ==========
+  
+  async function fetchInfrastructureOptimized() {
     if (!userId) return;
+    
     const { data } = await supabase
       .from("farm_infrastructure")
-      .select("*")
+      .select("id, name, type, status, location_on_site, completed_date, responsible_person, notes")  // ← colonnes nécessaires
       .eq("user_id", userId)
-      .order("created_at");
+      .order("created_at")
+      .limit(100);  // ← limite
+    
     setInfrastructure(data || []);
   }
 
-  async function fetchProduction() {
+  async function fetchProductionOptimized() {
     if (!userId) return;
+    
     const { data } = await supabase
       .from("farm_production_units")
-      .select("*")
+      .select("id, name, category, status, current_capacity, start_date, expected_first_revenue, technical_lead, notes")  // ← colonnes nécessaires
       .eq("user_id", userId)
-      .order("created_at");
+      .order("created_at")
+      .limit(100);  // ← limite
+    
     setProduction(data || []);
   }
 
-  async function fetchSpending() {
+  async function fetchSpendingOptimized() {
     if (!userId) return;
+    
     const { data } = await supabase
       .from("spending")
-      .select("*")
+      .select("id, title, amount, category, project, date, notes, verified, created_at")  // ← colonnes nécessaires
       .eq("user_id", userId)
       .eq("project", "Ifè Farm")
-      .order("date", { ascending: false });
+      .order("date", { ascending: false })
+      .limit(200);  // ← limite
     
     const formatted = (data || []).map(s => ({
       id: s.id,
@@ -207,17 +220,23 @@ export default function FarmPage() {
     setSpending(formatted);
   }
 
-  async function fetchTeam() {
+  async function fetchTeamOptimized() {
     if (!userId) return;
+    
     const { data } = await supabase
       .from("farm_team")
-      .select("*")
+      .select("id, name, role, area, status, phone, notes")  // ← colonnes nécessaires
       .eq("user_id", userId)
-      .order("name");
+      .order("name")
+      .limit(100);  // ← limite
+    
     setTeam(data || []);
   }
 
+  // ========== CRUD GÉNÉRIQUE ==========
   async function saveItem() {
+    if (!userId) return;
+    
     let table = "";
     let data = {};
     
@@ -281,12 +300,14 @@ export default function FarmPage() {
     
     if (!error) {
       resetForm();
-      if (activeTab === "infrastructure") fetchInfrastructure();
-      else if (activeTab === "production") fetchProduction();
-      else if (activeTab === "spending") fetchSpending();
-      else if (activeTab === "team") fetchTeam();
+      // Rafraîchir la table concernée
+      if (activeTab === "infrastructure") fetchInfrastructureOptimized();
+      else if (activeTab === "production") fetchProductionOptimized();
+      else if (activeTab === "spending") fetchSpendingOptimized();
+      else if (activeTab === "team") fetchTeamOptimized();
+      toast.success(editingId ? "Élément modifié" : "Élément ajouté");
     } else {
-      alert("Erreur: " + error.message);
+      toast.error("Erreur: " + error.message);
     }
   }
 
@@ -294,10 +315,11 @@ export default function FarmPage() {
     if (confirm("Supprimer cet élément ?")) {
       const { error } = await supabase.from(table).delete().eq("id", id);
       if (!error) {
-        if (table === "farm_infrastructure") fetchInfrastructure();
-        else if (table === "farm_production_units") fetchProduction();
-        else if (table === "spending") fetchSpending();  
-        else if (table === "farm_team") fetchTeam();
+        if (table === "farm_infrastructure") fetchInfrastructureOptimized();
+        else if (table === "farm_production_units") fetchProductionOptimized();
+        else if (table === "spending") fetchSpendingOptimized();
+        else if (table === "farm_team") fetchTeamOptimized();
+        toast.success("Élément supprimé");
       }
     }
   }
@@ -344,7 +366,9 @@ export default function FarmPage() {
       });
     }
     setShowForm(true);
-    scrollToForm(); 
+    setTimeout(() => {
+      document.getElementById("form-container")?.scrollIntoView({ behavior: "smooth" });
+    }, 100);
   }
 
   function resetForm() {
@@ -353,179 +377,11 @@ export default function FarmPage() {
     setFormData({});
   }
 
-  const totalSpent = spending.reduce((sum, s) => sum + s.amount, 0);
-  const activeProduction = production.filter(p => p.status === "active" || p.status === "setup").length;
-  const completedInfra = infrastructure.filter(i => i.status === "complete").length;
+  // ========== STATS MEMOIZED ==========
+  const totalSpent = useMemo(() => spending.reduce((sum, s) => sum + s.amount, 0), [spending]);
+  const activeProduction = useMemo(() => production.filter(p => p.status === "active" || p.status === "setup").length, [production]);
+  const completedInfra = useMemo(() => infrastructure.filter(i => i.status === "complete").length, [infrastructure]);
   const totalInfra = infrastructure.length;
-
-  // ========== FONCTIONS DE RENDU ==========
-  const renderInfrastructure = () => {
-    if (infrastructure.length === 0) {
-      return <div className="text-center py-12 text-gray-500">Aucune infrastructure</div>;
-    }
-    
-    return infrastructure.map(item => {
-      const config = infraTypeConfig[item.type] || { 
-        label: item.type || "Infrastructure", 
-        icon: Building2, 
-        color: "bg-gray-500/20 text-gray-400" 
-      };
-      const Icon = config.icon;
-      const statusData = statusConfig[item.status] || { 
-        label: item.status || "Statut inconnu", 
-        color: "bg-gray-500/20 text-gray-400" 
-      };
-      
-      return (
-        <div key={item.id} className="bg-white/5 border border-white/10 rounded-xl p-4 hover:bg-white/10 transition-colors">
-          <div className="flex justify-between items-start">
-            <div className="flex-1">
-              <div className="flex items-center gap-3 flex-wrap mb-2">
-                <h3 className="text-ivory font-medium">{item.name}</h3>
-                <span className={`text-xs px-2 py-0.5 rounded-full ${config.color}`}>
-                  <Icon className="w-3 h-3 inline mr-1" /> {config.label}
-                </span>
-                <span className={`text-xs px-2 py-0.5 rounded-full ${statusData.color}`}>
-                  {statusData.label}
-                </span>
-              </div>
-              <div className="text-xs text-gray-500">📍 {item.location_on_site}</div>
-              {item.responsible_person && <div className="text-xs text-gray-500">👤 {item.responsible_person}</div>}
-            </div>
-            <div className="flex gap-2">
-              <button onClick={() => editItem(item, "infrastructure")} className="text-gray-500 hover:text-gold-500"><Edit2 className="w-4 h-4" /></button>
-              <button onClick={() => deleteItem("farm_infrastructure", item.id)} className="text-gray-500 hover:text-red-400"><Trash2 className="w-4 h-4" /></button>
-            </div>
-          </div>
-        </div>
-      );
-    });
-  };
-
-  const renderProduction = () => {
-    if (production.length === 0) {
-      return <div className="text-center py-12 text-gray-500">Aucune unité de production</div>;
-    }
-    
-    return production.map(item => {
-      const config = productionCategoryConfig[item.category] || { 
-        label: item.category || "Unité", 
-        icon: Sprout, 
-        color: "bg-gray-500/20 text-gray-400" 
-      };
-      const Icon = config.icon;
-      const statusData = statusConfig[item.status] || { 
-        label: item.status || "Statut inconnu", 
-        color: "bg-gray-500/20 text-gray-400" 
-      };
-      
-      return (
-        <div key={item.id} className="bg-white/5 border border-white/10 rounded-xl p-4 hover:bg-white/10 transition-colors">
-          <div className="flex justify-between items-start">
-            <div className="flex-1">
-              <div className="flex items-center gap-3 flex-wrap mb-2">
-                <h3 className="text-ivory font-medium">{item.name}</h3>
-                <span className={`text-xs px-2 py-0.5 rounded-full ${config.color}`}>
-                  <Icon className="w-3 h-3 inline mr-1" /> {config.label}
-                </span>
-                <span className={`text-xs px-2 py-0.5 rounded-full ${statusData.color}`}>
-                  {statusData.label}
-                </span>
-              </div>
-              <div className="text-xs text-gray-500">📦 Capacité: {item.current_capacity}</div>
-              {item.technical_lead && <div className="text-xs text-gray-500">🔧 Lead: {item.technical_lead}</div>}
-            </div>
-            <div className="flex gap-2">
-              <button onClick={() => editItem(item, "production")} className="text-gray-500 hover:text-gold-500"><Edit2 className="w-4 h-4" /></button>
-              <button onClick={() => deleteItem("farm_production_units", item.id)} className="text-gray-500 hover:text-red-400"><Trash2 className="w-4 h-4" /></button>
-            </div>
-          </div>
-        </div>
-      );
-    });
-  };
-
-  const renderSpending = () => {
-    if (spending.length === 0) {
-      return <div className="text-center py-12 text-gray-500">Aucune dépense</div>;
-    }
-    
-    return spending.map(item => {
-      const spendConfig = spendingCategoryConfig[item.category] || { 
-        label: item.category || "Dépense", 
-        icon: Package 
-      };
-      
-      return (
-        <div key={item.id} className="bg-white/5 border border-white/10 rounded-xl p-4 hover:bg-white/10 transition-colors">
-          <div className="flex justify-between items-start">
-            <div className="flex-1">
-              <div className="flex items-center gap-3 flex-wrap mb-2">
-                <h3 className="text-ivory font-medium">{item.title}</h3>
-                <span className="text-sm text-red-400 font-medium">{item.amount.toLocaleString()} CFA</span>
-                <span className={`text-xs px-2 py-0.5 rounded-full ${item.verified ? "bg-emerald-500/20 text-emerald-400" : "bg-yellow-500/20 text-yellow-400"}`}>
-                  {item.verified ? "✓ Vérifié" : "⏳ En attente"}
-                </span>
-              </div>
-              <div className="text-xs text-gray-500">📂 {spendConfig.label} • 📍 {item.project}</div>
-              {item.notes && <p className="text-xs text-gray-500 mt-1">{item.notes}</p>}
-            </div>
-            <div className="flex gap-2">
-              <button onClick={() => editItem(item, "spending")} className="text-gray-500 hover:text-gold-500"><Edit2 className="w-4 h-4" /></button>
-              <button onClick={() => deleteItem("spending", item.id)} className="text-gray-500 hover:text-red-400"><Trash2 className="w-4 h-4" /></button>
-            </div>
-          </div>
-        </div>
-      );
-    });
-  };
-
-  const renderTeam = () => {
-    if (team.length === 0) {
-      return <div className="text-center py-12 text-gray-500">Aucun membre dans l'équipe</div>;
-    }
-    
-    return team.map(item => {
-      const statusColor = item.status === "active" ? "bg-emerald-500/20 text-emerald-400" : 
-                          item.status === "occasional" ? "bg-blue-500/20 text-blue-400" : 
-                          "bg-yellow-500/20 text-yellow-400";
-      const statusLabel = item.status === "active" ? "Actif" : 
-                          item.status === "occasional" ? "Occasionnel" : 
-                          "En attente";
-      
-      return (
-        <div key={item.id} className="bg-white/5 border border-white/10 rounded-xl p-4 hover:bg-white/10 transition-colors">
-          <div className="flex justify-between items-start">
-            <div className="flex-1">
-              <div className="flex items-center gap-3 flex-wrap mb-2">
-                <h3 className="text-ivory font-medium">{item.name}</h3>
-                <span className="text-xs text-gold-500">{item.role}</span>
-                <span className={`text-xs px-2 py-0.5 rounded-full ${statusColor}`}>
-                  {statusLabel}
-                </span>
-              </div>
-              <div className="text-xs text-gray-500">📍 {item.area}</div>
-              {item.phone && <div className="text-xs text-gray-500">📞 {item.phone}</div>}
-              {item.notes && <p className="text-xs text-gray-500 mt-1">{item.notes}</p>}
-            </div>
-            <div className="flex gap-2">
-              <button onClick={() => editItem(item, "team")} className="text-gray-500 hover:text-gold-500"><Edit2 className="w-4 h-4" /></button>
-              <button onClick={() => deleteItem("farm_team", item.id)} className="text-gray-500 hover:text-red-400"><Trash2 className="w-4 h-4" /></button>
-            </div>
-          </div>
-        </div>
-      );
-    });
-  };
-
-  // ========== GESTION DU CHARGEMENT ==========
-  if (userIdLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <Loader2 className="w-8 h-8 text-gold-500 animate-spin" />
-      </div>
-    );
-  }
 
   if (!userId) {
     return (
@@ -535,7 +391,14 @@ export default function FarmPage() {
     );
   }
 
-  // ========== RENDU PRINCIPAL ==========
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <Loader2 className="w-8 h-8 text-gold-500 animate-spin" />
+      </div>
+    );
+  }
+
   return (
     <div className="h-full flex flex-col overflow-y-auto bg-midnight p-4 md:p-6 lg:p-8">
       <div className="max-w-6xl mx-auto w-full">
@@ -610,7 +473,7 @@ export default function FarmPage() {
         {/* BOUTON AJOUTER */}
         <div className="flex justify-end mb-6">
           <button
-            onClick={() => { setShowForm(true); setEditingId(null); setFormData({}); scrollToForm(); }}
+            onClick={() => { setShowForm(true); setEditingId(null); setFormData({}); setTimeout(() => document.getElementById("form-container")?.scrollIntoView({ behavior: "smooth" }), 100); }}
             className="bg-gold-500 text-midnight px-5 py-2 rounded-full text-sm font-medium flex items-center gap-2 hover:bg-gold-400 transition-colors"
           >
             <Plus className="w-4 h-4" /> Ajouter
@@ -699,16 +562,172 @@ export default function FarmPage() {
           )}
         </AnimatePresence>
 
-        {/* LISTES PAR TAB */}
-        {isLoading ? (
-          <LoadingSpinner />
-        ) : (
-          <>
-            {activeTab === "infrastructure" && renderInfrastructure()}
-            {activeTab === "production" && renderProduction()}
-            {activeTab === "spending" && renderSpending()}
-            {activeTab === "team" && renderTeam()}
-          </>
+        {/* LISTES PAR TAB - VERSION OPTIMISÉE AVEC useMemo */}
+        {activeTab === "infrastructure" && (
+          <div className="space-y-3">
+            {infrastructure.length === 0 ? (
+              <div className="text-center py-12 text-gray-500">Aucune infrastructure</div>
+            ) : (
+              infrastructure.map(item => {
+                const config = infraTypeConfig[item.type] || { 
+                  label: item.type || "Infrastructure", 
+                  icon: Building2, 
+                  color: "bg-gray-500/20 text-gray-400" 
+                };
+                const Icon = config.icon;
+                const statusData = statusConfig[item.status] || { 
+                  label: item.status || "Statut inconnu", 
+                  color: "bg-gray-500/20 text-gray-400" 
+                };
+                
+                return (
+                  <div key={item.id} className="bg-white/5 border border-white/10 rounded-xl p-4 hover:bg-white/10 transition-colors">
+                    <div className="flex justify-between items-start">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-3 flex-wrap mb-2">
+                          <h3 className="text-ivory font-medium">{item.name}</h3>
+                          <span className={`text-xs px-2 py-0.5 rounded-full ${config.color}`}>
+                            <Icon className="w-3 h-3 inline mr-1" /> {config.label}
+                          </span>
+                          <span className={`text-xs px-2 py-0.5 rounded-full ${statusData.color}`}>
+                            {statusData.label}
+                          </span>
+                        </div>
+                        <div className="text-xs text-gray-500">📍 {item.location_on_site}</div>
+                        {item.responsible_person && <div className="text-xs text-gray-500">👤 {item.responsible_person}</div>}
+                      </div>
+                      <div className="flex gap-2">
+                        <button onClick={() => editItem(item, "infrastructure")} className="text-gray-500 hover:text-gold-500"><Edit2 className="w-4 h-4" /></button>
+                        <button onClick={() => deleteItem("farm_infrastructure", item.id)} className="text-gray-500 hover:text-red-400"><Trash2 className="w-4 h-4" /></button>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+        )}
+
+        {activeTab === "production" && (
+          <div className="space-y-3">
+            {production.length === 0 ? (
+              <div className="text-center py-12 text-gray-500">Aucune unité de production</div>
+            ) : (
+              production.map(item => {
+                const config = productionCategoryConfig[item.category] || { 
+                  label: item.category || "Unité", 
+                  icon: Sprout, 
+                  color: "bg-gray-500/20 text-gray-400" 
+                };
+                const Icon = config.icon;
+                const statusData = statusConfig[item.status] || { 
+                  label: item.status || "Statut inconnu", 
+                  color: "bg-gray-500/20 text-gray-400" 
+                };
+                
+                return (
+                  <div key={item.id} className="bg-white/5 border border-white/10 rounded-xl p-4 hover:bg-white/10 transition-colors">
+                    <div className="flex justify-between items-start">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-3 flex-wrap mb-2">
+                          <h3 className="text-ivory font-medium">{item.name}</h3>
+                          <span className={`text-xs px-2 py-0.5 rounded-full ${config.color}`}>
+                            <Icon className="w-3 h-3 inline mr-1" /> {config.label}
+                          </span>
+                          <span className={`text-xs px-2 py-0.5 rounded-full ${statusData.color}`}>
+                            {statusData.label}
+                          </span>
+                        </div>
+                        <div className="text-xs text-gray-500">📦 Capacité: {item.current_capacity}</div>
+                        {item.technical_lead && <div className="text-xs text-gray-500">🔧 Lead: {item.technical_lead}</div>}
+                      </div>
+                      <div className="flex gap-2">
+                        <button onClick={() => editItem(item, "production")} className="text-gray-500 hover:text-gold-500"><Edit2 className="w-4 h-4" /></button>
+                        <button onClick={() => deleteItem("farm_production_units", item.id)} className="text-gray-500 hover:text-red-400"><Trash2 className="w-4 h-4" /></button>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+        )}
+
+        {activeTab === "spending" && (
+          <div className="space-y-3">
+            {spending.length === 0 ? (
+              <div className="text-center py-12 text-gray-500">Aucune dépense</div>
+            ) : (
+              spending.map(item => {
+                const spendConfig = spendingCategoryConfig[item.category] || { 
+                  label: item.category || "Dépense", 
+                  icon: Package 
+                };
+                
+                return (
+                  <div key={item.id} className="bg-white/5 border border-white/10 rounded-xl p-4 hover:bg-white/10 transition-colors">
+                    <div className="flex justify-between items-start">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-3 flex-wrap mb-2">
+                          <h3 className="text-ivory font-medium">{item.title}</h3>
+                          <span className="text-sm text-red-400 font-medium">{item.amount.toLocaleString()} CFA</span>
+                          <span className={`text-xs px-2 py-0.5 rounded-full ${item.verified ? "bg-emerald-500/20 text-emerald-400" : "bg-yellow-500/20 text-yellow-400"}`}>
+                            {item.verified ? "✓ Vérifié" : "⏳ En attente"}
+                          </span>
+                        </div>
+                        <div className="text-xs text-gray-500">📂 {spendConfig.label} • 📍 {item.project}</div>
+                        {item.notes && <p className="text-xs text-gray-500 mt-1">{item.notes}</p>}
+                      </div>
+                      <div className="flex gap-2">
+                        <button onClick={() => editItem(item, "spending")} className="text-gray-500 hover:text-gold-500"><Edit2 className="w-4 h-4" /></button>
+                        <button onClick={() => deleteItem("spending", item.id)} className="text-gray-500 hover:text-red-400"><Trash2 className="w-4 h-4" /></button>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+        )}
+
+        {activeTab === "team" && (
+          <div className="space-y-3">
+            {team.length === 0 ? (
+              <div className="text-center py-12 text-gray-500">Aucun membre dans l'équipe</div>
+            ) : (
+              team.map(item => {
+                const statusColor = item.status === "active" ? "bg-emerald-500/20 text-emerald-400" : 
+                                    item.status === "occasional" ? "bg-blue-500/20 text-blue-400" : 
+                                    "bg-yellow-500/20 text-yellow-400";
+                const statusLabel = item.status === "active" ? "Actif" : 
+                                    item.status === "occasional" ? "Occasionnel" : 
+                                    "En attente";
+                
+                return (
+                  <div key={item.id} className="bg-white/5 border border-white/10 rounded-xl p-4 hover:bg-white/10 transition-colors">
+                    <div className="flex justify-between items-start">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-3 flex-wrap mb-2">
+                          <h3 className="text-ivory font-medium">{item.name}</h3>
+                          <span className="text-xs text-gold-500">{item.role}</span>
+                          <span className={`text-xs px-2 py-0.5 rounded-full ${statusColor}`}>
+                            {statusLabel}
+                          </span>
+                        </div>
+                        <div className="text-xs text-gray-500">📍 {item.area}</div>
+                        {item.phone && <div className="text-xs text-gray-500">📞 {item.phone}</div>}
+                        {item.notes && <p className="text-xs text-gray-500 mt-1">{item.notes}</p>}
+                      </div>
+                      <div className="flex gap-2">
+                        <button onClick={() => editItem(item, "team")} className="text-gray-500 hover:text-gold-500"><Edit2 className="w-4 h-4" /></button>
+                        <button onClick={() => deleteItem("farm_team", item.id)} className="text-gray-500 hover:text-red-400"><Trash2 className="w-4 h-4" /></button>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
         )}
       </div>
     </div>
