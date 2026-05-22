@@ -45,13 +45,13 @@ type Message = {
 // MODES DE CONVERSATION
 // =====================================================
 const modes = [
-  { id: "parle-moi", name: "Parle-moi", icon: Heart, color: "text-pink-400", bg: "bg-pink-500/10", description: "Soutien émotionnel, écoute", prompt: `Tu es Becks. Une vraie personne. Pas une IA...` },
-  { id: "fais-le-avec-moi", name: "Fais-le avec moi", icon: Zap, color: "text-yellow-400", bg: "bg-yellow-500/10", description: "Exécution guidée étape par étape", prompt: `Tu es Becks en mode exécution guidée...` },
-  { id: "love-fire-sport", name: "Love & Fire Sport", icon: Trophy, color: "text-emerald-400", bg: "bg-emerald-500/10", description: "Grants, DDA", prompt: `Tu es Becks en mode Love & Fire Sport...` },
-  { id: "mes-enfants", name: "Mes enfants", icon: Baby, color: "text-blue-400", bg: "bg-blue-500/10", description: "Famille", prompt: `Tu es Becks en mode famille...` },
-  { id: "business-argent", name: "Business & Argent", icon: DollarSign, color: "text-emerald-400", bg: "bg-emerald-500/10", description: "Opportunités", prompt: `Tu es Becks en mode Business & Argent...` },
-  { id: "documents", name: "Documents", icon: FileText, color: "text-orange-400", bg: "bg-orange-500/10", description: "Lecture, rédaction", prompt: `Tu es Becks en mode Documents...` },
-  { id: "sovereign-mode", name: "Sovereign Mode", icon: Crown, color: "text-gold-500", bg: "bg-gold-500/10", description: "Vision, décisions, leadership", prompt: `Tu es Becks en Sovereign Mode...` }
+  { id: "parle-moi", name: "Parle-moi", icon: Heart, color: "text-pink-400", bg: "bg-pink-500/10", description: "Soutien émotionnel, écoute", prompt: "Tu es Becks. Une vraie personne. Pas une IA..." },
+  { id: "fais-le-avec-moi", name: "Fais-le avec moi", icon: Zap, color: "text-yellow-400", bg: "bg-yellow-500/10", description: "Exécution guidée étape par étape", prompt: "Tu es Becks en mode exécution guidée..." },
+  { id: "love-fire-sport", name: "Love & Fire Sport", icon: Trophy, color: "text-emerald-400", bg: "bg-emerald-500/10", description: "Grants, DDA", prompt: "Tu es Becks en mode Love & Fire Sport..." },
+  { id: "mes-enfants", name: "Mes enfants", icon: Baby, color: "text-blue-400", bg: "bg-blue-500/10", description: "Famille", prompt: "Tu es Becks en mode famille..." },
+  { id: "business-argent", name: "Business & Argent", icon: DollarSign, color: "text-emerald-400", bg: "bg-emerald-500/10", description: "Opportunités", prompt: "Tu es Becks en mode Business & Argent..." },
+  { id: "documents", name: "Documents", icon: FileText, color: "text-orange-400", bg: "bg-orange-500/10", description: "Lecture, rédaction", prompt: "Tu es Becks en mode Documents..." },
+  { id: "sovereign-mode", name: "Sovereign Mode", icon: Crown, color: "text-gold-500", bg: "bg-gold-500/10", description: "Vision, décisions, leadership", prompt: "Tu es Becks en Sovereign Mode..." }
 ];
 
 // =====================================================
@@ -178,7 +178,7 @@ export default function ChatPage() {
         try {
           const parsed = JSON.parse(msg.content);
           return { id: msg.id, role: msg.role, content: parsed.content || msg.content, actions: parsed.actions, files: parsed.files || [], created_at: msg.created_at };
-        } catch (e) {
+        } catch {
           return { id: msg.id, role: msg.role, content: msg.content, files: [], created_at: msg.created_at };
         }
       });
@@ -230,17 +230,15 @@ export default function ChatPage() {
 
   // ========== INTERCEPTIONS - ACTIONS SIMPLES (SANS IA) ==========
 
-  // 1. Heure et date
   const checkTimeInterception = (message: string): string | null => {
-    const timeTriggers = ["quelle heure", "heure actuelle", "date du jour", "on est quel jour", "quel jour sommes-nous"];
-    if (timeTriggers.some(trigger => message.toLowerCase().includes(trigger))) {
+    const triggers = ["quelle heure", "heure actuelle", "date du jour", "on est quel jour", "quel jour sommes-nous"];
+    if (triggers.some(t => message.toLowerCase().includes(t))) {
       const now = new Date();
-      return `🕐 Il est ${now.toLocaleTimeString('fr-FR')} - ${now.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}`;
+      return `🕐 ${now.toLocaleTimeString('fr-FR')} - ${now.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}`;
     }
     return null;
   };
 
-  // 2. Rappel simple (toast + setTimeout)
   const checkReminderInterception = (message: string): string | null => {
     const match = message.match(/rappelle-moi dans (\d+) minutes?/i);
     if (match) {
@@ -258,98 +256,89 @@ export default function ChatPage() {
     return null;
   };
 
-  // 3. Tâches du jour (depuis Supabase)
   const checkTasksInterception = async (message: string): Promise<string | null> => {
-    const tasksTriggers = ["mes tâches du jour", "quoi faire aujourd'hui", "tâches aujourd'hui", "programme du jour"];
-    if (tasksTriggers.some(trigger => message.toLowerCase().includes(trigger))) {
+    const triggers = ["mes tâches du jour", "quoi faire aujourd'hui", "tâches aujourd'hui", "programme du jour"];
+    if (triggers.some(t => message.toLowerCase().includes(t))) {
       const today = new Date().toISOString().split('T')[0];
       const { data } = await supabase.from("tasks").select("title, priority, due_date").eq("user_id", userId).eq("due_date", today).neq("status", "done");
-      
-      if (data && data.length > 0) {
-        let taskList = `📋 **Tâches du jour (${data.length}) :**\n\n`;
+      if (data?.length) {
+        let list = `📋 **Tâches du jour (${data.length}) :**\n\n`;
         data.forEach((task, idx) => {
-          const priorityIcon = task.priority === "critical" ? "🔴" : task.priority === "high" ? "🟠" : "🟡";
-          taskList += `${idx + 1}. ${priorityIcon} ${task.title}\n`;
+          const icon = task.priority === "critical" ? "🔴" : task.priority === "high" ? "🟠" : "🟡";
+          list += `${idx + 1}. ${icon} ${task.title}\n`;
         });
-        return taskList;
+        return list;
       }
       return "📋 Aucune tâche planifiée pour aujourd'hui. Profites-en pour respirer ! 🌿";
     }
     return null;
   };
 
-  // 4. Emails (via API backend)
   const checkEmailInterception = async (message: string): Promise<string | null> => {
-    const emailTriggers = ["montre-moi mes emails", "affiche mes emails", "liste mes emails", "quels emails", "mes emails non lus", "voir mes emails", "email non lus"];
-    if (emailTriggers.some(trigger => message.toLowerCase().includes(trigger))) {
+    const triggers = ["montre-moi mes emails", "affiche mes emails", "liste mes emails", "quels emails", "mes emails non lus", "voir mes emails", "email non lus"];
+    if (triggers.some(t => message.toLowerCase().includes(t))) {
       try {
-        const response = await fetch(`${API_URL}/api/gmail/direct-test`, { method: "GET" });
-        const result = await response.json();
-        
-        if (result.success && result.messages && result.messages.length > 0) {
+        const res = await fetch(`${API_URL}/api/gmail/direct-test`, { method: "GET" });
+        const result = await res.json();
+        if (result.success && result.messages?.length) {
           setLastEmailsCache(result.messages);
-          let emailList = `📧 **${result.count} email(s) non lu(s) :**\n\n`;
+          let list = `📧 **${result.count} email(s) non lu(s) :**\n\n`;
           result.messages.forEach((email: any, idx: number) => {
-            const fromClean = email.from?.split('<')[0].trim() || 'Inconnu';
-            emailList += `${idx + 1}. **${fromClean}**\n   📧 ${email.subject}\n   📅 ${new Date().toLocaleDateString('fr-FR')}\n\n`;
+            const from = email.from?.split('<')[0].trim() || 'Inconnu';
+            list += `${idx + 1}. **${from}**\n   📧 ${email.subject}\n   📅 ${new Date().toLocaleDateString('fr-FR')}\n\n`;
           });
-          emailList += `💡 Dis-moi 'ouvre l'email [numéro]' pour voir le contenu détaillé`;
-          return emailList;
+          list += `💡 Dis-moi 'ouvre l'email [numéro]' pour voir le contenu détaillé`;
+          return list;
         }
         return "📧 Aucun email non lu dans ta boîte.";
-      } catch (error) {
+      } catch {
         return "❌ Impossible de récupérer les emails pour le moment.";
       }
     }
     return null;
   };
 
-  // 5. Ouvrir un email spécifique (depuis le cache)
   const openEmailInterception = (message: string): string | null => {
     const match = message.match(/ouvre l'?email\s+(\d+)/i);
-    if (match && lastEmailsCache.length > 0) {
-      const emailNum = parseInt(match[1]);
-      if (emailNum >= 1 && emailNum <= lastEmailsCache.length) {
-        const email = lastEmailsCache[emailNum - 1];
-        return `📧 **Email #${emailNum}**\n\n**De :** ${email.from}\n**Objet :** ${email.subject}\n**Date :** ${email.date}\n\n**Contenu :**\n${email.snippet || '[Contenu non disponible]'}`;
+    if (match && lastEmailsCache.length) {
+      const num = parseInt(match[1]);
+      if (num >= 1 && num <= lastEmailsCache.length) {
+        const email = lastEmailsCache[num - 1];
+        return `📧 **Email #${num}**\n\n**De :** ${email.from}\n**Objet :** ${email.subject}\n**Date :** ${email.date}\n\n**Contenu :**\n${email.snippet || '[Contenu non disponible]'}`;
       }
-      return `❌ Email #${emailNum} non trouvé. Il y a ${lastEmailsCache.length} email(s) dans la liste.`;
+      return `❌ Email #${num} non trouvé. Il y a ${lastEmailsCache.length} email(s) dans la liste.`;
     }
     return null;
   };
 
-  // 6. WhatsApp (via API backend)
   const checkWhatsAppInterception = async (message: string): Promise<string | null> => {
-    const whatsappTriggers = ["montre-moi mes whatsapp", "affiche mes whatsapp", "liste mes whatsapp", "messages whatsapp", "whatsapp non répondus", "whatsapp non lus", "fais le point whatsapp"];
-    if (whatsappTriggers.some(trigger => message.toLowerCase().includes(trigger))) {
+    const triggers = ["montre-moi mes whatsapp", "affiche mes whatsapp", "liste mes whatsapp", "messages whatsapp", "whatsapp non répondus", "whatsapp non lus", "fais le point whatsapp"];
+    if (triggers.some(t => message.toLowerCase().includes(t))) {
       try {
-        const response = await fetch(`${API_URL}/api/whatsapp/conversations?days=30`, { method: "GET" });
-        const result = await response.json();
-        
-        if (result.conversations && result.conversations.length > 0) {
-          let messageList = `📱 **Messages WhatsApp en attente :**\n\n`;
+        const res = await fetch(`${API_URL}/api/whatsapp/conversations?days=30`, { method: "GET" });
+        const result = await res.json();
+        if (result.conversations?.length) {
+          let list = `📱 **Messages WhatsApp en attente :**\n\n`;
           result.conversations.forEach((conv: any, idx: number) => {
-            const unreadBadge = conv.unread > 0 ? ` (${conv.unread} non lu)` : "";
-            messageList += `${idx + 1}. **${conv.from_name}**${unreadBadge}\n`;
-            const lastMsg = conv.messages[0];
-            if (lastMsg) {
-              messageList += `   💬 ${lastMsg.message.substring(0, 80)}${lastMsg.message.length > 80 ? '...' : ''}\n`;
-              messageList += `   📅 ${new Date(lastMsg.created_at).toLocaleString('fr-FR')}\n`;
+            const badge = conv.unread > 0 ? ` (${conv.unread} non lu)` : "";
+            list += `${idx + 1}. **${conv.from_name}**${badge}\n`;
+            const last = conv.messages[0];
+            if (last) {
+              list += `   💬 ${last.message.substring(0, 80)}${last.message.length > 80 ? '...' : ''}\n`;
+              list += `   📅 ${new Date(last.created_at).toLocaleString('fr-FR')}\n\n`;
             }
-            messageList += `\n`;
           });
-          messageList += `💡 Dis-moi 'réponds à [nom]' pour envoyer un message`;
-          return messageList;
+          list += `💡 Dis-moi 'réponds à [nom]' pour envoyer un message`;
+          return list;
         }
         return "📱 Aucun message WhatsApp en attente.";
-      } catch (error) {
+      } catch {
         return "❌ Impossible de récupérer les messages WhatsApp pour le moment.";
       }
     }
     return null;
   };
 
-  // 7. Génération de plan d'exécution
   const generateExecutionPlan = async (query: string): Promise<boolean> => {
     setIsGeneratingPlan(true);
     try {
@@ -374,14 +363,14 @@ export default function ChatPage() {
         return true;
       }
       return false;
-    } catch (error) {
+    } catch {
       return false;
     } finally {
       setIsGeneratingPlan(false);
     }
   };
 
-  // ========== ENVOI DE MESSAGE AVEC STREAMING ==========
+  // ========== STREAMING ==========
   const sendMessageStreaming = async (allMessages: any[], onChunk: (chunk: string) => void): Promise<string> => {
     const response = await fetch(`${API_URL}/chat/stream-simple`, {
       method: "POST",
@@ -402,16 +391,21 @@ export default function ChatPage() {
       const lines = buffer.split("\n");
       buffer = lines.pop() || "";
       for (const line of lines) {
-        const trimmedLine = line.trim();
-        if (trimmedLine.startsWith("data: ")) {
-          const jsonStr = trimmedLine.slice(6).trim();
+        const trimmed = line.trim();
+        if (trimmed.startsWith("data: ")) {
+          const jsonStr = trimmed.slice(6);
           if (!jsonStr) continue;
           try {
             const data = JSON.parse(jsonStr);
-            if (data.content) fullResponse += data.content, onChunk(data.content);
+            if (data.content) {
+              fullResponse += data.content;
+              onChunk(data.content);
+            }
             if (data.done) return fullResponse;
             if (data.error) throw new Error(data.error);
-          } catch (parseError) { console.warn("Erreur parsing JSON:", jsonStr.substring(0, 100)); }
+          } catch {
+            console.warn("Erreur parsing JSON");
+          }
         }
       }
     }
@@ -422,87 +416,87 @@ export default function ChatPage() {
   const sendMessage = async () => {
     if (isSending || (!input.trim() && uploadedFiles.length === 0) || isLoading || !currentConversationId) return;
     
-    // === INTERCEPTIONS (actions sans IA) ===
-    const timeResponse = checkTimeInterception(input);
-    if (timeResponse) {
-      const timeMessage: Message = { role: "assistant", content: timeResponse };
-      setMessages(prev => [...prev, timeMessage]);
-      await saveMessage(currentConversationId, "assistant", timeResponse);
+    // Interceptions
+    const timeRes = checkTimeInterception(input);
+    if (timeRes) {
+      const msg: Message = { role: "assistant", content: timeRes };
+      setMessages(prev => [...prev, msg]);
+      await saveMessage(currentConversationId, "assistant", timeRes);
       setInput(""); setUploadedFiles([]);
       return;
     }
 
-    const reminderResponse = checkReminderInterception(input);
-    if (reminderResponse) {
-      const reminderMessage: Message = { role: "assistant", content: reminderResponse };
-      setMessages(prev => [...prev, reminderMessage]);
-      await saveMessage(currentConversationId, "assistant", reminderResponse);
+    const reminderRes = checkReminderInterception(input);
+    if (reminderRes) {
+      const msg: Message = { role: "assistant", content: reminderRes };
+      setMessages(prev => [...prev, msg]);
+      await saveMessage(currentConversationId, "assistant", reminderRes);
       setInput(""); setUploadedFiles([]);
       return;
     }
 
-    const tasksResponse = await checkTasksInterception(input);
-    if (tasksResponse) {
-      const tasksMessage: Message = { role: "assistant", content: tasksResponse };
-      setMessages(prev => [...prev, tasksMessage]);
-      await saveMessage(currentConversationId, "assistant", tasksResponse);
+    const tasksRes = await checkTasksInterception(input);
+    if (tasksRes) {
+      const msg: Message = { role: "assistant", content: tasksRes };
+      setMessages(prev => [...prev, msg]);
+      await saveMessage(currentConversationId, "assistant", tasksRes);
       setInput(""); setUploadedFiles([]);
       return;
     }
 
-    const openEmailResponse = openEmailInterception(input);
-    if (openEmailResponse) {
-      const emailMessage: Message = { role: "assistant", content: openEmailResponse };
-      setMessages(prev => [...prev, emailMessage]);
-      await saveMessage(currentConversationId, "assistant", openEmailResponse);
+    const openEmailRes = openEmailInterception(input);
+    if (openEmailRes) {
+      const msg: Message = { role: "assistant", content: openEmailRes };
+      setMessages(prev => [...prev, msg]);
+      await saveMessage(currentConversationId, "assistant", openEmailRes);
       setInput(""); setUploadedFiles([]);
       return;
     }
 
-    const emailResponse = await checkEmailInterception(input);
-    if (emailResponse) {
-      const emailMessage: Message = { role: "assistant", content: emailResponse };
-      setMessages(prev => [...prev, emailMessage]);
-      await saveMessage(currentConversationId, "assistant", emailResponse);
+    const emailRes = await checkEmailInterception(input);
+    if (emailRes) {
+      const msg: Message = { role: "assistant", content: emailRes };
+      setMessages(prev => [...prev, msg]);
+      await saveMessage(currentConversationId, "assistant", emailRes);
       setInput(""); setUploadedFiles([]);
       return;
     }
 
-    const whatsappResponse = await checkWhatsAppInterception(input);
-    if (whatsappResponse) {
-      const whatsappMessage: Message = { role: "assistant", content: whatsappResponse };
-      setMessages(prev => [...prev, whatsappMessage]);
-      await saveMessage(currentConversationId, "assistant", whatsappResponse);
+    const whatsappRes = await checkWhatsAppInterception(input);
+    if (whatsappRes) {
+      const msg: Message = { role: "assistant", content: whatsappRes };
+      setMessages(prev => [...prev, msg]);
+      await saveMessage(currentConversationId, "assistant", whatsappRes);
       setInput(""); setUploadedFiles([]);
       return;
     }
 
-    // === PAS D'INTERCEPTION → ENVOI À L'IA ===
+    // Envoi à l'IA
     setIsSending(true);
     setIsLoading(true);
     
-    const uploadedFilesData = await uploadFilesToStorage();
-    let userMessageContent = input.trim() || "📎 Fichier(s) joint(s)";
-    const imageFiles = uploadedFilesData.filter(f => f.type?.startsWith('image/'));
-    const otherFiles = uploadedFilesData.filter(f => !f.type?.startsWith('image/'));
-    if (imageFiles.length > 0) userMessageContent += "\n\n" + imageFiles.map(f => f.url).join("\n\n");
-    if (otherFiles.length > 0) userMessageContent += "\n\n📎 Fichiers joints:\n" + otherFiles.map(f => `- **${f.name}** : ${f.url}`).join("\n");
+    const uploaded = await uploadFilesToStorage();
+    let userContent = input.trim() || "📎 Fichier(s) joint(s)";
+    const images = uploaded.filter(f => f.type?.startsWith('image/'));
+    const others = uploaded.filter(f => !f.type?.startsWith('image/'));
+    if (images.length) userContent += "\n\n" + images.map(f => f.url).join("\n\n");
+    if (others.length) userContent += "\n\n📎 Fichiers joints:\n" + others.map(f => `- **${f.name}** : ${f.url}`).join("\n");
     
-    const userMessage: Message = { role: "user", content: userMessageContent, files: uploadedFilesData.length > 0 ? uploadedFilesData : undefined };
-    const modeConfig = modes.find(m => m.id === selectedMode);
-    const systemPrompt = modeConfig?.prompt || "Tu es Becks, l'assistante de Rebecca. Sois chaleureuse et naturelle.";
+    const userMsg: Message = { role: "user", content: userContent, files: uploaded.length ? uploaded : undefined };
+    const modeConf = modes.find(m => m.id === selectedMode);
+    const systemPrompt = modeConf?.prompt || "Tu es Becks, l'assistante de Rebecca. Sois chaleureuse et naturelle.";
     
-    const allMessages = [
+    const allMsgs = [
       { role: "system", content: systemPrompt },
-      ...messages.map(msg => ({ role: msg.role, content: msg.content })),
-      { role: "user", content: userMessageContent }
+      ...messages.map(m => ({ role: m.role, content: m.content })),
+      { role: "user", content: userContent }
     ];
     
-    setMessages(prev => [...prev, userMessage]);
-    await saveMessage(currentConversationId, "user", userMessageContent, undefined, uploadedFilesData);
+    setMessages(prev => [...prev, userMsg]);
+    await saveMessage(currentConversationId, "user", userContent, undefined, uploaded);
     
-    const tempAssistantId = `temp-${Date.now()}`;
-    setMessages(prev => [...prev, { id: tempAssistantId, role: "assistant", content: "" }]);
+    const tempId = `temp-${Date.now()}`;
+    setMessages(prev => [...prev, { id: tempId, role: "assistant", content: "" }]);
     
     setInput("");
     setUploadedFiles([]);
@@ -510,40 +504,40 @@ export default function ChatPage() {
 
     try {
       let assistantContent = "";
-      await sendMessageStreaming(allMessages, (chunk) => {
+      await sendMessageStreaming(allMsgs, (chunk) => {
         assistantContent += chunk;
         setMessages(prev => {
-          const newMessages = [...prev];
-          const lastMsg = newMessages[newMessages.length - 1];
-          if (lastMsg && lastMsg.id === tempAssistantId) lastMsg.content = assistantContent;
-          return newMessages;
+          const newMsgs = [...prev];
+          const last = newMsgs[newMsgs.length - 1];
+          if (last && last.id === tempId) last.content = assistantContent;
+          return newMsgs;
         });
       });
       
       setMessages(prev => {
-        const filtered = prev.filter(m => m.id !== tempAssistantId);
-        return [...filtered, { id: Date.now().toString(), role: "assistant" as const, content: assistantContent }];
+        const filtered = prev.filter(m => m.id !== tempId);
+        return [...filtered, { id: Date.now().toString(), role: "assistant", content: assistantContent }];
       });
       
       await saveMessage(currentConversationId, "assistant", assistantContent);
       setLastAssistantMessage(assistantContent);
       
-      if (selectedMode === "fais-le-avec-moi" && userMessageContent.length > 10 && userMessageContent.length < 500) {
-        const hasPlan = await generateExecutionPlan(userMessageContent);
+      if (selectedMode === "fais-le-avec-moi" && userContent.length > 10 && userContent.length < 500) {
+        const hasPlan = await generateExecutionPlan(userContent);
         if (hasPlan && executionPlan) {
-          const guideMessageContent = `🎯 Je vais t'aider à avancer étape par étape.\n\n**Plan : ${executionPlan.plan.title}**\n*Durée estimée : ${executionPlan.plan.estimated_duration}*\n\nCoche les étapes au fur et à mesure. Une chose à la fois. ✨`;
-          const guideMessage: Message = { role: "assistant", content: guideMessageContent };
-          setMessages(prev => [...prev, guideMessage]);
-          await saveMessage(currentConversationId, "assistant", guideMessageContent);
+          const guide = `🎯 Je vais t'aider à avancer étape par étape.\n\n**Plan : ${executionPlan.plan.title}**\n*Durée estimée : ${executionPlan.plan.estimated_duration}*\n\nCoche les étapes au fur et à mesure. Une chose à la fois. ✨`;
+          const guideMsg: Message = { role: "assistant", content: guide };
+          setMessages(prev => [...prev, guideMsg]);
+          await saveMessage(currentConversationId, "assistant", guide);
         }
       }
       
       await fetchConversations();
       inputRef.current?.focus();
     } catch (error) {
-      console.error("❌ Erreur streaming:", error);
+      console.error("Erreur streaming:", error);
       setMessages(prev => {
-        const filtered = prev.filter(m => m.id !== tempAssistantId);
+        const filtered = prev.filter(m => m.id !== tempId);
         return [...filtered, { role: "assistant", content: "❌ Erreur de connexion. Réessaie." }];
       });
     } finally {
@@ -552,7 +546,7 @@ export default function ChatPage() {
     }
   };
 
-  // ========== FONCTIONS VOCALES ==========
+  // ========== VOCAL ==========
   const startVoiceRecording = () => {
     resetTranscript();
     SpeechRecognition.startListening({ continuous: true, language: 'fr-FR' });
@@ -576,8 +570,8 @@ export default function ChatPage() {
   
   const handleSendButtonMouseUp = () => {
     if (pressTimer) clearTimeout(pressTimer);
-    const pressDuration = Date.now() - pressStartTime;
-    if (pressDuration < 1000) {
+    const duration = Date.now() - pressStartTime;
+    if (duration < 1000) {
       if (input.trim() || uploadedFiles.length > 0) sendMessage();
     } else if (isRecording) stopVoiceRecording();
   };
@@ -585,16 +579,19 @@ export default function ChatPage() {
   // ========== UTILITAIRES ==========
   const formatDate = (dateStr: string) => {
     const date = new Date(dateStr);
-    const diffMins = Math.floor((new Date().getTime() - date.getTime()) / 60000);
-    if (diffMins < 1) return "À l'instant";
-    if (diffMins < 60) return `Il y a ${diffMins} min`;
-    if (diffMins < 1440) return `Il y a ${Math.floor(diffMins / 60)} h`;
-    if (diffMins < 10080) return `Il y a ${Math.floor(diffMins / 1440)} jours`;
+    const mins = Math.floor((Date.now() - date.getTime()) / 60000);
+    if (mins < 1) return "À l'instant";
+    if (mins < 60) return `Il y a ${mins} min`;
+    if (mins < 1440) return `Il y a ${Math.floor(mins / 60)} h`;
+    if (mins < 10080) return `Il y a ${Math.floor(mins / 1440)} jours`;
     return date.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' });
   };
   
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !e.shiftKey && !isRecording && !isSending) e.preventDefault(), sendMessage();
+    if (e.key === 'Enter' && !e.shiftKey && !isRecording && !isSending) {
+      e.preventDefault();
+      sendMessage();
+    }
   };
   
   const currentModeConfig = modes.find(m => m.id === selectedMode);
@@ -609,8 +606,12 @@ export default function ChatPage() {
     if (type === "whatsapp_reply") {
       const recipient = params.to || params.conversation_id;
       if (!recipient) { toast.error("❌ Destinataire manquant"); return; }
-      const response = await fetch(`${API_URL}/api/whatsapp/reply`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ to: recipient, message: params.message, message_id: params.message_id }) });
-      const result = await response.json();
+      const res = await fetch(`${API_URL}/api/whatsapp/reply`, { 
+        method: "POST", 
+        headers: { "Content-Type": "application/json" }, 
+        body: JSON.stringify({ to: recipient, message: params.message, message_id: params.message_id }) 
+      });
+      const result = await res.json();
       if (result.success) toast.success(`✅ Réponse envoyée à ${recipient}`);
       else toast.error("❌ Erreur d'envoi");
     }
@@ -631,7 +632,7 @@ export default function ChatPage() {
         </div>
         <div className="flex items-center gap-2">
           <select value={selectedVoice} onChange={(e) => setSelectedVoice(e.target.value)} className="text-[10px] bg-white/10 border border-white/10 rounded-full px-2 py-1 text-gray-400">
-            {VOICE_OPTIONS.map(voice => <option key={voice.id} value={voice.id}>{voice.name}</option>)}
+            {VOICE_OPTIONS.map(v => <option key={v.id} value={v.id}>{v.name}</option>)}
           </select>
           <button onClick={() => setShowLiveVoice(true)} className="p-2 rounded-full bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30"><Phone className="w-3.5 h-3.5" /></button>
           <button onClick={() => speak(lastAssistantMessage)} disabled={isTTSLoading || !lastAssistantMessage} className={`p-2 rounded-full transition-all ${isSpeaking ? "bg-red-500/20 text-red-400" : "bg-gold-500/20 text-gold-500 hover:bg-gold-500/30"} disabled:opacity-50`}>
@@ -671,19 +672,29 @@ export default function ChatPage() {
         )}
       </AnimatePresence>
 
-      {/* ZONE DES MESSAGES */}
+      {/* MESSAGES */}
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
         {messages.map((m, i) => (
           <motion.div key={i} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
             {m.role === "user" ? (
               <div className="max-w-[85%] p-4 rounded-2xl text-sm bg-gold-500 text-midnight rounded-br-none">
                 <ReactMarkdown>{m.content}</ReactMarkdown>
-                {m.files && m.files.length > 0 && (
+                {m.files?.length ? (
                   <div className="mt-3">
-                    <div className="grid grid-cols-2 gap-2">{m.files.filter(f => f.type?.startsWith('image/')).map((file, idx) => (<a key={idx} href={file.url} target="_blank" rel="noopener noreferrer" className="block"><img src={file.url} alt={file.name} className="rounded-xl w-full h-auto max-h-48 object-cover border border-white/10 hover:border-gold-500 transition-all" /></a>))}</div>
-                    {m.files.filter(f => !f.type?.startsWith('image/')).length > 0 && (<div className="mt-2 pt-2 border-t border-white/10">{m.files.filter(f => !f.type?.startsWith('image/')).map((file, idx) => (<a key={idx} href={file.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-xs text-gold-500 hover:underline mt-1"><File className="w-3 h-3" /> {file.name}</a>))}</div>)}
+                    <div className="grid grid-cols-2 gap-2">
+                      {m.files.filter(f => f.type?.startsWith('image/')).map((file, idx) => (
+                        <a key={idx} href={file.url} target="_blank" rel="noopener noreferrer" className="block"><img src={file.url} alt={file.name} className="rounded-xl w-full h-auto max-h-48 object-cover border border-white/10 hover:border-gold-500 transition-all" /></a>
+                      ))}
+                    </div>
+                    {m.files.filter(f => !f.type?.startsWith('image/')).length > 0 && (
+                      <div className="mt-2 pt-2 border-t border-white/10">
+                        {m.files.filter(f => !f.type?.startsWith('image/')).map((file, idx) => (
+                          <a key={idx} href={file.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-xs text-gold-500 hover:underline mt-1"><File className="w-3 h-3" /> {file.name}</a>
+                        ))}
+                      </div>
+                    )}
                   </div>
-                )}
+                ) : null}
               </div>
             ) : (
               <div className="max-w-[85%] p-4 rounded-2xl text-sm bg-white/10 text-ivory border border-white/5 rounded-bl-none">
@@ -718,7 +729,7 @@ export default function ChatPage() {
         
         <div className="flex items-center gap-2">
           <button onClick={() => document.getElementById('file-upload-input')?.click()} className="p-2 rounded-full bg-white/10 text-gray-400 hover:bg-white/20 transition-colors flex-shrink-0"><Paperclip className="w-5 h-5" /></button>
-          <input id="file-upload-input" type="file" {...getInputProps()} className="hidden" onChange={(e) => { if (e.target.files) onDrop(Array.from(e.target.files)); }} />
+          <input id="file-upload-input" type="file" {...getInputProps()} className="hidden" />
           <input ref={inputRef} type="text" value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={handleKeyDown} placeholder={isRecording ? "🎤 Enregistrement vocal..." : `Mode ${currentModeConfig?.name} : écris ton message...`} className="flex-1 bg-white/10 border border-white/20 rounded-full py-3 px-4 text-sm focus:outline-none focus:border-gold-500 text-ivory placeholder:text-gray-500" disabled={isRecording} />
           <button onMouseDown={handleSendButtonMouseDown} onMouseUp={handleSendButtonMouseUp} onMouseLeave={() => { if (isRecording) stopVoiceRecording(); }} onTouchStart={handleSendButtonMouseDown} onTouchEnd={handleSendButtonMouseUp} onClick={() => { if (isRecording) stopVoiceRecording(); }} disabled={isLoading || isSending} className={`p-2 rounded-full transition-all flex-shrink-0 ${isRecording ? "bg-red-500 text-white animate-pulse" : "bg-gold-500 text-midnight hover:scale-105"} disabled:opacity-50 disabled:hover:scale-100`}>
             {isSending ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}
