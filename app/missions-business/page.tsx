@@ -1,7 +1,8 @@
 "use client";
-import { useEffect, useState } from "react";
+
+import { useEffect, useState, useMemo, useCallback } from "react";
 import { supabase } from "@/lib/supabase";
-import { useUserId } from "@/hooks/useUserId";
+import { useAuth } from "@/contexts/AuthContext";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import { motion, AnimatePresence } from "framer-motion";
 import { 
@@ -16,6 +17,10 @@ import Link from "next/link";
 import { exportMissionsToPDF } from "@/lib/exportPDF";
 import { toast } from "sonner";
 
+// =====================================================
+// TYPES OPTIMISÉS
+// =====================================================
+
 type Mission = {
   id: string;
   name: string;
@@ -27,8 +32,12 @@ type Mission = {
   energy_cost: number;
   deadline: string | null;
   owner: string | null;
-  created_at: string;
+  created_at?: string;
 };
+
+// =====================================================
+// CONFIGURATIONS
+// =====================================================
 
 const categoryConfig: Record<string, { label: string; color: string; icon: any }> = {
   business: { label: "Business", color: "bg-blue-500/20 text-blue-400", icon: Briefcase },
@@ -57,7 +66,8 @@ const priorityConfig: Record<string, { label: string; color: string; score: numb
 };
 
 export default function MissionsBusinessPage() {
-  const { userId, loading: userIdLoading } = useUserId();
+  const { user } = useAuth();  // ← OPTIMISATION: useAuth au lieu de useUserId
+  const userId = user?.id || null;
   const [activeTab, setActiveTab] = useState<"missions" | "business">("missions");
   const [missions, setMissions] = useState<Mission[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -79,45 +89,47 @@ export default function MissionsBusinessPage() {
     owner: ""
   });
 
-  const scrollToForm = () => {
-    setTimeout(() => {
-      const formElement = document.getElementById('form-container');
-      if (formElement) {
-        formElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      }
-    }, 150);
-  };
-
-   useEffect(() => {
+  // ========== CHARGEMENT OPTIMISÉ ==========
+  useEffect(() => {
     if (!userId) return;
+    
+    const loadMissions = async () => {
+      setIsLoading(true);
+      await fetchMissionsOptimized();
+      setIsLoading(false);
+    };
+    
+    loadMissions();
     
     const channel = supabase
       .channel('missions_changes')
       .on('postgres_changes', 
         { event: '*', schema: 'public', table: 'missions', filter: `user_id=eq.${userId}` }, 
-        () => fetchMissions()
+        () => fetchMissionsOptimized()
       )
       .subscribe();
     
-    return () => {
-      channel.unsubscribe();
-    };
+    return () => { channel.unsubscribe(); };
   }, [userId]);
-  
-  async function fetchMissions() {
-  if (!userId) return;
-  
-  setIsLoading(true);
-  const { data } = await supabase
-    .from("missions")
-    .select("*")
-    .eq("user_id", userId)  
-    .order("created_at", { ascending: false });
-  setMissions(data || []);
-  setIsLoading(false);
-}
 
+  // ========== REQUÊTE OPTIMISÉE ==========
+  async function fetchMissionsOptimized() {
+    if (!userId) return;
+    
+    const { data } = await supabase
+      .from("missions")
+      .select("id, name, category, status, priority, revenue_potential, strategic_value, energy_cost, deadline, owner, created_at")  // ← colonnes nécessaires
+      .eq("user_id", userId)
+      .order("created_at", { ascending: false })
+      .limit(100);  // ← limite
+    
+    setMissions(data || []);
+  }
+
+  // ========== CRUD MISSIONS ==========
   async function saveMission() {
+    if (!userId) return;
+    
     const data = {
       name: formData.name,
       category: formData.category,
@@ -129,7 +141,6 @@ export default function MissionsBusinessPage() {
       deadline: formData.deadline || null,
       owner: formData.owner || null,
       user_id: userId 
-
     };
     
     let error;
@@ -143,7 +154,7 @@ export default function MissionsBusinessPage() {
     
     if (!error) {
       resetForm();
-      fetchMissions();
+      fetchMissionsOptimized();
       toast.success(editingId ? "Mission modifiée" : "Mission ajoutée");
     } else {
       toast.error("Erreur: " + error.message);
@@ -154,7 +165,7 @@ export default function MissionsBusinessPage() {
     if (confirm("Supprimer cette mission ?")) {
       const { error } = await supabase.from("missions").delete().eq("id", id);
       if (!error) {
-        fetchMissions();
+        fetchMissionsOptimized();
         toast.success("Mission supprimée");
       }
     }
@@ -174,7 +185,9 @@ export default function MissionsBusinessPage() {
     });
     setEditingId(mission.id);
     setShowForm(true);
-    scrollToForm();
+    setTimeout(() => {
+      document.getElementById("form-container")?.scrollIntoView({ behavior: "smooth" });
+    }, 100);
   }
 
   function resetForm() {
@@ -193,7 +206,8 @@ export default function MissionsBusinessPage() {
     });
   }
 
-  function getPriorityScore(mission: Mission) {
+  // ========== FONCTIONS UTILITAIRES MEMOIZED ==========
+  const getPriorityScore = useCallback((mission: Mission) => {
     const priorityScoreMap: Record<string, number> = {
       critical: 5,
       high: 4,
@@ -202,44 +216,49 @@ export default function MissionsBusinessPage() {
     };
     const priorityScore = priorityScoreMap[mission.priority] || 3;
     return mission.revenue_potential + mission.strategic_value + priorityScore - mission.energy_cost;
-  }
+  }, []);
 
-  // Filtres pour l'onglet Missions
-  const filteredMissions = missions.filter(m => {
-    if (filterCategory !== "all" && m.category !== filterCategory) return false;
-    if (filterStatus !== "all" && m.status !== filterStatus) return false;
-    return true;
-  });
+  // ========== FILTRES ET STATS MEMOIZED ==========
+  const filteredMissions = useMemo(() => {
+    return missions.filter(m => {
+      if (filterCategory !== "all" && m.category !== filterCategory) return false;
+      if (filterStatus !== "all" && m.status !== filterStatus) return false;
+      return true;
+    });
+  }, [missions, filterCategory, filterStatus]);
 
-  const sortedMissions = [...filteredMissions].sort((a, b) => getPriorityScore(b) - getPriorityScore(a));
+  const sortedMissions = useMemo(() => {
+    return [...filteredMissions].sort((a, b) => getPriorityScore(b) - getPriorityScore(a));
+  }, [filteredMissions, getPriorityScore]);
 
-  // Filtres pour l'onglet Business (corrigé - suppression de "in_progress")
-  const businessFilteredMissions = missions.filter(m => {
-    if (businessFilterStatus === "all") return true;
-    if (businessFilterStatus === "active") return m.status === "active";
-    if (businessFilterStatus === "planning") return m.status === "planning";
-    if (businessFilterStatus === "complete") return m.status === "complete";
-    return true;
-  });
+  const businessFilteredMissions = useMemo(() => {
+    return missions.filter(m => {
+      if (businessFilterStatus === "all") return true;
+      if (businessFilterStatus === "active") return m.status === "active";
+      if (businessFilterStatus === "planning") return m.status === "planning";
+      if (businessFilterStatus === "complete") return m.status === "complete";
+      return true;
+    });
+  }, [missions, businessFilterStatus]);
 
-  const stats = {
+  const stats = useMemo(() => ({
     total: missions.length,
     active: missions.filter(m => m.status === "active").length,
     complete: missions.filter(m => m.status === "complete").length,
     critical: missions.filter(m => m.priority === "critical").length
-  };
+  }), [missions]);
 
-  const businessStats = {
+  const businessStats = useMemo(() => ({
     total: missions.length,
     active: missions.filter(m => m.status === "active").length,
     completed: missions.filter(m => m.status === "complete").length,
     planning: missions.filter(m => m.status === "planning").length,
-  };
+  }), [missions]);
 
   const completionRate = stats.total > 0 ? ((stats.complete / stats.total) * 100).toFixed(0) : "0";
   const businessCompletionRate = businessStats.total > 0 ? ((businessStats.completed / businessStats.total) * 100).toFixed(0) : "0";
 
-  const getStatusConfig = (status: string) => {
+  const getStatusConfig = useCallback((status: string) => {
     const name = status?.toLowerCase() || "";
     if (name.includes("term") || name.includes("fait") || name.includes("done") || name === "complete") 
       return { icon: CheckCircle, label: "Terminée", color: "bg-emerald-500/20 text-emerald-400" };
@@ -252,17 +271,17 @@ export default function MissionsBusinessPage() {
     if (name === "paused") 
       return { icon: AlertCircle, label: "En pause", color: "bg-orange-500/20 text-orange-400" };
     return { icon: AlertCircle, label: status || "Planifiée", color: "bg-yellow-500/20 text-yellow-400" };
-  };
+  }, []);
 
-  const getPriorityColorBusiness = (priority: string) => {
+  const getPriorityColorBusiness = useCallback((priority: string) => {
     const name = priority?.toLowerCase() || "";
     if (name === "critical") return { color: "border-l-red-500", label: "⚠️ Critique", bg: "bg-red-500/20 text-red-400" };
     if (name === "high") return { color: "border-l-orange-500", label: "🔴 Haute", bg: "bg-orange-500/20 text-orange-400" };
     if (name === "normal") return { color: "border-l-gold-500", label: "🟡 Normale", bg: "bg-gold-500/20 text-gold-400" };
     return { color: "border-l-gray-500", label: "🟢 Basse", bg: "bg-gray-500/20 text-gray-400" };
-  };
+  }, []);
 
-  const getCategoryIcon = (category: string) => {
+  const getCategoryIcon = useCallback((category: string) => {
     const name = category?.toLowerCase() || "";
     if (name === "business") return <Briefcase className="w-4 h-4" />;
     if (name === "farm") return <Sprout className="w-4 h-4" />;
@@ -270,17 +289,8 @@ export default function MissionsBusinessPage() {
     if (name === "content") return <FileText className="w-4 h-4" />;
     if (name === "documents") return <FileText className="w-4 h-4" />;
     return <Target className="w-4 h-4" />;
-  };
+  }, []);
 
-
-    if (userIdLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <Loader2 className="w-8 h-8 text-gold-500 animate-spin" />
-      </div>
-    );
-  }
-  
   if (!userId) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
@@ -400,7 +410,7 @@ export default function MissionsBusinessPage() {
                 <option value="all">📋 Tous les statuts</option>
                 {Object.entries(statusConfig).map(([key, conf]) => <option key={key} value={key}>{conf.label}</option>)}
               </select>
-              <button onClick={() => { setShowForm(true); setEditingId(null); scrollToForm(); }} className="bg-gold-500 text-midnight px-4 py-2 rounded-full text-sm font-medium flex items-center gap-2">
+              <button onClick={() => { setShowForm(true); setEditingId(null); setTimeout(() => document.getElementById("form-container")?.scrollIntoView({ behavior: "smooth" }), 100); }} className="bg-gold-500 text-midnight px-4 py-2 rounded-full text-sm font-medium flex items-center gap-2">
                 <Plus className="w-4 h-4" /> Nouvelle mission
               </button>
             </div>
