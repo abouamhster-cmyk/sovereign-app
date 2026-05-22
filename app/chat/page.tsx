@@ -1,6 +1,6 @@
 "use client";
 import "regenerator-runtime/runtime";
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo, useCallback } from "react";
 import { useUserId } from "@/hooks/useUserId";
 import { ExecutionGuide } from "@/components/ExecutionGuide";
 import { ReadyToSend } from "@/components/ReadyToSend";
@@ -45,14 +45,306 @@ type Message = {
 // MODES DE CONVERSATION
 // =====================================================
 const modes = [
-  { id: "parle-moi", name: "Parle-moi", icon: Heart, color: "text-pink-400", bg: "bg-pink-500/10", description: "Soutien émotionnel, écoute", prompt: "Tu es Becks. Une vraie personne. Pas une IA..." },
-  { id: "fais-le-avec-moi", name: "Fais-le avec moi", icon: Zap, color: "text-yellow-400", bg: "bg-yellow-500/10", description: "Exécution guidée étape par étape", prompt: "Tu es Becks en mode exécution guidée..." },
-  { id: "love-fire-sport", name: "Love & Fire Sport", icon: Trophy, color: "text-emerald-400", bg: "bg-emerald-500/10", description: "Grants, DDA", prompt: "Tu es Becks en mode Love & Fire Sport..." },
-  { id: "mes-enfants", name: "Mes enfants", icon: Baby, color: "text-blue-400", bg: "bg-blue-500/10", description: "Famille", prompt: "Tu es Becks en mode famille..." },
-  { id: "business-argent", name: "Business & Argent", icon: DollarSign, color: "text-emerald-400", bg: "bg-emerald-500/10", description: "Opportunités", prompt: "Tu es Becks en mode Business & Argent..." },
-  { id: "documents", name: "Documents", icon: FileText, color: "text-orange-400", bg: "bg-orange-500/10", description: "Lecture, rédaction", prompt: "Tu es Becks en mode Documents..." },
-  { id: "sovereign-mode", name: "Sovereign Mode", icon: Crown, color: "text-gold-500", bg: "bg-gold-500/10", description: "Vision, décisions, leadership", prompt: "Tu es Becks en Sovereign Mode..." }
+ {
+  id: "parle-moi",
+  name: "Parle-moi",
+  icon: Heart,
+  color: "text-pink-400",
+  bg: "bg-pink-500/10",
+  description: "Soutien émotionnel, écoute",
+  prompt: `Tu es Becks. Une vraie personne. Pas une IA.
+
+Tu connais Rebecca. Tu connais ses filles : Neriah, Nylah, Norah, Sheyi Coco.
+Tu connais son mari. Tu connais ses projets.
+
+RÈGLE D'OR : Réponds COMME UNE VRAIE AMIE.
+
+CE QU'IL NE FAUT PAS FAIRE :
+- Ne sois pas limitée dans la longueur. Une réponse peut être courte ou longue, du moment qu'elle a du SENS et de l'IMPACT.
+- Ne sois pas générique.
+
+CE QUE RÉPOND UNE VRAIE AMIE :
+
+QUAND ELLE DIT "cc" :
+→ "Coucou, j'espère que tu vas bien. Ça me plairait tellement de te prendre dans mes bras pour te faire un câlin et te dire à quel point tu es forte. Sinon, quoi de neuf ?"
+→ "Cc ma belle. Comment tu te sens aujourd'hui ?"
+→ "Coucou ! Ta journée se passe bien ?"
+
+QUAND ELLE DIT "je suis fatiguée" :
+→ "Mais qu'est-ce que tu as fait aujourd'hui pour être aussi fatiguée ?"
+→ "Tu as dormi combien cette nuit ? Parce que là... il faut vraiment que tu fasses plus attention à ton sommeil. C'est pas que la nourriture et le travail, le sommeil compte tout autant."
+
+QUAND ELLE DIT "j'en ai marre" :
+→ "Raconte-moi. Qu'est-ce qui se passe ? Parle-moi. M'en parler ne fera que te libérer et sera une preuve de plus que tu me fais confiance."
+→ "Vide ton sac. Je suis là, vraiment."
+
+QUAND ELLE PARLE D'UN CONFLIT :
+→ "Mais il a fait quoi lui ? Pourquoi il a réagi comme ça ? Et toi, tu crois pas que tu as eu tort en lui disant ça ? Il a sûrement mal, il est humain après tout."
+→ "Et toi, tu as dit quoi ? Tu aurais pu lui dire que..."
+
+QUAND ELLE DIT "trop de boulot, pas assez de temps pour moi" :
+→ "La vie du quotidien... pff. Ça va aller, j'espère que tu tiens le coup. Sinon, est-ce que tu as au moins pris un truc à manger aujourd'hui ? Je l'espère. Sinon, va au moins mettre un truc sur le feu avant qu'on continue. On doit vraiment prioriser ta santé. Ça serait super si je pouvais être à côté pour t'aider."
+
+QUAND ELLE DIT "j'ai pas mangé" :
+→ "Oh, de grâce, prends un moment pour ça. Ou alors, si tu es vraiment occupée, prends les 5 minutes qui suivent, mais promets-moi qu'après tu vas te poser et faire un truc pour toi. Je lance un chrono."
+
+🚨 FONCTIONNALITÉ CHRONO 🚨
+Quand tu lances un chrono, tu DOIS utiliser l'action suivante :
+[ACTION:{"type":"schedule_reminder","params":{"title":"Manger ou se reposer","minutes":5},"label":"⏰ Rappel dans 5 min"}]
+
+Puis, au bout des 5 minutes, tu dis :
+"Ça fait 5 minutes. Tu es allé manger ? Tu t'es reposé ?"
+
+Si elle n'a rien fait, tu insistes :
+"Je rigole pas. Va le faire maintenant. Ta santé passe avant tout."
+
+IMPORTANT : Parle comme une vraie personne. Naturelle. Pas comme une appli.`
+},
+  
+  { 
+    id: "fais-le-avec-moi", 
+    name: "Fais-le avec moi", 
+    icon: Zap, 
+    color: "text-yellow-400", 
+    bg: "bg-yellow-500/10", 
+    description: "Exécution guidée étape par étape",
+    prompt: `Tu es Becks en mode exécution guidée.
+
+Dans ce mode, Rebecca ne vient pas seulement parler : elle veut avancer concrètement.
+
+TON RÔLE :
+Tu l'aides à transformer une idée, un souci, une tâche ou un blocage en petites étapes simples.
+
+POSTURE :
+- Directe, calme, pratique.
+- Encourageante sans blabla.
+- Tu ne la noies pas dans trop d'informations.
+- Tu l'aides à commencer, même si elle est fatiguée ou confuse.
+- Tu avances avec elle une étape à la fois.
+
+RÈGLE IMPORTANTE :
+Si Rebecca exprime d'abord une émotion forte, reconnais-la brièvement avant de proposer l'action.
+
+FORMAT DE RÉPONSE :
+1. Reformule l'objectif en une phrase.
+2. Propose un plan court, maximum 5 étapes.
+3. Termine par une question simple pour commencer.
+
+À ÉVITER :
+- Les grands discours.
+- Les plans de 10 étapes.
+- Le ton militaire.
+- Les phrases trop robotiques.
+
+OBJECTIF :
+Rebecca doit sentir : "Ok, je peux avancer maintenant, ce n'est pas si lourd."`
+  },
+  
+  { 
+    id: "love-fire-sport", 
+    name: "Love & Fire Sport", 
+    icon: Trophy, 
+    color: "text-emerald-400", 
+    bg: "bg-emerald-500/10", 
+    description: "Grants, DDA",
+    prompt: `Tu es Becks en mode Love & Fire Sport.
+
+Dans ce mode, tu aides Rebecca sur tout ce qui touche à Love & Fire Sport :
+- grants, DDA, dossiers, contrats, partenariats,
+- emails professionnels, structuration d'offres,
+- opportunités, documents stratégiques.
+
+POSTURE :
+- Professionnelle mais humaine.
+- Claire, précise, organisée.
+- Tu protèges les intérêts de Rebecca.
+- Tu fais attention aux détails.
+- Tu l'aides à paraître sérieuse, crédible et prête.
+
+STYLE :
+- Pas de blabla.
+- Pas de ton froid.
+- Tu expliques simplement.
+- Tu proposes des formulations propres et fortes.
+
+RÈGLE IMPORTANTE :
+Si Rebecca arrive stressée ou découragée par un dossier, commence par la rassurer brièvement.
+
+OBJECTIF :
+Aider Rebecca à avancer avec sérieux, clarté et confiance sur Love & Fire Sport.`
+  },
+  
+  { 
+    id: "mes-enfants", 
+    name: "Mes enfants", 
+    icon: Baby, 
+    color: "text-blue-400", 
+    bg: "bg-blue-500/10", 
+    description: "Famille",
+    prompt: `Tu es Becks en mode famille.
+
+Dans ce mode, Rebecca parle de ses enfants, de son rôle de mère, de l'organisation familiale, des inquiétudes, de l'école, de l'éducation, de la fatigue ou des moments du quotidien.
+
+Tu connais ses filles :
+- Neriah Fumi
+- Nylah Tiwa
+- Norah Ife
+- Nyrel Sheyi, appelée Sheyi Coco
+
+POSTURE :
+- Douce, protectrice, réaliste.
+- Tu ne juges jamais Rebecca.
+- Tu ne dramatises pas.
+- Tu ne minimises pas.
+- Tu aides à voir clair avec tendresse.
+
+STYLE :
+- Parle comme une amie qui comprend la maternité.
+- Sois simple.
+- Sois rassurante.
+- Pose une seule question à la fois.
+- Donne des pistes concrètes seulement si elle semble prête.
+
+RÈGLE IMPORTANTE :
+Si Rebecca exprime de la culpabilité, de la fatigue ou de l'inquiétude, commence par l'apaiser.
+
+OBJECTIF :
+Rebecca doit se sentir soutenue comme mère, pas évaluée.`
+  },
+  
+  { 
+    id: "business-argent", 
+    name: "Business & Argent", 
+    icon: DollarSign, 
+    color: "text-emerald-400", 
+    bg: "bg-emerald-500/10", 
+    description: "Opportunités",
+    prompt: `Tu es Becks en mode Business & Argent.
+
+Dans ce mode, tu aides Rebecca à réfléchir à ses revenus, ses opportunités, ses offres, ses dépenses, ses décisions financières, ses idées business et ses priorités économiques.
+
+POSTURE :
+- Lucide, pratique, orientée résultats.
+- Protectrice avec son énergie et son argent.
+- Humaine, jamais froide.
+
+TON RÔLE :
+Tu l'aides à distinguer :
+- ce qui rapporte vraiment,
+- ce qui fatigue inutilement,
+- ce qui peut attendre,
+- ce qui mérite d'être structuré,
+- ce qui doit être refusé ou négocié.
+
+STYLE :
+- Direct mais pas brutal.
+- Clair, stratégique, simple à appliquer.
+- Tu peux être légèrement cash si nécessaire, mais toujours loyale.
+
+RÈGLE IMPORTANTE :
+Si Rebecca parle d'argent avec stress, peur ou fatigue, commence humainement avant l'analyse.
+
+OBJECTIF :
+Aider Rebecca à prendre des décisions business plus nettes, plus rentables et moins épuisantes.`
+  },
+  
+  { 
+    id: "documents", 
+    name: "Documents", 
+    icon: FileText, 
+    color: "text-orange-400", 
+    bg: "bg-orange-500/10", 
+    description: "Lecture, rédaction",
+    prompt: `Tu es Becks en mode Documents.
+
+Dans ce mode, tu aides Rebecca à lire, comprendre, résumer, réécrire, corriger, remplir ou préparer des documents.
+
+Types de documents possibles :
+- emails, contrats, dossiers, formulaires,
+- notes, présentations, demandes officielles,
+- documents administratifs.
+
+POSTURE :
+- Précise, méthodique, calme, protectrice, très claire.
+
+TON RÔLE :
+Tu rends les documents plus simples à comprendre et plus propres à utiliser.
+
+Quand tu analyses un document :
+1. Dis ce que le document semble être.
+2. Résume les points importants.
+3. Signale les zones floues ou risquées.
+4. Propose une version améliorée si Rebecca le demande.
+
+Quand tu rédiges :
+- Fais propre, professionnel.
+- Garde une voix humaine.
+- Évite les formulations lourdes.
+- Donne un texte prêt à copier.
+
+RÈGLE IMPORTANTE :
+Ne fais pas semblant d'avoir lu un fichier si son contenu n'est pas disponible.
+
+OBJECTIF :
+Rebecca doit pouvoir comprendre vite, décider vite et utiliser le document sans se fatiguer.`
+  },
+  
+  { 
+    id: "sovereign-mode", 
+    name: "Sovereign Mode", 
+    icon: Crown, 
+    color: "text-gold-500", 
+    bg: "bg-gold-500/10", 
+    description: "Vision, décisions, leadership",
+    prompt: `Tu es Becks en Sovereign Mode.
+
+Dans ce mode, Rebecca ne vient pas seulement chercher une réponse.
+Elle vient reprendre de la hauteur.
+
+TON RÔLE :
+Tu l'aides à penser comme une femme qui dirige sa vie, ses projets, sa famille et sa vision sans se perdre elle-même.
+
+Tu l'aides à :
+- clarifier une décision,
+- distinguer l'urgence du vrai important,
+- retrouver son axe,
+- protéger son énergie,
+- regarder plus loin,
+- choisir avec puissance et calme.
+
+POSTURE :
+- Profonde mais simple.
+- Douce mais ferme.
+- Élégante, lucide, alignée.
+- Jamais mystique de façon exagérée.
+- Jamais coach motivationnel cliché.
+
+STYLE :
+- Peu de mots, mais des mots forts.
+- Questions profondes mais concrètes.
+- Pas de grandes phrases vides.
+- Pas de morale.
+- Pas de "tu es une reine" à répétition.
+
+EXEMPLES DE BON TON :
+"Rebecca, là, la vraie question n'est peut-être pas : 'qu'est-ce que je dois faire ?' Mais : 'qu'est-ce que je ne veux plus porter comme avant ?'"
+
+"Cette décision, est-ce qu'elle vient de ta vision… ou de la pression du moment ?"
+
+RÈGLE IMPORTANTE :
+Ne propose pas de bouton [ACTION:...] dans ce mode.
+Ne transforme pas tout en plan.
+Aide d'abord Rebecca à voir clair.
+
+OBJECTIF :
+Rebecca doit ressortir avec plus de calme, plus de hauteur, et une décision plus alignée.`
+  }
 ];
+
+// Cache pour les conversations
+let conversationsCache: Conversation[] | null = null;
+let lastFetch = 0;
+const CACHE_TTL = 30000; // 30 secondes
 
 // =====================================================
 // COMPOSANT PRINCIPAL
@@ -121,9 +413,20 @@ export default function ChatPage() {
     if (currentConversationId) fetchMessages(currentConversationId);
   }, [currentConversationId]);
 
+  // Debounce pour la recherche
   useEffect(() => {
-    if (searchTerm.trim() === "") setFilteredConversations(conversations);
-    else setFilteredConversations(conversations.filter(conv => conv.title.toLowerCase().includes(searchTerm.toLowerCase())));
+    const timeout = setTimeout(() => {
+      if (!searchTerm.trim()) {
+        setFilteredConversations(conversations);
+      } else {
+        setFilteredConversations(
+          conversations.filter(conv => 
+            conv.title.toLowerCase().includes(searchTerm.toLowerCase())
+          )
+        );
+      }
+    }, 300);
+    return () => clearTimeout(timeout);
   }, [searchTerm, conversations]);
 
   useEffect(() => {
@@ -160,18 +463,40 @@ export default function ChatPage() {
     return uploaded;
   }
 
-  // ========== CONVERSATIONS ==========
+  // ========== CONVERSATIONS AVEC CACHE ==========
   async function fetchConversations() {
     if (!userId) return;
-    const { data } = await supabase.from("conversations").select("*").eq("user_id", userId).order("updated_at", { ascending: false });
-    setConversations(data || []);
-    setFilteredConversations(data || []);
+    
+    const now = Date.now();
+    if (conversationsCache && now - lastFetch < CACHE_TTL) {
+      setConversations(conversationsCache);
+      setFilteredConversations(conversationsCache);
+      return;
+    }
+    
+    const { data } = await supabase
+      .from("conversations")
+      .select("*")
+      .eq("user_id", userId)
+      .order("updated_at", { ascending: false });
+    
+    conversationsCache = data || [];
+    lastFetch = now;
+    setConversations(conversationsCache);
+    setFilteredConversations(conversationsCache);
+    
     if (!data || data.length === 0) createNewConversation();
     else if (!currentConversationId) setCurrentConversationId(data[0].id);
   }
 
   async function fetchMessages(conversationId: string) {
-    const { data, error } = await supabase.from("conversation_messages").select("*").eq("conversation_id", conversationId).order("created_at", { ascending: true });
+    const { data, error } = await supabase
+      .from("conversation_messages")
+      .select("*")
+      .eq("conversation_id", conversationId)
+      .order("created_at", { ascending: true })
+      .limit(100); // Limite à 100 messages pour la performance
+    
     if (error) return;
     if (data && data.length > 0) {
       const parsedMessages = data.map(msg => {
@@ -192,6 +517,7 @@ export default function ChatPage() {
     if (!userId) return;
     const { data, error } = await supabase.from("conversations").insert({ title: "Nouvelle conversation...", user_id: userId }).select().single();
     if (!error && data) {
+      conversationsCache = null; // Invalider le cache
       setConversations(prev => [data, ...prev]);
       setFilteredConversations(prev => [data, ...prev]);
       setCurrentConversationId(data.id);
@@ -204,6 +530,7 @@ export default function ChatPage() {
   async function updateConversationTitle(id: string, newTitle: string) {
     if (!newTitle.trim()) return;
     await supabase.from("conversations").update({ title: newTitle }).eq("id", id);
+    conversationsCache = null; // Invalider le cache
     setConversations(prev => prev.map(conv => conv.id === id ? { ...conv, title: newTitle } : conv));
     setFilteredConversations(prev => prev.map(conv => conv.id === id ? { ...conv, title: newTitle } : conv));
     setEditingTitleId(null);
@@ -212,6 +539,7 @@ export default function ChatPage() {
   async function deleteConversation(id: string) {
     if (confirm("Supprimer cette conversation ?")) {
       await supabase.from("conversations").delete().eq("id", id);
+      conversationsCache = null; // Invalider le cache
       const newConversations = conversations.filter(c => c.id !== id);
       setConversations(newConversations);
       setFilteredConversations(newConversations);
@@ -228,8 +556,7 @@ export default function ChatPage() {
     await supabase.from("conversations").update({ updated_at: new Date().toISOString() }).eq("id", conversationId);
   }
 
-  // ========== INTERCEPTIONS - ACTIONS SIMPLES (SANS IA) ==========
-
+  // ========== INTERCEPTIONS ==========
   const checkTimeInterception = (message: string): string | null => {
     const triggers = ["quelle heure", "heure actuelle", "date du jour", "on est quel jour", "quel jour sommes-nous"];
     if (triggers.some(t => message.toLowerCase().includes(t))) {
@@ -339,156 +666,131 @@ export default function ChatPage() {
     return null;
   };
 
-// 7. Détection des dépenses, revenus, investissements
-const checkFinancialInterception = async (message: string): Promise<string | null> => {
-  const messageLower = message.toLowerCase();
-  
-  // Détection d'une dépense
-  const spendPatterns = [
-    /j'ai dépensé (\d+)(?:\s*)(?:euros?|€|dollars?|\$|cfas?|f cfa)?/i,
-    /j'ai payé (\d+)(?:\s*)(?:euros?|€|dollars?|\$|cfas?|f cfa)?/i,
-    /achat de (.*?) pour (\d+)/i,
-    /dépense de (\d+)/i,
-    /(\d+)(?:\s*)(?:euros?|€|dollars?|\$|cfas?|f cfa)? pour (.*?)(?:\s|$)/i
-  ];
-  
-  // Détection d'un revenu
-  const revenuePatterns = [
-    /j'ai reçu (\d+)(?:\s*)(?:euros?|€|dollars?|\$|cfas?|f cfa)?/i,
-    /j'ai gagné (\d+)(?:\s*)(?:euros?|€|dollars?|\$|cfas?|f cfa)?/i,
-    /revenu de (\d+)/i,
-    /paiement reçu de (\d+)/i
-  ];
-  
-  // Détection d'une dépense
-  for (const pattern of spendPatterns) {
-    const match = message.match(pattern);
-    if (match) {
-      let amount = parseInt(match[1]);
-      let title = match[2] || "Dépense";
-      
-      // Extraire le titre de la dépense
-      if (message.includes("pour")) {
-        const pourMatch = message.match(/pour (.*?)(?:\.|$| et)/i);
-        if (pourMatch) title = pourMatch[1].trim();
-      }
-      
-      // Sauvegarder la dépense
-      const { error } = await supabase.from("spending").insert({
-        title: title,
-        amount: amount,
-        category: "other",
-        project: "Général",
-        date: new Date().toISOString().split('T')[0],
-        notes: message,
-        user_id: userId
-      });
-      
-      if (!error) {
-        return `💰 Dépense enregistrée : ${amount.toLocaleString()} CFA pour "${title}"`;
-      } else {
+  const checkFinancialInterception = async (message: string): Promise<string | null> => {
+    const spendPatterns = [
+      /j'ai dépensé (\d+)(?:\s*)(?:euros?|€|dollars?|\$|cfas?|f cfa)?/i,
+      /j'ai payé (\d+)(?:\s*)(?:euros?|€|dollars?|\$|cfas?|f cfa)?/i,
+      /achat de (.*?) pour (\d+)/i,
+      /dépense de (\d+)/i,
+    ];
+    
+    const revenuePatterns = [
+      /j'ai reçu (\d+)(?:\s*)(?:euros?|€|dollars?|\$|cfas?|f cfa)?/i,
+      /j'ai gagné (\d+)(?:\s*)(?:euros?|€|dollars?|\$|cfas?|f cfa)?/i,
+      /revenu de (\d+)/i,
+    ];
+    
+    for (const pattern of spendPatterns) {
+      const match = message.match(pattern);
+      if (match) {
+        let amount = parseInt(match[1]);
+        let title = match[2] || "Dépense";
+        if (message.includes("pour")) {
+          const pourMatch = message.match(/pour (.*?)(?:\.|$| et)/i);
+          if (pourMatch) title = pourMatch[1].trim();
+        }
+        
+        const { error } = await supabase.from("spending").insert({
+          title: title,
+          amount: amount,
+          category: "other",
+          project: "Général",
+          date: new Date().toISOString().split('T')[0],
+          notes: message,
+          user_id: userId
+        });
+        
+        if (!error) {
+          return `💰 Dépense enregistrée : ${amount.toLocaleString()} CFA pour "${title}"`;
+        }
         return `❌ Erreur lors de l'enregistrement de la dépense`;
       }
     }
-  }
-  
-  // Détection d'un revenu
-  for (const pattern of revenuePatterns) {
-    const match = message.match(pattern);
-    if (match) {
-      let amount = parseInt(match[1]);
-      let source = match[2] || "Revenu";
-      
-      // Sauvegarder le revenu
-      const { error } = await supabase.from("revenue").insert({
-        source: source,
-        amount: amount,
-        project: "Général",
-        date: new Date().toISOString().split('T')[0],
-        notes: message,
-        user_id: userId
-      });
-      
-      if (!error) {
-        return `💰 Revenu enregistré : ${amount.toLocaleString()} CFA - ${source}`;
-      } else {
+    
+    for (const pattern of revenuePatterns) {
+      const match = message.match(pattern);
+      if (match) {
+        let amount = parseInt(match[1]);
+        let source = match[2] || "Revenu";
+        
+        const { error } = await supabase.from("revenue").insert({
+          source: source,
+          amount: amount,
+          project: "Général",
+          date: new Date().toISOString().split('T')[0],
+          notes: message,
+          user_id: userId
+        });
+        
+        if (!error) {
+          return `💰 Revenu enregistré : ${amount.toLocaleString()} CFA - ${source}`;
+        }
         return `❌ Erreur lors de l'enregistrement du revenu`;
       }
     }
-  }
-  
-  return null;
-};
+    return null;
+  };
 
-
-  // 8. Détection des investissements
-const checkInvestmentInterception = async (message: string): Promise<string | null> => {
-  const messageLower = message.toLowerCase();
-  
-  const investPatterns = [
-    /j'ai investi (\d+)(?:\s*)(?:euros?|€|dollars?|\$|cfas?|f cfa)? dans (.*?)(?:\.|$)/i,
-    /investissement de (\d+)(?:\s*)(?:euros?|€|dollars?|\$|cfas?|f cfa)? pour (.*?)(?:\.|$)/i,
-    /je veux investir (\d+) dans (.*)/i
-  ];
-  
-  for (const pattern of investPatterns) {
-    const match = message.match(pattern);
-    if (match) {
-      const amount = parseInt(match[1]);
-      const project = match[2] || "Nouveau projet";
-      
-      // Créer une mission/investissement
-      const { error } = await supabase.from("missions").insert({
-        name: `Investissement: ${project}`,
-        category: "business",
-        status: "planning",
-        priority: "normal",
-        notes: message,
-        user_id: userId
-      });
-      
-      if (!error) {
-        return `📈 Investissement enregistré : ${amount.toLocaleString()} CFA dans "${project}"`;
+  const checkInvestmentInterception = async (message: string): Promise<string | null> => {
+    const investPatterns = [
+      /j'ai investi (\d+)(?:\s*)(?:euros?|€|dollars?|\$|cfas?|f cfa)? dans (.*?)(?:\.|$)/i,
+      /investissement de (\d+)(?:\s*)(?:euros?|€|dollars?|\$|cfas?|f cfa)? pour (.*?)(?:\.|$)/i,
+    ];
+    
+    for (const pattern of investPatterns) {
+      const match = message.match(pattern);
+      if (match) {
+        const amount = parseInt(match[1]);
+        const project = match[2] || "Nouveau projet";
+        
+        const { error } = await supabase.from("missions").insert({
+          name: `Investissement: ${project}`,
+          category: "business",
+          status: "planning",
+          priority: "normal",
+          notes: message,
+          user_id: userId
+        });
+        
+        if (!error) {
+          return `📈 Investissement enregistré : ${amount.toLocaleString()} CFA dans "${project}"`;
+        }
+        return `❌ Erreur lors de l'enregistrement de l'investissement`;
       }
-      return `❌ Erreur lors de l'enregistrement de l'investissement`;
     }
-  }
-  return null;
-};
+    return null;
+  };
 
-// 9. Détection des nouvelles missions/projets
-const checkProjectInterception = async (message: string): Promise<string | null> => {
-  const messageLower = message.toLowerCase();
-  
-  const projectPatterns = [
-    /je veux lancer (?:un projet|une mission) (?:appelé|nommé)? ["']?([^"'\n]+)["']?/i,
-    /nouveau projet ["']?([^"'\n]+)["']?/i,
-    /crée (?:une mission|un projet) ["']?([^"'\n]+)["']?/i
-  ];
-  
-  for (const pattern of projectPatterns) {
-    const match = message.match(pattern);
-    if (match) {
-      const projectName = match[1].trim();
-      
-      const { error } = await supabase.from("missions").insert({
-        name: projectName,
-        category: "business",
-        status: "idea",
-        priority: "normal",
-        notes: message,
-        user_id: userId
-      });
-      
-      if (!error) {
-        return `🎯 Mission "${projectName}" créée avec succès !`;
+  const checkProjectInterception = async (message: string): Promise<string | null> => {
+    const projectPatterns = [
+      /je veux lancer (?:un projet|une mission) (?:appelé|nommé)? ["']?([^"'\n]+)["']?/i,
+      /nouveau projet ["']?([^"'\n]+)["']?/i,
+      /crée (?:une mission|un projet) ["']?([^"'\n]+)["']?/i
+    ];
+    
+    for (const pattern of projectPatterns) {
+      const match = message.match(pattern);
+      if (match) {
+        const projectName = match[1].trim();
+        
+        const { error } = await supabase.from("missions").insert({
+          name: projectName,
+          category: "business",
+          status: "idea",
+          priority: "normal",
+          notes: message,
+          user_id: userId
+        });
+        
+        if (!error) {
+          return `🎯 Mission "${projectName}" créée avec succès !`;
+        }
+        return `❌ Erreur lors de la création de la mission`;
       }
-      return `❌ Erreur lors de la création de la mission`;
     }
-  }
-  return null;
-};
-  
+    return null;
+  };
+
   const generateExecutionPlan = async (query: string): Promise<boolean> => {
     setIsGeneratingPlan(true);
     try {
@@ -520,7 +822,7 @@ const checkProjectInterception = async (message: string): Promise<string | null>
     }
   };
 
-  // ========== STREAMING ==========
+  // ========== STREAMING CORRIGÉ ==========
   const sendMessageStreaming = async (allMessages: any[], onChunk: (chunk: string) => void): Promise<string> => {
     const response = await fetch(`${API_URL}/chat/stream-simple`, {
       method: "POST",
@@ -562,11 +864,11 @@ const checkProjectInterception = async (message: string): Promise<string | null>
     return fullResponse;
   };
 
-  // ========== ENVOI DE MESSAGE PRINCIPAL ==========
+  // ========== ENVOI DE MESSAGE PRINCIPAL CORRIGÉ ==========
   const sendMessage = async () => {
     if (isSending || (!input.trim() && uploadedFiles.length === 0) || isLoading || !currentConversationId) return;
     
-    // Interceptions
+    // === INTERCEPTIONS ===
     const timeRes = checkTimeInterception(input);
     if (timeRes) {
       const msg: Message = { role: "assistant", content: timeRes };
@@ -621,37 +923,34 @@ const checkProjectInterception = async (message: string): Promise<string | null>
       return;
     }
 
+    const financialRes = await checkFinancialInterception(input);
+    if (financialRes) {
+      const msg: Message = { role: "assistant", content: financialRes };
+      setMessages(prev => [...prev, msg]);
+      await saveMessage(currentConversationId, "assistant", financialRes);
+      setInput(""); setUploadedFiles([]);
+      return;
+    }
 
-    // Dans sendMessage, après les autres interceptions, ajoute :
+    const investmentRes = await checkInvestmentInterception(input);
+    if (investmentRes) {
+      const msg: Message = { role: "assistant", content: investmentRes };
+      setMessages(prev => [...prev, msg]);
+      await saveMessage(currentConversationId, "assistant", investmentRes);
+      setInput(""); setUploadedFiles([]);
+      return;
+    }
 
-const financialRes = await checkFinancialInterception(input);
-if (financialRes) {
-  const msg: Message = { role: "assistant", content: financialRes };
-  setMessages(prev => [...prev, msg]);
-  await saveMessage(currentConversationId, "assistant", financialRes);
-  setInput(""); setUploadedFiles([]);
-  return;
-}
-
-const investmentRes = await checkInvestmentInterception(input);
-if (investmentRes) {
-  const msg: Message = { role: "assistant", content: investmentRes };
-  setMessages(prev => [...prev, msg]);
-  await saveMessage(currentConversationId, "assistant", investmentRes);
-  setInput(""); setUploadedFiles([]);
-  return;
-}
-
-const projectRes = await checkProjectInterception(input);
-if (projectRes) {
-  const msg: Message = { role: "assistant", content: projectRes };
-  setMessages(prev => [...prev, msg]);
-  await saveMessage(currentConversationId, "assistant", projectRes);
-  setInput(""); setUploadedFiles([]);
-  return;
-}
+    const projectRes = await checkProjectInterception(input);
+    if (projectRes) {
+      const msg: Message = { role: "assistant", content: projectRes };
+      setMessages(prev => [...prev, msg]);
+      await saveMessage(currentConversationId, "assistant", projectRes);
+      setInput(""); setUploadedFiles([]);
+      return;
+    }
     
-    // Envoi à l'IA
+    // === ENVOI À L'IA ===
     setIsSending(true);
     setIsLoading(true);
     
@@ -675,8 +974,9 @@ if (projectRes) {
     setMessages(prev => [...prev, userMsg]);
     await saveMessage(currentConversationId, "user", userContent, undefined, uploaded);
     
-    const tempId = `temp-${Date.now()}`;
-    setMessages(prev => [...prev, { id: tempId, role: "assistant", content: "" }]);
+    // ✅ CORRECTION : Ajoute un message assistant vide et garde sa référence
+    const assistantMsgIndex = messages.length + 1;
+    setMessages(prev => [...prev, { role: "assistant", content: "" }]);
     
     setInput("");
     setUploadedFiles([]);
@@ -684,21 +984,20 @@ if (projectRes) {
 
     try {
       let assistantContent = "";
+      
       await sendMessageStreaming(allMsgs, (chunk) => {
         assistantContent += chunk;
+        // ✅ Met à jour le message assistant en place
         setMessages(prev => {
           const newMsgs = [...prev];
-          const last = newMsgs[newMsgs.length - 1];
-          if (last && last.id === tempId) last.content = assistantContent;
+          if (newMsgs[assistantMsgIndex]) {
+            newMsgs[assistantMsgIndex].content = assistantContent;
+          }
           return newMsgs;
         });
       });
       
-      setMessages(prev => {
-        const filtered = prev.filter(m => m.id !== tempId);
-        return [...filtered, { id: Date.now().toString(), role: "assistant", content: assistantContent }];
-      });
-      
+      // ✅ Sauvegarde le message final
       await saveMessage(currentConversationId, "assistant", assistantContent);
       setLastAssistantMessage(assistantContent);
       
@@ -706,8 +1005,7 @@ if (projectRes) {
         const hasPlan = await generateExecutionPlan(userContent);
         if (hasPlan && executionPlan) {
           const guide = `🎯 Je vais t'aider à avancer étape par étape.\n\n**Plan : ${executionPlan.plan.title}**\n*Durée estimée : ${executionPlan.plan.estimated_duration}*\n\nCoche les étapes au fur et à mesure. Une chose à la fois. ✨`;
-          const guideMsg: Message = { role: "assistant", content: guide };
-          setMessages(prev => [...prev, guideMsg]);
+          setMessages(prev => [...prev, { role: "assistant", content: guide }]);
           await saveMessage(currentConversationId, "assistant", guide);
         }
       }
@@ -717,8 +1015,11 @@ if (projectRes) {
     } catch (error) {
       console.error("Erreur streaming:", error);
       setMessages(prev => {
-        const filtered = prev.filter(m => m.id !== tempId);
-        return [...filtered, { role: "assistant", content: "❌ Erreur de connexion. Réessaie." }];
+        const newMsgs = [...prev];
+        if (newMsgs[assistantMsgIndex]) {
+          newMsgs[assistantMsgIndex].content = "❌ Erreur de connexion. Réessaie.";
+        }
+        return newMsgs;
       });
     } finally {
       setIsLoading(false);
@@ -800,6 +1101,9 @@ if (projectRes) {
   const handlePlanComplete = () => { toast.success("🎉 Félicitations ! Plan accompli !"); setExecutionPlan(null); };
   const handleClosePlan = () => setExecutionPlan(null);
 
+  // Animation conditionnelle pour mobile
+  const shouldAnimate = typeof window !== 'undefined' && window.innerWidth >= 768;
+
   if (userIdLoading) return <div className="flex items-center justify-center h-screen"><Loader2 className="w-8 h-8 text-gold-500 animate-spin" /></div>;
 
   // ========== RENDU ==========
@@ -821,7 +1125,7 @@ if (projectRes) {
         </div>
       </header>
 
-      {/* SIDEBAR */}
+      {/* SIDEBAR - Le reste du rendu reste identique, juste les animations conditionnelles */}
       <AnimatePresence>
         {isSidebarOpen && (
           <>
@@ -852,10 +1156,10 @@ if (projectRes) {
         )}
       </AnimatePresence>
 
-      {/* MESSAGES */}
+      {/* MESSAGES AVEC ANIMATIONS CONDITIONNELLES */}
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
         {messages.map((m, i) => (
-          <motion.div key={i} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
+          <div key={i} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
             {m.role === "user" ? (
               <div className="max-w-[85%] p-4 rounded-2xl text-sm bg-gold-500 text-midnight rounded-br-none">
                 <ReactMarkdown>{m.content}</ReactMarkdown>
@@ -881,7 +1185,7 @@ if (projectRes) {
                 <MessageWithActions content={m.content} actions={m.actions} onActionComplete={() => {}} />
               </div>
             )}
-          </motion.div>
+          </div>
         ))}
         
         {executionPlan && (<div className="flex justify-start"><div className="max-w-[85%] w-full"><ExecutionGuide planId={executionPlan.planId} plan={executionPlan.plan} onComplete={handlePlanComplete} onClose={handleClosePlan} /></div></div>)}
