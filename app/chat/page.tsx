@@ -339,6 +339,156 @@ export default function ChatPage() {
     return null;
   };
 
+// 7. Détection des dépenses, revenus, investissements
+const checkFinancialInterception = async (message: string): Promise<string | null> => {
+  const messageLower = message.toLowerCase();
+  
+  // Détection d'une dépense
+  const spendPatterns = [
+    /j'ai dépensé (\d+)(?:\s*)(?:euros?|€|dollars?|\$|cfas?|f cfa)?/i,
+    /j'ai payé (\d+)(?:\s*)(?:euros?|€|dollars?|\$|cfas?|f cfa)?/i,
+    /achat de (.*?) pour (\d+)/i,
+    /dépense de (\d+)/i,
+    /(\d+)(?:\s*)(?:euros?|€|dollars?|\$|cfas?|f cfa)? pour (.*?)(?:\s|$)/i
+  ];
+  
+  // Détection d'un revenu
+  const revenuePatterns = [
+    /j'ai reçu (\d+)(?:\s*)(?:euros?|€|dollars?|\$|cfas?|f cfa)?/i,
+    /j'ai gagné (\d+)(?:\s*)(?:euros?|€|dollars?|\$|cfas?|f cfa)?/i,
+    /revenu de (\d+)/i,
+    /paiement reçu de (\d+)/i
+  ];
+  
+  // Détection d'une dépense
+  for (const pattern of spendPatterns) {
+    const match = message.match(pattern);
+    if (match) {
+      let amount = parseInt(match[1]);
+      let title = match[2] || "Dépense";
+      
+      // Extraire le titre de la dépense
+      if (message.includes("pour")) {
+        const pourMatch = message.match(/pour (.*?)(?:\.|$| et)/i);
+        if (pourMatch) title = pourMatch[1].trim();
+      }
+      
+      // Sauvegarder la dépense
+      const { error } = await supabase.from("spending").insert({
+        title: title,
+        amount: amount,
+        category: "other",
+        project: "Général",
+        date: new Date().toISOString().split('T')[0],
+        notes: message,
+        user_id: userId
+      });
+      
+      if (!error) {
+        return `💰 Dépense enregistrée : ${amount.toLocaleString()} CFA pour "${title}"`;
+      } else {
+        return `❌ Erreur lors de l'enregistrement de la dépense`;
+      }
+    }
+  }
+  
+  // Détection d'un revenu
+  for (const pattern of revenuePatterns) {
+    const match = message.match(pattern);
+    if (match) {
+      let amount = parseInt(match[1]);
+      let source = match[2] || "Revenu";
+      
+      // Sauvegarder le revenu
+      const { error } = await supabase.from("revenue").insert({
+        source: source,
+        amount: amount,
+        project: "Général",
+        date: new Date().toISOString().split('T')[0],
+        notes: message,
+        user_id: userId
+      });
+      
+      if (!error) {
+        return `💰 Revenu enregistré : ${amount.toLocaleString()} CFA - ${source}`;
+      } else {
+        return `❌ Erreur lors de l'enregistrement du revenu`;
+      }
+    }
+  }
+  
+  return null;
+};
+
+
+  // 8. Détection des investissements
+const checkInvestmentInterception = async (message: string): Promise<string | null> => {
+  const messageLower = message.toLowerCase();
+  
+  const investPatterns = [
+    /j'ai investi (\d+)(?:\s*)(?:euros?|€|dollars?|\$|cfas?|f cfa)? dans (.*?)(?:\.|$)/i,
+    /investissement de (\d+)(?:\s*)(?:euros?|€|dollars?|\$|cfas?|f cfa)? pour (.*?)(?:\.|$)/i,
+    /je veux investir (\d+) dans (.*)/i
+  ];
+  
+  for (const pattern of investPatterns) {
+    const match = message.match(pattern);
+    if (match) {
+      const amount = parseInt(match[1]);
+      const project = match[2] || "Nouveau projet";
+      
+      // Créer une mission/investissement
+      const { error } = await supabase.from("missions").insert({
+        name: `Investissement: ${project}`,
+        category: "business",
+        status: "planning",
+        priority: "normal",
+        notes: message,
+        user_id: userId
+      });
+      
+      if (!error) {
+        return `📈 Investissement enregistré : ${amount.toLocaleString()} CFA dans "${project}"`;
+      }
+      return `❌ Erreur lors de l'enregistrement de l'investissement`;
+    }
+  }
+  return null;
+};
+
+// 9. Détection des nouvelles missions/projets
+const checkProjectInterception = async (message: string): Promise<string | null> => {
+  const messageLower = message.toLowerCase();
+  
+  const projectPatterns = [
+    /je veux lancer (?:un projet|une mission) (?:appelé|nommé)? ["']?([^"'\n]+)["']?/i,
+    /nouveau projet ["']?([^"'\n]+)["']?/i,
+    /crée (?:une mission|un projet) ["']?([^"'\n]+)["']?/i
+  ];
+  
+  for (const pattern of projectPatterns) {
+    const match = message.match(pattern);
+    if (match) {
+      const projectName = match[1].trim();
+      
+      const { error } = await supabase.from("missions").insert({
+        name: projectName,
+        category: "business",
+        status: "idea",
+        priority: "normal",
+        notes: message,
+        user_id: userId
+      });
+      
+      if (!error) {
+        return `🎯 Mission "${projectName}" créée avec succès !`;
+      }
+      return `❌ Erreur lors de la création de la mission`;
+    }
+  }
+  return null;
+};
+  
   const generateExecutionPlan = async (query: string): Promise<boolean> => {
     setIsGeneratingPlan(true);
     try {
@@ -471,6 +621,36 @@ export default function ChatPage() {
       return;
     }
 
+
+    // Dans sendMessage, après les autres interceptions, ajoute :
+
+const financialRes = await checkFinancialInterception(input);
+if (financialRes) {
+  const msg: Message = { role: "assistant", content: financialRes };
+  setMessages(prev => [...prev, msg]);
+  await saveMessage(currentConversationId, "assistant", financialRes);
+  setInput(""); setUploadedFiles([]);
+  return;
+}
+
+const investmentRes = await checkInvestmentInterception(input);
+if (investmentRes) {
+  const msg: Message = { role: "assistant", content: investmentRes };
+  setMessages(prev => [...prev, msg]);
+  await saveMessage(currentConversationId, "assistant", investmentRes);
+  setInput(""); setUploadedFiles([]);
+  return;
+}
+
+const projectRes = await checkProjectInterception(input);
+if (projectRes) {
+  const msg: Message = { role: "assistant", content: projectRes };
+  setMessages(prev => [...prev, msg]);
+  await saveMessage(currentConversationId, "assistant", projectRes);
+  setInput(""); setUploadedFiles([]);
+  return;
+}
+    
     // Envoi à l'IA
     setIsSending(true);
     setIsLoading(true);
