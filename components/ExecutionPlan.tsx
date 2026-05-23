@@ -1,10 +1,10 @@
-// components/ExecutionPlan.tsx
 "use client";
 
-import { CheckCircle, Circle, HelpCircle } from "lucide-react";
+import { useState } from "react";
+import { CheckCircle, Circle, HelpCircle, X } from "lucide-react";
 import { motion } from "framer-motion";
 
-interface ExecutionPlanProps {
+export interface ExecutionPlanProps {
   planId: string;
   title: string;
   steps: string[];
@@ -12,6 +12,7 @@ interface ExecutionPlanProps {
   onStepComplete: (stepIndex: number) => void;
   onPlanComplete: () => void;
   onAskHelp: (stepIndex: number, question: string) => void;
+  onUpdate?: (completedSteps: number[]) => void;
 }
 
 export function ExecutionPlan({ 
@@ -21,10 +22,22 @@ export function ExecutionPlan({
   completedSteps, 
   onStepComplete, 
   onPlanComplete,
-  onAskHelp 
+  onAskHelp,
+  onUpdate
 }: ExecutionPlanProps) {
+  const [showHelpInput, setShowHelpInput] = useState<number | null>(null);
+  const [helpQuestion, setHelpQuestion] = useState("");
+  
   const progress = (completedSteps.length / steps.length) * 100;
   const isComplete = completedSteps.length === steps.length;
+
+  const handleHelpSubmit = (idx: number) => {
+    if (helpQuestion.trim()) {
+      onAskHelp(idx, helpQuestion);
+      setShowHelpInput(null);
+      setHelpQuestion("");
+    }
+  };
 
   if (isComplete) {
     return (
@@ -87,21 +100,59 @@ export function ExecutionPlan({
                     <Circle className="w-5 h-5 text-gray-500 hover:text-gold-500 transition-colors" />
                   )}
                 </button>
+                
                 <div className="flex-1">
                   <p className={`text-sm ${isCompleted ? "text-gray-400 line-through" : "text-ivory"}`}>
                     {idx + 1}. {step}
                   </p>
                 </div>
+                
+                {/* Bouton Aide - visible uniquement pour l'étape courante non complétée */}
                 {isCurrent && !isCompleted && (
-                  <button
-                    onClick={() => {
-                      const question = prompt("Quelle aide as-tu besoin sur cette étape ?", "Je veux plus de détails");
-                      if (question) onAskHelp(idx, question);
-                    }}
-                    className="text-xs text-gold-500 hover:underline flex items-center gap-1"
-                  >
-                    <HelpCircle className="w-3 h-3" /> Aide
-                  </button>
+                  <div className="relative">
+                    <button
+                      onClick={() => setShowHelpInput(showHelpInput === idx ? null : idx)}
+                      className="text-xs text-gold-500 hover:underline flex items-center gap-1"
+                    >
+                      <HelpCircle className="w-3 h-3" /> Aide
+                    </button>
+                    
+                    {showHelpInput === idx && (
+                      <div className="absolute right-0 top-6 z-10 bg-midnight border border-gold-500/30 rounded-lg p-2 w-64 shadow-xl">
+                        <div className="flex justify-between items-center mb-2">
+                          <span className="text-xs text-gold-500">Pose ta question</span>
+                          <button onClick={() => setShowHelpInput(null)} className="text-gray-500 hover:text-gold-500">
+                            <X className="w-3 h-3" />
+                          </button>
+                        </div>
+                        <input
+                          type="text"
+                          placeholder="ex: Je ne comprends pas cette étape..."
+                          value={helpQuestion}
+                          onChange={(e) => setHelpQuestion(e.target.value)}
+                          className="w-full bg-white/10 border border-white/20 rounded-md px-2 py-1.5 text-xs text-ivory placeholder:text-gray-500"
+                          autoFocus
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") handleHelpSubmit(idx);
+                          }}
+                        />
+                        <div className="flex gap-2 mt-2">
+                          <button
+                            onClick={() => handleHelpSubmit(idx)}
+                            className="flex-1 py-1.5 bg-gold-500/20 text-gold-500 rounded text-xs hover:bg-gold-500/30"
+                          >
+                            Envoyer
+                          </button>
+                          <button
+                            onClick={() => setShowHelpInput(null)}
+                            className="flex-1 py-1.5 bg-white/10 text-gray-400 rounded text-xs hover:bg-white/20"
+                          >
+                            Annuler
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 )}
               </div>
             </motion.div>
