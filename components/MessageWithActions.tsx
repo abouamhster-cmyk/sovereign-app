@@ -424,6 +424,27 @@ const executeActionFn = async (action: Action): Promise<{ success: boolean; data
         toast.error("❌ Géolocalisation non supportée");
         break;
 
+      case "whatsapp_suggest_reply":
+        const suggestResponse = await fetch(`${API_URL}/api/whatsapp/suggest-reply`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ message: params.message, contact_name: params.contact_name })
+        });
+        const suggestResult = await suggestResponse.json();
+        if (suggestResult.success) {
+          return { 
+            success: true, 
+            data: { 
+              type: "whatsapp_suggestions", 
+              analysis: suggestResult.analysis,
+              suggestions: suggestResult.suggestions,
+              quick_actions: suggestResult.quick_actions,
+              to: params.to 
+            } 
+          };
+        }
+        break;
+
       // ========== LECTURE TABLE ==========
       case "read_table":
         const tableName = params.table;
@@ -524,7 +545,9 @@ const executeActionFn = async (action: Action): Promise<{ success: boolean; data
           toast.info("📱 Aucun message WhatsApp récent");
           return { success: true };
         }
-      
+
+
+        
       // ========== WHATSAPP ENVOI AVEC IMAGE ==========
       case "whatsapp_send_image":
         toast.info("🖼️ Envoi d'image WhatsApp...", { duration: 2000 });
