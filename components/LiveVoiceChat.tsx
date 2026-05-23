@@ -79,8 +79,59 @@ const startMicrophone = useCallback(async () => {
     const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
     streamRef.current = stream;
     
+    // Configurer l'analyse audio pour détecter la voix
+    const audioContext = new AudioContext();
+    const source = audioContext.createMediaStreamSource(stream);
+    const analyser = audioContext.createAnalyser();
+    analyser.fftSize = 256;
+    source.connect(analyser);
+    
+    if (audioContext.state === "suspended") {
+      await audioContext.resume();
+    }
+    
     const mediaRecorder = new MediaRecorder(stream, { mimeType: "audio/webm" });
     mediaRecorderRef.current = mediaRecorder;
+    let isRecording = false;
+    let silenceFrames = 0;
+    
+    // Détection de la voix en continu
+    const detectVoice = () => {
+      if (!analyser) return;
+      
+      const dataArray = new Uint8Array(analyser.frequencyBinCount);
+      analyser.getByteFrequencyData(dataArray);
+      
+      let sum = 0;
+      for (let i = 0; i < dataArray.length; i++) {
+        sum += dataArray[i];
+      }
+      const avgVolume = sum / dataArray.length;
+      const isVoiceDetected = avgVolume > 20; // Seuil de détection de voix
+      
+      if (isVoiceDetected && !isRecording) {
+        // Voix détectée → commencer l'enregistrement
+        console.log("🎤 Voix détectée, début enregistrement");
+        audioChunksRef.current = [];
+        mediaRecorder.start(100);
+        isRecording = true;
+        setIsListening(true);
+        silenceFrames = 0;
+      } 
+      else if (!isVoiceDetected && isRecording) {
+        silenceFrames++;
+        // Après 30 frames de silence (~1.5 secondes), arrêter
+        if (silenceFrames > 30) {
+          console.log("🔇 Silence détecté, fin enregistrement");
+          mediaRecorder.stop();
+          isRecording = false;
+          setIsListening(false);
+          silenceFrames = 0;
+        }
+      }
+      
+      requestAnimationFrame(detectVoice);
+    };
     
     mediaRecorder.ondataavailable = (event) => {
       if (event.data.size > 0) {
@@ -97,7 +148,6 @@ const startMicrophone = useCallback(async () => {
       const reader = new FileReader();
       reader.onloadend = () => {
         const base64 = (reader.result as string).split(",")[1];
-        // Vérifier que le WebSocket est encore ouvert AVANT d'envoyer
         if (wsRef.current?.readyState === WebSocket.OPEN) {
           wsRef.current.send(JSON.stringify({
             type: "audio_chunk",
@@ -105,39 +155,22 @@ const startMicrophone = useCallback(async () => {
             is_final: true
           }));
           console.log("🎤 Audio envoyé, taille:", base64.length);
-        } else {
-          console.log("⚠️ WebSocket fermé, audio non envoyé");
         }
       };
       reader.readAsDataURL(audioBlob);
     };
     
-    // Démarrer l'enregistrement
-    mediaRecorder.start(100);
-    setIsListening(true);
+    // Démarrer la détection de voix
+    detectVoice();
+    
     toast.success("🎤 Micro activé - Parlez maintenant");
-    
-    // Auto-stop après 10 secondes de silence (optionnel)
-    let lastSoundTime = Date.now();
-    const checkSilence = setInterval(() => {
-      if (Date.now() - lastSoundTime > 3000 && mediaRecorder.state === "recording") {
-        mediaRecorder.stop();
-        setIsListening(false);
-        clearInterval(checkSilence);
-      }
-    }, 500);
-    
-    // Sauvegarder le timer pour le cleanup
-    if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
-    silenceTimerRef.current = setTimeout(() => {
-      clearInterval(checkSilence);
-    }, 30000);
     
   } catch (error) {
     console.error("Erreur microphone:", error);
     toast.error("Impossible d'accéder au microphone");
   }
 }, []);
+  
   // Connexion WebSocket
   const connect = useCallback(() => {
     if (wsRef.current?.readyState === WebSocket.OPEN) return;
