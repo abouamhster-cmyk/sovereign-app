@@ -11,8 +11,7 @@ import {
   Calendar, AlertCircle, ArrowRight, Loader2, Edit2, Inbox, CheckSquare, 
   Briefcase, Globe, Trophy, Users, Zap, ShieldAlert, Map, Mail, FileText, 
   TrendingUp, CalendarDays, FolderOpen, Star, Sun, Moon, BarChart3,
-  PieChart, LineChart, Activity, CreditCard, Wallet, Clock, MessageCircle,
-  RefreshCw
+  PieChart, LineChart, Activity, CreditCard, Wallet, Clock, MessageCircle
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -50,7 +49,7 @@ ChartJS.register(
 type Priority = { 
   id: string; 
   title: string; 
-  priority_reason: string;
+  priority_reason: string;  // ← backend renvoie "priority_reason", pas "reason"
   score: number;
   source: string;
   source_id: string;
@@ -158,6 +157,7 @@ export default function DashboardPage() {
     
     if (profileData) setUserName(profileData);
     if (dashboardData) {
+      // Mise à jour avec les données du backend
       setGreeting(dashboardData.greeting || greeting);
       setPriorities(dashboardData.top_priorities || []);
       setTasksToday(dashboardData.tasks_today || []);
@@ -256,8 +256,8 @@ export default function DashboardPage() {
     const todayStr = today.toISOString().split('T')[0];
     
     const [spendingResult, revenueResult, tasksResult, upcomingResult] = await Promise.all([
-      supabase.from("spending").select("id, title, amount, category, date").eq("user_id", userId).gte("date", sevenDaysAgoStr).limit(100),
-      supabase.from("revenue").select("id, source, amount, date").eq("user_id", userId).gte("date", sevenDaysAgoStr).limit(100),
+      supabase.from("spending").select("amount, date").eq("user_id", userId).gte("date", sevenDaysAgoStr).limit(100),
+      supabase.from("revenue").select("amount, date").eq("user_id", userId).gte("date", sevenDaysAgoStr).limit(100),
       supabase.from("tasks").select("status, created_at, updated_at").eq("user_id", userId).gte("created_at", startOfWeekStr).limit(500),
       supabase.from("tasks").select("id, title, due_date, priority").eq("user_id", userId).gte("due_date", todayStr).lte("due_date", new Date(today.getTime() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]).neq("status", "done").order("due_date", { ascending: true }).limit(5)
     ]);
@@ -265,23 +265,8 @@ export default function DashboardPage() {
     const totalRevenue = (revenueResult.data || []).reduce((sum, r) => sum + (r.amount || 0), 0);
     const totalSpending = (spendingResult.data || []).reduce((sum, s) => sum + (s.amount || 0), 0);
     setFinancialSummary({ revenue: totalRevenue, spending: totalSpending, balance: totalRevenue - totalSpending });
-    
-    // Stocker les données complètes
-    const fullSpending = (spendingResult.data || []).map(s => ({
-      id: s.id,
-      title: s.title,
-      amount: s.amount,
-      category: s.category,
-      date: s.date
-    }));
-    const fullRevenue = (revenueResult.data || []).map(r => ({
-      id: r.id,
-      source: r.source,
-      amount: r.amount,
-      date: r.date
-    }));
-    setRecentSpending(fullSpending);
-    setRecentRevenue(fullRevenue);
+    setRecentSpending(spendingResult.data || []);
+    setRecentRevenue(revenueResult.data || []);
     
     const days = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
     const tasksData = tasksResult.data || [];
@@ -431,14 +416,6 @@ export default function DashboardPage() {
 
   const currentMood = moodButtons.find(m => m.value === mood);
 
-  // Nettoyer le message greeting pour ne pas afficher la question sur l'humeur deux fois
-  // Le backend peut renvoyer "Aucune urgence... Comment te sens-tu ?"
-  // On extrait uniquement la partie "Aucune urgence" pour l'afficher dans le message Becks
-  const cleanGreeting = greeting
-    .replace(/Comment te sens-tu.*$/i, '')
-    .replace(/😊.*$/i, '')
-    .trim();
-
   if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
@@ -455,7 +432,7 @@ export default function DashboardPage() {
         <div className="flex justify-between items-center">
           <div>
             <h1 className="text-2xl font-serif text-ivory">
-              {greeting.split('?')[0]?.split('!')[0] || greeting}, {userName}. <Crown className="inline w-5 h-5 text-gold-500" />
+              {greeting}, {userName}. <Crown className="inline w-5 h-5 text-gold-500" />
             </h1>
             <p className="text-xs text-gray-500 mt-1">{new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })}</p>
           </div>
@@ -464,20 +441,22 @@ export default function DashboardPage() {
           </Link>
         </div>
       
-        {/* Message Becks - version nettoyée (sans la question sur l'humeur) */}
-        {cleanGreeting && (
-          <div className="bg-gradient-to-r from-gold-500/10 to-transparent border-l-4 border-gold-500 rounded-xl p-4">
+        {/* Message Becks - NON GÉNÉRIQUE */}
+        <div className="bg-gradient-to-r from-gold-500/10 to-transparent border-l-4 border-gold-500 rounded-xl p-4">
+          {isLoading ? (
+            <div className="flex items-center gap-2"><Loader2 className="w-4 h-4 text-gold-500 animate-spin" /><span className="text-sm text-gray-400">Becks réfléchit...</span></div>
+          ) : (
             <div className="flex items-start gap-3">
               <Sparkles className="w-5 h-5 text-gold-500 mt-0.5 flex-shrink-0" />
               <p className="text-ivory text-sm leading-relaxed">
-                {cleanGreeting}
+                {greeting || "Bonjour, je suis là."}
               </p>
             </div>
-          </div>
-        )}
+          )}
+        </div>
       </div>
 
-      {/* HUMEUR DU JOUR - C'est ici que la question doit être posée */}
+      {/* HUMEUR DU JOUR */}
       <div className="bg-white/5 border border-white/10 rounded-xl p-4">
         {mood ? (
           <div className="flex items-center justify-between">
@@ -505,7 +484,7 @@ export default function DashboardPage() {
         )}
       </div>
 
-      {/* STATS RAPIDES */}
+      {/* STATS RAPIDES (WhatsApp, documents, etc.) */}
       {(whatsappPending > 0 || pendingDocs.length > 0 || familyEventsCount > 0) && (
         <div className="grid grid-cols-3 gap-3">
           {whatsappPending > 0 && (
@@ -535,7 +514,7 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* TOP 3 PRIORITÉS */}
+      {/* TOP 3 PRIORITÉS - AVEC SOURCES */}
       <div className="bg-white/5 border border-white/10 rounded-2xl overflow-hidden">
         <div className="px-5 pt-4 pb-2 flex items-center justify-between">
           <h2 className="text-sm font-serif text-gold-500 flex items-center gap-2">
@@ -582,7 +561,7 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* MESSAGES WHATSAPP URGENTS */}
+      {/* MESSAGES WHATSAPP URGENTS (si pas déjà dans les priorités) */}
       {whatsappUrgent > 0 && priorities.filter(p => p.source === "whatsapp").length === 0 && (
         <div className="bg-green-500/10 border border-green-500/20 rounded-xl p-4">
           <div className="flex items-center gap-2 mb-2">
@@ -594,7 +573,7 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* 4 MOVES */}
+      {/* 4 MOVES (basés sur les suggestions du backend) */}
       <div className="grid grid-cols-2 gap-3">
         <Link href="/money-opportunities" className="block">
           <div className="bg-gradient-to-br from-emerald-500/5 to-transparent border border-emerald-500/20 rounded-xl p-4 hover:border-emerald-500/40">
@@ -638,7 +617,7 @@ export default function DashboardPage() {
         </Link>
       </div>
 
-      {/* GUIDANCE CALME */}
+      {/* GUIDANCE CALME (non générique) */}
       {calmGuidance && (
         <div className="bg-gold-500/5 border border-gold-500/20 rounded-xl p-4 text-center">
           <Sparkles className="w-4 h-4 text-gold-500 mx-auto mb-2" />
