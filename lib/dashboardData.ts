@@ -99,7 +99,7 @@ export async function fetchDashboardData(userId: string): Promise<DashboardData>
   // Événements spéciaux
   const specialEvents: DashboardData["specialEvents"] = [];
   
-  const children = kidsResult.data?.[0]?.children || [];
+  const children = (kidsResult.data as any)?.[0]?.children || [];
   const todayMD = now.toISOString().slice(5, 10);
   for (const child of children) {
     if (child.birthday) {
