@@ -5,7 +5,10 @@ import { CheckCircle, Loader2, Mic, Send, MapPin, Clock, Mail, FileText, ListTod
 import { toast } from "sonner";
 import ReactMarkdown from 'react-markdown';
 import { ExecutionPlan } from "@/components/ExecutionPlan";
+type MessageWithActionsProps = {
 
+
+  
 const API_URL = "https://sovereign-bridge.onrender.com";
 
 export type Action = {
@@ -18,6 +21,7 @@ type MessageWithActionsProps = {
   content: string;
   actions?: Action[];
   onActionComplete?: () => void;
+  onPlanUpdate?: (planId: string, completedSteps: number[]) => void; 
 };
 
 // ============================================================
@@ -774,15 +778,23 @@ export function MessageWithActions({ content, actions: providedActions = [], onA
         
         {activeExecutionPlan && (
           <div className="mt-4">
-            <ExecutionPlan
-              planId={activeExecutionPlan.planId}
-              title={activeExecutionPlan.title}
-              steps={activeExecutionPlan.steps}
-              completedSteps={activeExecutionPlan.completedSteps}
-              onStepComplete={handleStepComplete}
-              onPlanComplete={handlePlanComplete}
-              onAskHelp={handleAskHelp}
-            />
+              <ExecutionPlan
+                planId={activeExecutionPlan.planId}
+                title={activeExecutionPlan.title}
+                steps={activeExecutionPlan.steps}
+                completedSteps={activeExecutionPlan.completedSteps}
+                onStepComplete={handleStepComplete}
+                onPlanComplete={handlePlanComplete}
+                onAskHelp={handleAskHelp}
+                onUpdate={(completedSteps) => {
+                  // Mettre à jour l'état local
+                  setActiveExecutionPlan(prev => prev ? { ...prev, completedSteps } : null);
+                  // Appeler la prop parent pour sauvegarder
+                  if (onPlanUpdate) {
+                    onPlanUpdate(activeExecutionPlan.planId, completedSteps);
+                  }
+                }}
+              />
           </div>
         )}
         
