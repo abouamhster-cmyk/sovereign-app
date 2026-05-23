@@ -588,7 +588,7 @@ export default function ChatPage() {
     }).eq("id", conversationId);
   }
 
-  // ========== INTERCEPTIONS (version simplifiée pour lisibilité) ==========
+  // ========== INTERCEPTIONS ==========
   const checkTimeInterception = (message: string): string | null => {
     const triggers = ["quelle heure", "heure actuelle", "date du jour", "on est quel jour", "quel jour sommes-nous"];
     if (triggers.some(t => message.toLowerCase().includes(t))) {
@@ -614,9 +614,6 @@ export default function ChatPage() {
     }
     return null;
   };
-
-  // Autres interceptions (tasks, emails, whatsapp, finances, etc.) conservées mais omises ici pour lisibilité
-  // Elles sont identiques à la version précédente
 
   // ========== STREAMING ==========
   const sendMessageStreaming = async (allMessages: any[], onChunk: (chunk: string) => void): Promise<string> => {
@@ -663,9 +660,6 @@ export default function ChatPage() {
   // ========== ENVOI DE MESSAGE ==========
   const sendMessage = async () => {
     if (isSending || (!input.trim() && uploadedFiles.length === 0) || isLoading || !currentConversationId) return;
-    
-    // Vérifier les interceptions (time, reminder, tasks, emails, whatsapp, finances, investment, project)
-    // ... (le code des interceptions est conservé)
     
     setIsSending(true);
     setIsLoading(true);
@@ -845,6 +839,24 @@ export default function ChatPage() {
   const handlePlanComplete = () => { toast.success("🎉 Félicitations ! Plan accompli !"); setExecutionPlan(null); };
   const handleClosePlan = () => setExecutionPlan(null);
 
+  const handlePlanUpdate = useCallback((planId: string, completedSteps: number[]) => {
+    // Sauvegarder dans localStorage
+    if (currentConversationId) {
+      const saved = localStorage.getItem(`execution_plan_${currentConversationId}`);
+      if (saved) {
+        try {
+          const plan = JSON.parse(saved);
+          plan.completedSteps = completedSteps;
+          localStorage.setItem(`execution_plan_${currentConversationId}`, JSON.stringify(plan));
+        } catch(e) {}
+      }
+    }
+    // Mettre à jour l'état local
+    if (executionPlan && executionPlan.planId === planId) {
+      setExecutionPlan(prev => prev ? { ...prev, plan: { ...prev.plan, completedSteps } } : prev);
+    }
+  }, [currentConversationId, executionPlan]);
+
   if (userIdLoading) return <div className="flex items-center justify-center h-screen"><Loader2 className="w-8 h-8 text-gold-500 animate-spin" /></div>;
 
   return (
@@ -921,7 +933,7 @@ export default function ChatPage() {
               </div>
             ) : (
               <div className="max-w-[85%] p-4 rounded-2xl text-sm bg-white/10 text-ivory border border-white/5 rounded-bl-none">
-                <MessageWithActions content={m.content} actions={m.actions} onActionComplete={() => {}} />
+                <MessageWithActions content={m.content} actions={m.actions} onActionComplete={() => {}} onPlanUpdate={handlePlanUpdate} />
               </div>
             )}
           </div>
