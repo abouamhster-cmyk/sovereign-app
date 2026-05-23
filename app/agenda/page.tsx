@@ -209,40 +209,40 @@ export default function AgendaPage() {
     setTasks((data || []) as Task[]);
   }
 
-  async function fetchTaskListOptimized() {
-    if (!userId) return;
-    
-    const { data } = await supabase
-      .from("tasks")
-      .select("id, title, status, priority, project, due_date, created_at, estimated_time")
-      .eq("user_id", userId)
-      .order("created_at", { ascending: false })
-      .limit(100);
-    
-    const tasksData = (data || []) as Task[];
-    setTaskList(tasksData);
-    
-    // Calculer les scores pour chaque tâche
-    const scored = tasksData.map(task => {
-      const { scores, totalScore, level } = calculateTaskPriority(task);
-      return {
-        id: task.id,
-        title: task.title,
-        scores,
-        totalScore,
-        level,
-        estimatedTime: task.estimated_time || undefined,
-        dueDate: task.due_date,
-        priority: task.priority,
-        status: task.status,
-        project: task.project
-      };
-    });
-    
-    // Trier par score
-    const sorted = sortTasksByPriority(scored);
-    setScoredTasks(sorted);
-  }
+ async function fetchTaskListOptimized() {
+  if (!userId) return;
+  
+  const { data } = await supabase
+    .from("tasks")
+    .select("id, title, status, priority, project, due_date, created_at, estimated_time")
+    .eq("user_id", userId)
+    .order("created_at", { ascending: false })
+    .limit(100);
+  
+  const tasksData = (data || []) as Task[];
+  setTaskList(tasksData);
+  
+  // Calculer les scores pour chaque tâche
+  const scored = tasksData.map(task => {
+    const { scores, totalScore, level } = calculateTaskPriority(task);
+    return {
+      id: task.id,
+      title: task.title,
+      scores,
+      totalScore,
+      level,
+      estimatedTime: task.estimated_time || undefined,
+      dueDate: task.due_date,
+      status: task.status,      
+      priority: task.priority,   
+      project: task.project     
+    };
+  });
+  
+  // Trier par score
+  const sorted = sortTasksByPriority(scored);
+  setScoredTasks(sorted);
+}
 
   async function fetchFamilyEventsOptimized() {
     if (!userId) return;
