@@ -26,10 +26,10 @@ interface ExecutionGuideProps {
   plan: ExecutionPlan;
   onComplete?: () => void;
   onClose?: () => void;
-  onUpdate?: (completedSteps: number[]) => void; 
+  onUpdate?: (completedSteps: number[]) => void;
 }
 
-export function ExecutionGuide({ planId, plan, onComplete, onClose }: ExecutionGuideProps) {
+export function ExecutionGuide({ planId, plan, onComplete, onClose, onUpdate }: ExecutionGuideProps) {
   const [completedSteps, setCompletedSteps] = useState<number[]>([]);
   const [isCompleting, setIsCompleting] = useState(false);
   const [isComplete, setIsComplete] = useState(false);
@@ -37,16 +37,17 @@ export function ExecutionGuide({ planId, plan, onComplete, onClose }: ExecutionG
   const progress = (completedSteps.length / plan.steps.length) * 100;
 
   const completeStep = async (index: number) => {
-  if (completedSteps.includes(index) || isCompleting) return;
-  
-  setIsCompleting(true);
-  const newCompleted = [...completedSteps, index];
-  setCompletedSteps(newCompleted);
-  
-  // Appeler la prop de mise à jour pour sauvegarder dans le message parent
-  if (onUpdate) {
-    onUpdate(newCompleted);
-  }
+    if (completedSteps.includes(index) || isCompleting) return;
+
+    setIsCompleting(true);
+    const newCompleted = [...completedSteps, index];
+    setCompletedSteps(newCompleted);
+    
+    // Appeler la prop de mise à jour pour sauvegarder dans le message parent
+    if (onUpdate) {
+      onUpdate(newCompleted);
+    }
+    
     try {
       const response = await fetch(`${API_URL}/api/execute/complete-step`, {
         method: "POST",
@@ -56,7 +57,6 @@ export function ExecutionGuide({ planId, plan, onComplete, onClose }: ExecutionG
       const data = await response.json();
 
       if (data.success) {
-        setCompletedSteps(prev => [...prev, index]);
         toast.success(`✅ ${plan.steps[index].description.substring(0, 50)}...`);
         
         if (data.is_complete) {
