@@ -39,6 +39,8 @@ type Message = {
   content: string;
   actions?: { type: string; params: any; label: string }[];
   files?: { name: string; url: string; type: string }[];
+  executionPlan?: any;
+  checklist?: any;
   created_at?: string;
 };
 
@@ -380,23 +382,23 @@ export default function ChatPage() {
   }, [searchTerm, conversations]);
 
   // Sauvegarder l'exécution plan quand elle change
-useEffect(() => {
-  if (executionPlan) {
-    localStorage.setItem(`execution_plan_${currentConversationId}`, JSON.stringify(executionPlan));
-  }
-}, [executionPlan, currentConversationId]);
-
-// Charger l'exécution plan au chargement de la conversation
-useEffect(() => {
-  if (currentConversationId) {
-    const saved = localStorage.getItem(`execution_plan_${currentConversationId}`);
-    if (saved) {
-      try {
-        setExecutionPlan(JSON.parse(saved));
-      } catch(e) {}
+  useEffect(() => {
+    if (executionPlan && currentConversationId) {
+      localStorage.setItem(`execution_plan_${currentConversationId}`, JSON.stringify(executionPlan));
     }
-  }
-}, [currentConversationId]);
+  }, [executionPlan, currentConversationId]);
+
+  // Charger l'exécution plan au chargement de la conversation
+  useEffect(() => {
+    if (currentConversationId) {
+      const saved = localStorage.getItem(`execution_plan_${currentConversationId}`);
+      if (saved) {
+        try {
+          setExecutionPlan(JSON.parse(saved));
+        } catch(e) {}
+      }
+    }
+  }, [currentConversationId]);
 
   useEffect(() => {
     if (messagesEndRef.current) messagesEndRef.current.scrollIntoView({ behavior: "smooth", block: "end" });
@@ -467,16 +469,38 @@ useEffect(() => {
       .limit(100);
     
     if (error) return;
+    
     if (data && data.length > 0) {
       const parsedMessages = data.map(msg => {
         try {
           const parsed = JSON.parse(msg.content);
-          return { id: msg.id, role: msg.role, content: parsed.content || msg.content, actions: parsed.actions, files: parsed.files || [], created_at: msg.created_at };
+          return { 
+            id: msg.id, 
+            role: msg.role, 
+            content: parsed.content || msg.content,
+            actions: parsed.actions || [],
+            files: parsed.files || [],
+            executionPlan: parsed.execution_plan,
+            checklist: parsed.checklist,
+            created_at: msg.created_at 
+          };
         } catch {
-          return { id: msg.id, role: msg.role, content: msg.content, files: [], created_at: msg.created_at };
+          return { 
+            id: msg.id, 
+            role: msg.role, 
+            content: msg.content, 
+            files: [], 
+            created_at: msg.created_at 
+          };
         }
       });
       setMessages(parsedMessages);
+      
+      // Restaurer le plan d'exécution actif s'il existe
+      const lastExecutionPlan = [...parsedMessages].reverse().find(m => m.executionPlan);
+      if (lastExecutionPlan?.executionPlan) {
+        setExecutionPlan(lastExecutionPlan.executionPlan);
+      }
     } else {
       setMessages([{ role: "assistant", content: "Coucou Rebecca 😌 Je suis là." }]);
     }
@@ -517,12 +541,38 @@ useEffect(() => {
     }
   }
 
-  async function saveMessage(conversationId: string, role: string, content: string, actions?: any[], files?: any[]) {
-    const messageData: any = { content };
-    if (actions?.length) messageData.actions = actions;
-    if (files?.length) messageData.files = files;
-    await supabase.from("conversation_messages").insert({ conversation_id: conversationId, role, content: JSON.stringify(messageData) });
-    await supabase.from("conversations").update({ updated_at: new Date().toISOString() }).eq("id", conversationId);
+  async function saveMessage(
+    conversationId: string, 
+    role: string, 
+    content: string, 
+    actions?: any[], 
+    files?: any[],
+    executionPlan?: any,
+    checklist?: any
+  ) {
+    const messageData: any = { 
+      content,
+      actions: actions || [],
+      files: files || []
+    };
+    
+    if (executionPlan) {
+      messageData.execution_plan = executionPlan;
+    }
+    
+    if (checklist) {
+      messageData.checklist = checklist;
+    }
+    
+    await supabase.from("conversation_messages").insert({ 
+      conversation_id: conversationId, 
+      role, 
+      content: JSON.stringify(messageData) 
+    });
+    
+    await supabase.from("conversations").update({ 
+      updated_at: new Date().toISOString() 
+    }).eq("id", conversationId);
   }
 
   // ========== INTERCEPTIONS ==========
@@ -626,7 +676,6 @@ useEffect(() => {
           });
           list += `💡 Dis-moi 'réponds à [nom]' pour envoyer un message`;
           
-          // Stocker pour afficher les suggestions
           if (result.conversations[0]) {
             const firstConv = result.conversations[0];
             setWhatsappSuggestions({
