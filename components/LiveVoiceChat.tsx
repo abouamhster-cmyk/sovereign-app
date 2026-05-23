@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import { Mic, MicOff, Volume2, VolumeX, Loader2, X, Send } from "lucide-react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import { toast } from "sonner";
 
 const API_URL = "https://sovereign-bridge.onrender.com";
@@ -27,16 +27,12 @@ export function LiveVoiceChat({ userId, onClose }: LiveVoiceChatProps) {
   const [isThinking, setIsThinking] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
   const [manualInput, setManualInput] = useState("");
-  const [isWakeWordActive, setIsWakeWordActive] = useState(false);
   
   const wsRef = useRef<WebSocket | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const streamRef = useRef<MediaStream | null>(null);
   const silenceTimerRef = useRef<NodeJS.Timeout | null>(null);
-  const audioContextRef = useRef<AudioContext | null>(null);
-  const analyserRef = useRef<AnalyserNode | null>(null);
-  const animationFrameRef = useRef<number | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // Auto-scroll
@@ -44,53 +40,37 @@ export function LiveVoiceChat({ userId, onClose }: LiveVoiceChatProps) {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  // Nettoyage complet des ressources
+  // Nettoyage
   const cleanup = useCallback(() => {
-    // Arrêter le MediaRecorder
-    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
-      try {
-        mediaRecorderRef.current.stop();
-      } catch(e) {}
+    if (mediaRecorderRef.current?.state === "recording") {
+      mediaRecorderRef.current.stop();
     }
-    mediaRecorderRef.current = null;
-    
-    // Arrêter toutes les tracks du stream
     if (streamRef.current) {
-      streamRef.current.getTracks().forEach(track => {
-        track.stop();
-      });
+      streamRef.current.getTracks().forEach(track => track.stop());
       streamRef.current = null;
     }
-    
-    // Fermer l'AudioContext
-    if (audioContextRef.current) {
-      audioContextRef.current.close();
-      audioContextRef.current = null;
-    }
-    
-    // Nettoyer les timers
     if (silenceTimerRef.current) {
       clearTimeout(silenceTimerRef.current);
       silenceTimerRef.current = null;
     }
-    
-    if (animationFrameRef.current) {
-      cancelAnimationFrame(animationFrameRef.current);
-      animationFrameRef.current = null;
-    }
-    
     setIsListening(false);
   }, []);
 
-  // Arrêter le microphone
+  // Arrêter le micro
   const stopMicrophone = useCallback(() => {
     cleanup();
+    toast.info("🔇 Micro désactivé");
   }, [cleanup]);
 
-  // Démarrer le microphone avec analyse audio continue
+  // Démarrer le micro
   const startMicrophone = useCallback(async () => {
     if (streamRef.current) {
       toast.info("Micro déjà actif");
+      return;
+    }
+    
+    if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) {
+      toast.error("WebSocket non connecté");
       return;
     }
     
@@ -98,21 +78,6 @@ export function LiveVoiceChat({ userId, onClose }: LiveVoiceChatProps) {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       streamRef.current = stream;
       
-      // Configurer l'analyse audio
-      const audioContext = new AudioContext();
-      audioContextRef.current = audioContext;
-      const analyser = audioContext.createAnalyser();
-      analyserRef.current = analyser;
-      analyser.fftSize = 256;
-      
-      const source = audioContext.createMediaStreamSource(stream);
-      source.connect(analyser);
-      
-      if (audioContext.state === "suspended") {
-        await audioContext.resume();
-      }
-      
-      // MediaRecorder pour l'envoi audio
       const mediaRecorder = new MediaRecorder(stream, { mimeType: "audio/webm" });
       mediaRecorderRef.current = mediaRecorder;
       
@@ -122,7 +87,7 @@ export function LiveVoiceChat({ userId, onClose }: LiveVoiceChatProps) {
         }
       };
       
-      mediaRecorder.onstop = async () => {
+      mediaRecorder.onstop = () => {
         if (audioChunksRef.current.length === 0) return;
         
         const audioBlob = new Blob(audioChunksRef.current, { type: "audio/webm" });
@@ -137,51 +102,37 @@ export function LiveVoiceChat({ userId, onClose }: LiveVoiceChatProps) {
               audio: base64,
               is_final: true
             }));
+            console.log("🎤 Audio envoyé, taille:", base64.length);
           }
         };
         reader.readAsDataURL(audioBlob);
       };
       
       // Détection de silence
-      const checkAudio = () => {
-        if (!analyserRef.current || !mediaRecorderRef.current) {
-          animationFrameRef.current = requestAnimationFrame(checkAudio);
-          return;
-        }
+      const checkSilence = () => {
+        if (!mediaRecorderRef.current) return;
         
-        const dataArray = new Uint8Array(analyserRef.current.frequencyBinCount);
-        analyserRef.current.getByteFrequencyData(dataArray);
-        
-        let sum = 0;
-        for (let i = 0; i < dataArray.length; i++) {
-          sum += dataArray[i];
-        }
-        const avgVolume = sum / dataArray.length;
-        const isSilent = avgVolume < 15;
-        
-        // Si son détecté et pas en train d'enregistrer
-        if (!isSilent && mediaRecorderRef.current.state !== "recording") {
-          if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
-          audioChunksRef.current = [];
-          mediaRecorderRef.current.start(100);
-          setIsListening(true);
-        }
-        // Si silence pendant l'enregistrement
-        else if (isSilent && mediaRecorderRef.current.state === "recording") {
+        if (mediaRecorderRef.current.state === "recording") {
           if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
           silenceTimerRef.current = setTimeout(() => {
             if (mediaRecorderRef.current?.state === "recording") {
               mediaRecorderRef.current.stop();
+              setIsListening(false);
             }
-            setIsListening(false);
-          }, 1000);
+          }, 1500);
         }
-        
-        animationFrameRef.current = requestAnimationFrame(checkAudio);
       };
       
-      checkAudio();
+      mediaRecorder.start(100);
+      setIsListening(true);
       toast.success("🎤 Micro activé - Parlez maintenant");
+      
+      // Vérifier périodiquement la fin de parole
+      const interval = setInterval(checkSilence, 500);
+      mediaRecorder.onstop = () => {
+        clearInterval(interval);
+        if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
+      };
       
     } catch (error) {
       console.error("Erreur microphone:", error);
@@ -190,29 +141,26 @@ export function LiveVoiceChat({ userId, onClose }: LiveVoiceChatProps) {
   }, []);
 
   // Connexion WebSocket
-const connect = useCallback(() => {
-  if (wsRef.current?.readyState === WebSocket.OPEN) return;
-  
-  setIsConnecting(true);
-  
-  // Construire l'URL WebSocket correctement
-  let wsUrl = API_URL.replace("https://", "wss://").replace("http://", "ws://");
-  wsUrl = `${wsUrl}/ws/voice/${userId}`;
-  console.log("🔌 Connexion WebSocket vers:", wsUrl);
-  
-  const ws = new WebSocket(wsUrl);
-  
-  ws.onopen = () => {
-    console.log("🔊 WebSocket vocal connecté");
-    setIsConnected(true);
-    setIsConnecting(false);
-    toast.success("🎤 Connecté - Cliquez sur le micro pour parler");
-  };
-  
-
+  const connect = useCallback(() => {
+    if (wsRef.current?.readyState === WebSocket.OPEN) return;
+    
+    setIsConnecting(true);
+    
+    const wsUrl = `${API_URL.replace("https", "wss")}/ws/voice/${userId}`;
+    console.log("🔌 Connexion WebSocket vers:", wsUrl);
+    
+    const ws = new WebSocket(wsUrl);
+    
+    ws.onopen = () => {
+      console.log("✅ WebSocket connecté");
+      setIsConnected(true);
+      setIsConnecting(false);
+      toast.success("🎤 Connecté - Cliquez sur le micro pour parler");
+    };
     
     ws.onmessage = (event) => {
       const data = JSON.parse(event.data);
+      console.log("📨 Message reçu:", data.type);
       
       if (data.type === "audio") {
         const audio = new Audio(`data:audio/mp3;base64,${data.data}`);
@@ -233,27 +181,17 @@ const connect = useCallback(() => {
       if (data.type === "thinking") {
         setIsThinking(data.status);
       }
-      
-      if (data.type === "ready") {
-        toast.info(data.message);
-      }
-      
-      if (data.type === "wake_word_detected") {
-        setIsWakeWordActive(true);
-        toast.info("🎤 Je t'écoute...", { duration: 2000 });
-        setTimeout(() => setIsWakeWordActive(false), 10000);
-      }
     };
     
     ws.onclose = () => {
-      console.log("🔊 WebSocket vocal déconnecté");
+      console.log("WebSocket déconnecté");
       setIsConnected(false);
       stopMicrophone();
     };
     
     ws.onerror = (error) => {
       console.error("Erreur WebSocket:", error);
-      toast.error("Erreur de connexion vocale");
+      toast.error("Erreur de connexion");
       setIsConnecting(false);
     };
     
@@ -270,7 +208,7 @@ const connect = useCallback(() => {
     setIsConnected(false);
   }, [stopMicrophone]);
 
-  // Envoyer un message texte manuel
+  // Message texte manuel
   const sendManualMessage = () => {
     if (!manualInput.trim() || wsRef.current?.readyState !== WebSocket.OPEN) return;
     
@@ -291,7 +229,7 @@ const connect = useCallback(() => {
     setManualInput("");
   };
 
-  // Réinitialiser la conversation
+  // Reset
   const resetConversation = () => {
     if (wsRef.current?.readyState === WebSocket.OPEN) {
       wsRef.current.send(JSON.stringify({ type: "reset_conversation" }));
@@ -300,7 +238,7 @@ const connect = useCallback(() => {
     }
   };
 
-  // Nettoyage au démontage
+  // Cleanup final
   useEffect(() => {
     return () => {
       disconnect();
@@ -317,12 +255,7 @@ const connect = useCallback(() => {
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-white/10 bg-gold-500/5">
           <div className="flex items-center gap-3">
-            <div className="relative">
-              <div className={`w-3 h-3 rounded-full ${isConnected ? "bg-emerald-500 animate-pulse" : "bg-red-500"}`} />
-              {isSpeaking && (
-                <div className="absolute inset-0 w-3 h-3 rounded-full bg-emerald-500 animate-ping" />
-              )}
-            </div>
+            <div className={`w-3 h-3 rounded-full ${isConnected ? "bg-emerald-500 animate-pulse" : "bg-red-500"}`} />
             <h2 className="text-lg font-serif text-gold-500">🎤 Live Voice</h2>
             {isThinking && (
               <div className="flex items-center gap-1 text-xs text-gray-400">
@@ -330,41 +263,23 @@ const connect = useCallback(() => {
                 <span>Becks réfléchit...</span>
               </div>
             )}
-            {isWakeWordActive && (
-              <div className="flex items-center gap-1 text-xs text-gold-400">
-                <Mic className="w-3 h-3 animate-pulse" />
-                <span>Je t'écoute...</span>
-              </div>
-            )}
           </div>
           
           <div className="flex items-center gap-2">
             {!isConnected && !isConnecting && (
-              <button
-                onClick={connect}
-                className="px-3 py-1.5 bg-gold-500 text-midnight rounded-full text-xs font-medium"
-              >
+              <button onClick={connect} className="px-3 py-1.5 bg-gold-500 text-midnight rounded-full text-xs font-medium">
                 Activer
               </button>
             )}
-            {isConnecting && (
-              <Loader2 className="w-4 h-4 text-gold-500 animate-spin" />
-            )}
+            {isConnecting && <Loader2 className="w-4 h-4 text-gold-500 animate-spin" />}
             {isConnected && (
-              <button
-                onClick={disconnect}
-                className="px-3 py-1.5 bg-red-500/20 text-red-400 rounded-full text-xs font-medium hover:bg-red-500/30"
-              >
+              <button onClick={disconnect} className="px-3 py-1.5 bg-red-500/20 text-red-400 rounded-full text-xs font-medium">
                 Désactiver
               </button>
             )}
-            <button onClick={resetConversation} className="p-2 text-gray-500 hover:text-gold-500">
-              🔄
-            </button>
+            <button onClick={resetConversation} className="p-2 text-gray-500 hover:text-gold-500">🔄</button>
             {onClose && (
-              <button onClick={onClose} className="p-2 text-gray-500 hover:text-white">
-                <X className="w-5 h-5" />
-              </button>
+              <button onClick={onClose} className="p-2 text-gray-500 hover:text-white"><X className="w-5 h-5" /></button>
             )}
           </div>
         </div>
@@ -374,28 +289,20 @@ const connect = useCallback(() => {
           {messages.length === 0 && (
             <div className="text-center py-12 text-gray-500">
               <Volume2 className="w-12 h-12 mx-auto mb-3 opacity-30" />
-              <p className="text-sm">Parle à Becks en direct</p>
-              <p className="text-xs mt-1">Activez le micro puis parlez naturellement</p>
-              <p className="text-xs text-gold-500 mt-2">💡 Dis "Hey Sovereign" pour réveiller l'assistant</p>
+              <p className="text-sm">Cliquez sur "Activer" puis sur le micro</p>
+              <p className="text-xs text-gold-500 mt-2">💡 Parlez, puis attendez 1.5s</p>
             </div>
           )}
           
           {messages.map((msg) => (
-            <div
-              key={msg.id}
-              className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
-            >
-              <div
-                className={`max-w-[80%] p-3 rounded-2xl text-sm ${
-                  msg.role === "user"
-                    ? "bg-gold-500 text-midnight rounded-br-none"
-                    : "bg-white/10 text-ivory border border-white/5 rounded-bl-none"
-                }`}
-              >
+            <div key={msg.id} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
+              <div className={`max-w-[80%] p-3 rounded-2xl text-sm ${
+                msg.role === "user"
+                  ? "bg-gold-500 text-midnight rounded-br-none"
+                  : "bg-white/10 text-ivory border border-white/5 rounded-bl-none"
+              }`}>
                 {msg.content}
-                <div className="text-[10px] opacity-50 mt-1">
-                  {msg.timestamp.toLocaleTimeString()}
-                </div>
+                <div className="text-[10px] opacity-50 mt-1">{msg.timestamp.toLocaleTimeString()}</div>
               </div>
             </div>
           ))}
@@ -419,63 +326,26 @@ const connect = useCallback(() => {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               {isConnected ? (
-                <>
-                  {!isListening ? (
-                    <button
-                      onClick={startMicrophone}
-                      className="flex items-center gap-2 px-3 py-1.5 rounded-full text-xs bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30 transition-colors"
-                    >
-                      <Mic className="w-3 h-3" />
-                      <span>Activer le micro</span>
-                    </button>
-                  ) : (
-                    <button
-                      onClick={stopMicrophone}
-                      className="flex items-center gap-2 px-3 py-1.5 rounded-full text-xs bg-red-500/20 text-red-400 animate-pulse hover:bg-red-500/30 transition-colors"
-                    >
-                      <MicOff className="w-3 h-3" />
-                      <span>Désactiver le micro</span>
-                    </button>
-                  )}
-                </>
+                !isListening ? (
+                  <button onClick={startMicrophone} className="flex items-center gap-2 px-3 py-1.5 rounded-full text-xs bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30">
+                    <Mic className="w-3 h-3" /> Activer le micro
+                  </button>
+                ) : (
+                  <button onClick={stopMicrophone} className="flex items-center gap-2 px-3 py-1.5 rounded-full text-xs bg-red-500/20 text-red-400 animate-pulse">
+                    <MicOff className="w-3 h-3" /> Désactiver le micro
+                  </button>
+                )
               ) : (
-                <div className="flex items-center gap-2 text-xs text-gray-500">
-                  <MicOff className="w-4 h-4" />
-                  <span>Déconnecté</span>
-                </div>
+                <div className="flex items-center gap-2 text-xs text-gray-500"><MicOff className="w-4 h-4" /> Déconnecté</div>
               )}
-              
-              {isSpeaking && (
-                <div className="flex items-center gap-2 text-xs text-gold-500">
-                  <Volume2 className="w-4 h-4 animate-pulse" />
-                  <span>Becks parle...</span>
-                </div>
-              )}
+              {isSpeaking && <div className="flex items-center gap-2 text-xs text-gold-500"><Volume2 className="w-4 h-4 animate-pulse" /> Becks parle...</div>}
             </div>
             
-            {/* Input manuel (fallback) */}
+            {/* Input manuel */}
             <div className="flex items-center gap-2">
-              <input
-                type="text"
-                value={manualInput}
-                onChange={(e) => setManualInput(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && sendManualMessage()}
-                placeholder="Ou écris ici..."
-                className="bg-white/10 border border-white/20 rounded-full px-3 py-1 text-xs text-ivory placeholder:text-gray-500 focus:outline-none focus:border-gold-500"
-                disabled={!isConnected}
-              />
-              <button
-                onClick={sendManualMessage}
-                disabled={!manualInput.trim() || !isConnected}
-                className="p-1.5 bg-gold-500/20 rounded-full text-gold-500 disabled:opacity-50"
-              >
-                <Send className="w-3 h-3" />
-              </button>
+              <input type="text" value={manualInput} onChange={(e) => setManualInput(e.target.value)} onKeyDown={(e) => e.key === "Enter" && sendManualMessage()} placeholder="Ou écris ici..." className="bg-white/10 border border-white/20 rounded-full px-3 py-1 text-xs text-ivory placeholder:text-gray-500" disabled={!isConnected} />
+              <button onClick={sendManualMessage} disabled={!manualInput.trim() || !isConnected} className="p-1.5 bg-gold-500/20 rounded-full text-gold-500 disabled:opacity-50"><Send className="w-3 h-3" /></button>
             </div>
-          </div>
-          
-          <div className="mt-2 text-center text-[10px] text-gray-500">
-            💡 Astuce : Activez le micro, puis parlez. Le micro se coupe après 1 seconde de silence.
           </div>
         </div>
       </motion.div>
