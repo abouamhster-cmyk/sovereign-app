@@ -36,9 +36,16 @@ export function ExecutionGuide({ planId, plan, onComplete, onClose }: ExecutionG
   const progress = (completedSteps.length / plan.steps.length) * 100;
 
   const completeStep = async (index: number) => {
-    if (completedSteps.includes(index) || isCompleting) return;
-
-    setIsCompleting(true);
+  if (completedSteps.includes(index) || isCompleting) return;
+  
+  setIsCompleting(true);
+  const newCompleted = [...completedSteps, index];
+  setCompletedSteps(newCompleted);
+  
+  // Appeler la prop de mise à jour pour sauvegarder dans le message parent
+  if (onUpdate) {
+    onUpdate(newCompleted);
+  }
     try {
       const response = await fetch(`${API_URL}/api/execute/complete-step`, {
         method: "POST",
