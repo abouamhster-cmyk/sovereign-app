@@ -1187,8 +1187,32 @@ export default function ChatPage() {
           <button onClick={() => document.getElementById('file-upload-input')?.click()} className="p-2 rounded-full bg-white/10 text-gray-400 hover:bg-white/20 transition-colors flex-shrink-0"><Paperclip className="w-5 h-5" /></button>
           <input id="file-upload-input" type="file" {...getInputProps()} className="hidden" />
           <input ref={inputRef} type="text" value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={handleKeyDown} placeholder={isRecording ? "🎤 Enregistrement vocal..." : `Mode ${currentModeConfig?.name} : écris ton message...`} className="flex-1 bg-white/10 border border-white/20 rounded-full py-3 px-4 text-sm focus:outline-none focus:border-gold-500 text-ivory placeholder:text-gray-500" disabled={isRecording} />
-          <button onMouseDown={handleSendButtonMouseDown} onMouseUp={handleSendButtonMouseUp} onMouseLeave={() => { if (isRecording) stopVoiceRecording(); }} onTouchStart={handleSendButtonMouseDown} onTouchEnd={handleSendButtonMouseUp} onClick={() => { if (isRecording) stopVoiceRecording(); }} disabled={isLoading || isSending} className={`p-2 rounded-full transition-all flex-shrink-0 ${isRecording ? "bg-red-500 text-white animate-pulse" : "bg-gold-500 text-midnight hover:scale-105"} disabled:opacity-50 disabled:hover:scale-100`}>
-            {isSending ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}
+          <button
+            onMouseDown={handleSendButtonMouseDown}
+            onMouseUp={handleSendButtonMouseUp}
+            onMouseLeave={() => {
+              if (isRecording) stopVoiceRecording();
+            }}
+            onTouchStart={handleSendButtonMouseDown}
+            onTouchEnd={handleSendButtonMouseUp}
+            onClick={() => {
+              if (isRecording) stopVoiceRecording();
+            }}
+            disabled={isLoading || isSending}
+            className={`p-2 rounded-full transition-all flex-shrink-0 ${
+              isRecording 
+                ? "bg-red-500 text-white animate-pulse" 
+                : "bg-gold-500 text-midnight hover:scale-105"
+            } disabled:opacity-50 disabled:hover:scale-100`}
+            title={isRecording ? "Enregistrement en cours... relâchez" : "Appui long pour parler"}
+          >
+            {isSending ? (
+              <Loader2 className="w-5 h-5 animate-spin" />
+            ) : isRecording ? (
+              <MicOff className="w-5 h-5" />
+            ) : (
+              <Mic className="w-5 h-5" />
+            )}
           </button>
         </div>
         
