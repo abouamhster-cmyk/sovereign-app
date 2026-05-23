@@ -3,7 +3,10 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
-import { Plus, Trash2, Edit2, Save, X, Mail, MessageCircle, Send, Clock, Calendar } from "lucide-react";
+import { 
+  Plus, Trash2, Edit2, Save, X, Mail, MessageCircle, Send, Clock, Calendar,
+  Loader2, CheckCircle, AlertCircle, Sparkles
+} from "lucide-react";
 import { toast } from "sonner";
 
 type AutoReplyRule = {
