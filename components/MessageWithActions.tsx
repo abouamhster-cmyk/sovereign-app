@@ -74,6 +74,7 @@ const getActionIcon = (type: string) => {
     case "whatsapp_get_conversations": return <MessageCircle className="w-3 h-3" />;
     case "whatsapp_send_image": return <ImageIcon className="w-3 h-3" />;
     case "whatsapp_quick_reply": return <MessageCircle className="w-3 h-3" />;
+    case "whatsapp_suggest_reply": return <Sparkles className="w-3 h-3" />;
     case "create_execution_plan": return <ListTodo className="w-3 h-3" />;
     case "complete_execution_step": return <CheckCircle className="w-3 h-3" />;
     case "complete_execution_plan": return <Sparkles className="w-3 h-3" />;
@@ -161,6 +162,29 @@ const executeActionFn = async (action: Action): Promise<{ success: boolean; data
             progress: currentPlan ? (currentPlan.completedSteps.length / currentPlan.steps.length) * 100 : 0
           } 
         };
+      }
+
+      // ========== WHATSAPP SUGGESTIONS ==========
+      case "whatsapp_suggest_reply": {
+        const suggestResponse = await fetch(`${API_URL}/api/whatsapp/suggest-reply`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ message: params.message, contact_name: params.contact_name })
+        });
+        const suggestResult = await suggestResponse.json();
+        if (suggestResult.success) {
+          return { 
+            success: true, 
+            data: { 
+              type: "whatsapp_suggestions", 
+              analysis: suggestResult.analysis,
+              suggestions: suggestResult.suggestions,
+              quick_actions: suggestResult.quick_actions,
+              to: params.to 
+            } 
+          };
+        }
+        break;
       }
 
       // ========== EMAILS ==========
@@ -424,27 +448,6 @@ const executeActionFn = async (action: Action): Promise<{ success: boolean; data
         toast.error("❌ Géolocalisation non supportée");
         break;
 
-      case "whatsapp_suggest_reply":
-        const suggestResponse = await fetch(`${API_URL}/api/whatsapp/suggest-reply`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ message: params.message, contact_name: params.contact_name })
-        });
-        const suggestResult = await suggestResponse.json();
-        if (suggestResult.success) {
-          return { 
-            success: true, 
-            data: { 
-              type: "whatsapp_suggestions", 
-              analysis: suggestResult.analysis,
-              suggestions: suggestResult.suggestions,
-              quick_actions: suggestResult.quick_actions,
-              to: params.to 
-            } 
-          };
-        }
-        break;
-
       // ========== LECTURE TABLE ==========
       case "read_table":
         const tableName = params.table;
@@ -545,8 +548,6 @@ const executeActionFn = async (action: Action): Promise<{ success: boolean; data
           toast.info("📱 Aucun message WhatsApp récent");
           return { success: true };
         }
-
-
         
       // ========== WHATSAPP ENVOI AVEC IMAGE ==========
       case "whatsapp_send_image":
@@ -654,6 +655,18 @@ export function MessageWithActions({ content, actions: providedActions = [], onA
           }
         }
         onActionComplete?.();
+      }
+      else if (result.data?.type === "whatsapp_suggestions") {
+        setCurrentData({ 
+          title: "💡 Suggestions de réponses", 
+          content: result.data.analysis + "\n\n" + result.data.suggestions.map((s: any) => `${s.emoji} ${s.text}`).join("\n")
+        });
+        setShowDataModal(true);
+        setCurrentWhatsAppActions(result.data.suggestions?.map((s: any) => ({
+          type: "whatsapp_reply",
+          params: { to: result.data.to, message: s.text },
+          label: s.text
+        })) || []);
       }
       else if (result.data?.type === "email_list") {
         setCurrentData({ title: "📧 Emails", content: result.data.content });
