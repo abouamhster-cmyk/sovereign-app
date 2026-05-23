@@ -190,19 +190,26 @@ export function LiveVoiceChat({ userId, onClose }: LiveVoiceChatProps) {
   }, []);
 
   // Connexion WebSocket
-  const connect = useCallback(() => {
-    if (wsRef.current?.readyState === WebSocket.OPEN) return;
-    
-    setIsConnecting(true);
-    
-    const ws = new WebSocket(`${API_URL.replace("https", "wss")}/ws/voice/${userId}`);
-    
-    ws.onopen = () => {
-      console.log("🔊 WebSocket vocal connecté");
-      setIsConnected(true);
-      setIsConnecting(false);
-      toast.success("🎤 Connecté - Cliquez sur le micro pour parler");
-    };
+const connect = useCallback(() => {
+  if (wsRef.current?.readyState === WebSocket.OPEN) return;
+  
+  setIsConnecting(true);
+  
+  // Construire l'URL WebSocket correctement
+  let wsUrl = API_URL.replace("https://", "wss://").replace("http://", "ws://");
+  wsUrl = `${wsUrl}/ws/voice/${userId}`;
+  console.log("🔌 Connexion WebSocket vers:", wsUrl);
+  
+  const ws = new WebSocket(wsUrl);
+  
+  ws.onopen = () => {
+    console.log("🔊 WebSocket vocal connecté");
+    setIsConnected(true);
+    setIsConnecting(false);
+    toast.success("🎤 Connecté - Cliquez sur le micro pour parler");
+  };
+  
+
     
     ws.onmessage = (event) => {
       const data = JSON.parse(event.data);
