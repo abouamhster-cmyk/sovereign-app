@@ -431,6 +431,14 @@ export default function DashboardPage() {
 
   const currentMood = moodButtons.find(m => m.value === mood);
 
+  // Nettoyer le message greeting pour ne pas afficher la question sur l'humeur deux fois
+  // Le backend peut renvoyer "Aucune urgence... Comment te sens-tu ?"
+  // On extrait uniquement la partie "Aucune urgence" pour l'afficher dans le message Becks
+  const cleanGreeting = greeting
+    .replace(/Comment te sens-tu.*$/i, '')
+    .replace(/😊.*$/i, '')
+    .trim();
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
@@ -447,7 +455,7 @@ export default function DashboardPage() {
         <div className="flex justify-between items-center">
           <div>
             <h1 className="text-2xl font-serif text-ivory">
-              {greeting}, {userName}. <Crown className="inline w-5 h-5 text-gold-500" />
+              {greeting.split('?')[0]?.split('!')[0] || greeting}, {userName}. <Crown className="inline w-5 h-5 text-gold-500" />
             </h1>
             <p className="text-xs text-gray-500 mt-1">{new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })}</p>
           </div>
@@ -456,22 +464,20 @@ export default function DashboardPage() {
           </Link>
         </div>
       
-        {/* Message Becks */}
-        <div className="bg-gradient-to-r from-gold-500/10 to-transparent border-l-4 border-gold-500 rounded-xl p-4">
-          {isLoading ? (
-            <div className="flex items-center gap-2"><Loader2 className="w-4 h-4 text-gold-500 animate-spin" /><span className="text-sm text-gray-400">Becks réfléchit...</span></div>
-          ) : (
+        {/* Message Becks - version nettoyée (sans la question sur l'humeur) */}
+        {cleanGreeting && (
+          <div className="bg-gradient-to-r from-gold-500/10 to-transparent border-l-4 border-gold-500 rounded-xl p-4">
             <div className="flex items-start gap-3">
               <Sparkles className="w-5 h-5 text-gold-500 mt-0.5 flex-shrink-0" />
               <p className="text-ivory text-sm leading-relaxed">
-                {greeting || "Bonjour, je suis là."}
+                {cleanGreeting}
               </p>
             </div>
-          )}
-        </div>
+          </div>
+        )}
       </div>
 
-      {/* HUMEUR DU JOUR */}
+      {/* HUMEUR DU JOUR - C'est ici que la question doit être posée */}
       <div className="bg-white/5 border border-white/10 rounded-xl p-4">
         {mood ? (
           <div className="flex items-center justify-between">
