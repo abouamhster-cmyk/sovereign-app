@@ -26,6 +26,7 @@ interface ExecutionGuideProps {
   plan: ExecutionPlan;
   onComplete?: () => void;
   onClose?: () => void;
+  onUpdate?: (completedSteps: number[]) => void; 
 }
 
 export function ExecutionGuide({ planId, plan, onComplete, onClose }: ExecutionGuideProps) {
