@@ -4,6 +4,8 @@ import { useEffect, useState, useMemo, useCallback } from "react";
 import { supabase } from "@/lib/supabase";
 import { motion } from "framer-motion";
 import Link from "next/link";
+import { fetchDashboardData, DashboardData } from "@/lib/dashboardData";
+import { formatDashboardMessages, resetDisplayCache } from "@/lib/dashboardFormatter";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import { 
