@@ -69,7 +69,7 @@ export async function fetchDashboardData(userId: string): Promise<DashboardData>
     kidsResult
   ] = await Promise.all([
     supabase.from("tasks").select("id, title, due_date, priority, status").eq("user_id", userId),
-    supabase.from("missions").select("id, name, priority, status, updated_at").eq("user_id", userId),
+    supabase.from("missions").select("id, name, priority, status, updated_at, created_at").eq("user_id", userId),
     supabase.from("spending").select("amount, date").eq("user_id", userId).gte("date", monthAgo),
     supabase.from("revenue").select("amount, date").eq("user_id", userId).gte("date", monthAgo),
     supabase.from("family_events").select("*").eq("user_id", userId).gte("date", today),
@@ -99,8 +99,10 @@ export async function fetchDashboardData(userId: string): Promise<DashboardData>
   // Événements spéciaux
   const specialEvents: DashboardData["specialEvents"] = [];
   
-  const children = (kidsResult.data as any)?.[0]?.children || [];
+  const profile = kidsResult.data as { children?: Array<{ name: string; birthday: string }> } | null;
+  const children = profile?.children || [];
   const todayMD = now.toISOString().slice(5, 10);
+  
   for (const child of children) {
     if (child.birthday) {
       const birthdayMD = child.birthday.slice(5, 10);
@@ -119,6 +121,7 @@ export async function fetchDashboardData(userId: string): Promise<DashboardData>
     const daysLeft = Math.ceil((new Date(g.deadline).getTime() - Date.now()) / (1000 * 3600 * 24));
     return daysLeft <= 3;
   });
+  
   for (const grant of urgentGrants) {
     const daysLeft = Math.ceil((new Date(grant.deadline).getTime() - Date.now()) / (1000 * 3600 * 24));
     specialEvents.push({
@@ -127,6 +130,16 @@ export async function fetchDashboardData(userId: string): Promise<DashboardData>
       detail: `À rendre dans ${daysLeft} jour(s) • ${grant.amount?.toLocaleString()} CFA`
     });
   }
+  
+  // Calcul des missions inactives (sans created_at)
+  const staleMissionsList = missions.filter(m => {
+    if (m.status !== "active") return false;
+    const lastUpdateStr = m.updated_at;
+    if (!lastUpdateStr) return false;
+    const lastUpdate = new Date(lastUpdateStr);
+    const daysSinceUpdate = Math.floor((Date.now() - lastUpdate.getTime()) / (1000 * 3600 * 24));
+    return daysSinceUpdate > 5;
+  }).map(m => ({ id: m.id, name: m.name, lastUpdate: m.updated_at || "" }));
   
   return {
     hour,
@@ -153,12 +166,7 @@ export async function fetchDashboardData(userId: string): Promise<DashboardData>
       return daysLeft >= 0 && daysLeft <= 7;
     }).map(d => ({ id: d.id, name: d.name, due_date: d.due_date!, daysLeft: Math.ceil((new Date(d.due_date).getTime() - Date.now()) / (1000 * 3600 * 24)) })),
     activeMissions: missions.filter(m => m.status === "active"),
-    staleMissions: missions.filter(m => {
-      if (m.status !== "active") return false;
-      const lastUpdate = m.updated_at ? new Date(m.updated_at) : new Date(m.created_at);
-      const daysSinceUpdate = Math.floor((Date.now() - lastUpdate.getTime()) / (1000 * 3600 * 24));
-      return daysSinceUpdate > 5;
-    }).map(m => ({ id: m.id, name: m.name, lastUpdate: m.updated_at || m.created_at || "" })),
+    staleMissions: staleMissionsList,
     recentWins: wins.slice(0, 5).map(w => ({ id: w.id, title: w.title, date: w.date })),
     moodToday: moodResult.data?.mood || null,
     pendingWhatsApp: whatsapp.map(w => ({ from: w.from_name || "Contact", message: w.message?.substring(0, 60) || "", isUrgent: w.importance === "high" })),
