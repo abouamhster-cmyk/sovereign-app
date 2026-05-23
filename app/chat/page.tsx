@@ -379,6 +379,25 @@ export default function ChatPage() {
     return () => clearTimeout(timeout);
   }, [searchTerm, conversations]);
 
+  // Sauvegarder l'exécution plan quand elle change
+useEffect(() => {
+  if (executionPlan) {
+    localStorage.setItem(`execution_plan_${currentConversationId}`, JSON.stringify(executionPlan));
+  }
+}, [executionPlan, currentConversationId]);
+
+// Charger l'exécution plan au chargement de la conversation
+useEffect(() => {
+  if (currentConversationId) {
+    const saved = localStorage.getItem(`execution_plan_${currentConversationId}`);
+    if (saved) {
+      try {
+        setExecutionPlan(JSON.parse(saved));
+      } catch(e) {}
+    }
+  }
+}, [currentConversationId]);
+
   useEffect(() => {
     if (messagesEndRef.current) messagesEndRef.current.scrollIntoView({ behavior: "smooth", block: "end" });
   }, [messages]);
