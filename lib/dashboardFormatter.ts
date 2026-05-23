@@ -31,7 +31,7 @@ export function formatDashboardMessages(data: DashboardData) {
       greetingMessage = `${data.greeting} Rebecca. ${data.overdueTasks.length} tâche(s) en retard. On regarde ça ?`;
     }
   } else if (data.timeOfDay === "evening") {
-    if (data.todayTasks.filter(t => t.status !== "done").length === 0) {
+    if (data.todayTasks.length === 0) {
       greetingMessage = `🌙 Bonsoir Rebecca. Journée terminée, tout est fait. Repose-toi bien.`;
     } else if (data.pendingWhatsApp.length > 0) {
       greetingMessage = `🌙 Bonsoir Rebecca. ${data.pendingWhatsApp.length} message(s) WhatsApp en attente.`;
