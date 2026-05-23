@@ -9,9 +9,11 @@ import {
   ChevronRight, X, Plus, Heart, Baby, Globe, Sprout, Trophy,
   Bell, Volume2, VolumeX, Vibrate, BellRing, Check, Loader2,
   Mail, Phone, MapPin, Clock, Shield, Eye, EyeOff, Settings,
-  Edit2, Trash2, Sparkles, Brain
+  Edit2, Trash2, Sparkles, Brain, MessageCircle
 } from "lucide-react";
 import { toast } from "sonner";
+import Link from "next/link";  
+
 
 const API_URL = "https://sovereign-bridge.onrender.com";
 
@@ -1034,6 +1036,31 @@ if (!userId) {
                 <Save className="w-4 h-4" />
                 Sauvegarder les préférences
               </button>
+            </div>
+
+                {/* ==================== RÉPONSES AUTOMATIQUES ==================== */}
+            <div className="bg-white/5 border border-white/10 rounded-xl p-6 mt-6">
+              <h2 className="text-lg font-serif text-ivory mb-4 flex items-center gap-2">
+                <MessageCircle className="w-5 h-5 text-green-400" />
+                Réponses automatiques
+              </h2>
+              <p className="text-xs text-gray-500 mb-4">
+                Configure les réponses automatiques pour WhatsApp, Email et SMS.
+              </p>
+              
+              <Link 
+                href="/settings/auto-replies"
+                className="flex items-center justify-between w-full p-3 bg-white/5 rounded-xl hover:bg-white/10 transition-colors group"
+              >
+                <div className="flex items-center gap-3">
+                  <MessageCircle className="w-5 h-5 text-green-400" />
+                  <div>
+                    <p className="text-ivory text-sm">Gérer les réponses automatiques</p>
+                    <p className="text-xs text-gray-500">WhatsApp, Email, SMS</p>
+                  </div>
+                </div>
+                <ChevronRight className="w-4 h-4 text-gray-500 group-hover:text-gold-500 transition-colors" />
+              </Link>
             </div>
 
             {/* ==================== NOTIFICATIONS INTELLIGENTES ==================== */}
