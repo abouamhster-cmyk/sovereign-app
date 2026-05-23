@@ -243,56 +243,70 @@ export default function DashboardPage() {
     return [];
   }
 
-  async function fetchChartDataOptimized() {
-    if (!userId) return;
-    
-    const today = new Date();
-    const startOfWeek = new Date(today);
-    startOfWeek.setDate(today.getDate() - today.getDay());
-    const sevenDaysAgo = new Date();
-    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-    const sevenDaysAgoStr = sevenDaysAgo.toISOString().split('T')[0];
-    const startOfWeekStr = startOfWeek.toISOString().split('T')[0];
-    const todayStr = today.toISOString().split('T')[0];
-    
-    const [spendingResult, revenueResult, tasksResult, upcomingResult] = await Promise.all([
-      supabase.from("spending").select("amount, date").eq("user_id", userId).gte("date", sevenDaysAgoStr).limit(100),
-      supabase.from("revenue").select("amount, date").eq("user_id", userId).gte("date", sevenDaysAgoStr).limit(100),
-      supabase.from("tasks").select("status, created_at, updated_at").eq("user_id", userId).gte("created_at", startOfWeekStr).limit(500),
-      supabase.from("tasks").select("id, title, due_date, priority").eq("user_id", userId).gte("due_date", todayStr).lte("due_date", new Date(today.getTime() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]).neq("status", "done").order("due_date", { ascending: true }).limit(5)
-    ]);
-    
-    const totalRevenue = (revenueResult.data || []).reduce((sum, r) => sum + (r.amount || 0), 0);
-    const totalSpending = (spendingResult.data || []).reduce((sum, s) => sum + (s.amount || 0), 0);
-    setFinancialSummary({ revenue: totalRevenue, spending: totalSpending, balance: totalRevenue - totalSpending });
-    setRecentSpending(spendingResult.data || []);
-    setRecentRevenue(revenueResult.data || []);
-    
-    const days = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
-    const tasksData = tasksResult.data || [];
-    const weekly = days.map((day, i) => {
-      const dayDate = new Date(startOfWeek);
-      dayDate.setDate(startOfWeek.getDate() + i);
-      const dateStr = dayDate.toISOString().split('T')[0];
-      return {
-        day,
-        completed: tasksData.filter(t => t.status === 'done' && t.updated_at?.startsWith(dateStr)).length,
-        created: tasksData.filter(t => t.created_at?.startsWith(dateStr)).length
-      };
-    });
-    setWeeklyProgress(weekly);
-    
-    const statusCounts: Record<string, number> = {};
-    tasksData.forEach(t => { statusCounts[t.status] = (statusCounts[t.status] || 0) + 1; });
-    setTasksByStatus(Object.entries(statusCounts).map(([status, count]) => ({ status, count })));
-    
-    const totalTasks = tasksData.length;
-    const completedTasks = tasksData.filter(t => t.status === 'done').length;
-    setCompletionRate(totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0);
-    
-    setUpcomingTasks((upcomingResult.data || []) as Task[]);
-  }
-
+async function fetchChartDataOptimized() {
+  if (!userId) return;
+  
+  const today = new Date();
+  const startOfWeek = new Date(today);
+  startOfWeek.setDate(today.getDate() - today.getDay());
+  const sevenDaysAgo = new Date();
+  sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+  const sevenDaysAgoStr = sevenDaysAgo.toISOString().split('T')[0];
+  const startOfWeekStr = startOfWeek.toISOString().split('T')[0];
+  const todayStr = today.toISOString().split('T')[0];
+  
+  const [spendingResult, revenueResult, tasksResult, upcomingResult] = await Promise.all([
+    supabase.from("spending").select("id, title, amount, category, date").eq("user_id", userId).gte("date", sevenDaysAgoStr).limit(100),
+    supabase.from("revenue").select("id, source, amount, date").eq("user_id", userId).gte("date", sevenDaysAgoStr).limit(100),
+    supabase.from("tasks").select("status, created_at, updated_at").eq("user_id", userId).gte("created_at", startOfWeekStr).limit(500),
+    supabase.from("tasks").select("id, title, due_date, priority").eq("user_id", userId).gte("due_date", todayStr).lte("due_date", new Date(today.getTime() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]).neq("status", "done").order("due_date", { ascending: true }).limit(5)
+  ]);
+  
+  const totalRevenue = (revenueResult.data || []).reduce((sum, r) => sum + (r.amount || 0), 0);
+  const totalSpending = (spendingResult.data || []).reduce((sum, s) => sum + (s.amount || 0), 0);
+  setFinancialSummary({ revenue: totalRevenue, spending: totalSpending, balance: totalRevenue - totalSpending });
+  
+  // ✅ CORRECTION : stocker les données complètes, pas seulement amount/date
+  const fullSpending = (spendingResult.data || []).map(s => ({
+    id: s.id,
+    title: s.title,
+    amount: s.amount,
+    category: s.category,
+    date: s.date
+  }));
+  const fullRevenue = (revenueResult.data || []).map(r => ({
+    id: r.id,
+    source: r.source,
+    amount: r.amount,
+    date: r.date
+  }));
+  setRecentSpending(fullSpending);
+  setRecentRevenue(fullRevenue);
+  
+  const days = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
+  const tasksData = tasksResult.data || [];
+  const weekly = days.map((day, i) => {
+    const dayDate = new Date(startOfWeek);
+    dayDate.setDate(startOfWeek.getDate() + i);
+    const dateStr = dayDate.toISOString().split('T')[0];
+    return {
+      day,
+      completed: tasksData.filter(t => t.status === 'done' && t.updated_at?.startsWith(dateStr)).length,
+      created: tasksData.filter(t => t.created_at?.startsWith(dateStr)).length
+    };
+  });
+  setWeeklyProgress(weekly);
+  
+  const statusCounts: Record<string, number> = {};
+  tasksData.forEach(t => { statusCounts[t.status] = (statusCounts[t.status] || 0) + 1; });
+  setTasksByStatus(Object.entries(statusCounts).map(([status, count]) => ({ status, count })));
+  
+  const totalTasks = tasksData.length;
+  const completedTasks = tasksData.filter(t => t.status === 'done').length;
+  setCompletionRate(totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0);
+  
+  setUpcomingTasks((upcomingResult.data || []) as Task[]);
+}
   async function fetchOverloadDetectionOptimized() {
     if (!userId) return;
     try {
