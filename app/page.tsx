@@ -73,7 +73,8 @@ type Mission = {
   priority: string 
 };
 
-type Spending = { id: string; title: string; amount: number; category: string; date: string };
+type Spending = { amount: number; date: string }; 
+type Revenue = { amount: number; date: string };
 type Revenue = { id: string; source: string; amount: number; date: string };
 type Memory = { id: string; key: string; value: string; category: string };
 
@@ -373,8 +374,8 @@ export default function DashboardPage() {
     const todayStr = today.toISOString().split('T')[0];
     
     const [spendingResult, revenueResult, tasksResult, upcomingResult] = await Promise.all([
-      supabase.from("spending").select("amount, date").eq("user_id", userId).gte("date", sevenDaysAgoStr).limit(100),
-      supabase.from("revenue").select("amount, date").eq("user_id", userId).gte("date", sevenDaysAgoStr).limit(100),
+      supabase.from("spending").select("id, title, amount, category, date").eq("user_id", userId).gte("date", sevenDaysAgoStr).limit(100),
+      supabase.from("revenue").select("id, source, amount, date").eq("user_id", userId).gte("date", sevenDaysAgoStr).limit(100),
       supabase.from("tasks").select("status, created_at, updated_at").eq("user_id", userId).gte("created_at", startOfWeekStr).limit(500),
       supabase.from("tasks").select("id, title, due_date, priority").eq("user_id", userId).gte("due_date", todayStr).lte("due_date", new Date(today.getTime() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]).neq("status", "done").order("due_date", { ascending: true }).limit(5)
     ]);
