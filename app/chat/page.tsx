@@ -1141,7 +1141,7 @@ export default function ChatPage() {
           <select value={selectedVoice} onChange={(e) => setSelectedVoice(e.target.value)} className="text-[10px] bg-white/10 border border-white/10 rounded-full px-2 py-1 text-gray-400">
             {VOICE_OPTIONS.map(v => <option key={v.id} value={v.id}>{v.name}</option>)}
           </select>
-          <button onClick={() => setShowLiveVoice(true)} className="p-2 rounded-full bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30"><Phone className="w-3.5 h-3.5" /></button>
+          {/* Bouton Live Voice SUPPRIMÉ */}
           <button onClick={() => speak(lastAssistantMessage)} disabled={isTTSLoading || !lastAssistantMessage} className={`p-2 rounded-full transition-all ${isSpeaking ? "bg-red-500/20 text-red-400" : "bg-gold-500/20 text-gold-500 hover:bg-gold-500/30"} disabled:opacity-50`}>
             {isTTSLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : isSpeaking ? <VolumeX className="w-3.5 h-3.5" /> : <Volume2 className="w-3.5 h-3.5" />}
           </button>
