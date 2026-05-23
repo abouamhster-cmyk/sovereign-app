@@ -228,8 +228,8 @@ const executeActionFn = async (action: Action): Promise<{ success: boolean; data
       
       // ========== CHECKLISTS ==========
       case "create_checklist":
-        const steps = params.steps || ["Étape 1: Préparer les documents", "Étape 2: Contacter les parties prenantes", "Étape 3: Finaliser et soumettre"];
-        return { success: true, data: { type: "checklist", title: params.title || "Checklist", steps: steps } };
+        const checklistSteps = params.steps || ["Étape 1: Préparer les documents", "Étape 2: Contacter les parties prenantes", "Étape 3: Finaliser et soumettre"];
+        return { success: true, data: { type: "checklist", title: params.title || "Checklist", steps: checklistSteps } };
       
       // ========== BROUILLONS ==========
       case "create_draft":
