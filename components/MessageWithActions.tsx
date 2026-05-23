@@ -96,7 +96,7 @@ const executeActionFn = async (action: Action): Promise<{ success: boolean; data
     
     switch (type) {
       // ========== EXÉCUTION PLANIFIÉE ==========
-      case "create_execution_plan":
+      case "create_execution_plan": {
         const { title, steps } = params;
         const planId = Date.now().toString();
         executionPlans.set(planId, {
@@ -114,8 +114,9 @@ const executeActionFn = async (action: Action): Promise<{ success: boolean; data
             completedSteps: []
           } 
         };
+      }
       
-      case "complete_execution_step":
+      case "complete_execution_step": {
         const planIdStep = params.plan_id;
         const stepIndex = params.step_index;
         const plan = executionPlans.get(planIdStep);
@@ -134,8 +135,9 @@ const executeActionFn = async (action: Action): Promise<{ success: boolean; data
             isComplete: plan?.completedSteps.length === plan?.steps.length
           } 
         };
+      }
       
-      case "complete_execution_plan":
+      case "complete_execution_plan": {
         const planIdComplete = params.plan_id;
         executionPlans.delete(planIdComplete);
         return { 
@@ -144,8 +146,9 @@ const executeActionFn = async (action: Action): Promise<{ success: boolean; data
             type: "execution_plan_completed"
           } 
         };
+      }
       
-      case "get_execution_plan_status":
+      case "get_execution_plan_status": {
         const planIdStatus = params.plan_id;
         const currentPlan = executionPlans.get(planIdStatus);
         return { 
@@ -158,6 +161,7 @@ const executeActionFn = async (action: Action): Promise<{ success: boolean; data
             progress: currentPlan ? (currentPlan.completedSteps.length / currentPlan.steps.length) * 100 : 0
           } 
         };
+      }
 
       // ========== EMAILS ==========
       case "get_emails":
@@ -227,9 +231,10 @@ const executeActionFn = async (action: Action): Promise<{ success: boolean; data
         break;
       
       // ========== CHECKLISTS ==========
-      case "create_checklist":
+      case "create_checklist": {
         const checklistSteps = params.steps || ["Étape 1: Préparer les documents", "Étape 2: Contacter les parties prenantes", "Étape 3: Finaliser et soumettre"];
         return { success: true, data: { type: "checklist", title: params.title || "Checklist", steps: checklistSteps } };
+      }
       
       // ========== BROUILLONS ==========
       case "create_draft":
