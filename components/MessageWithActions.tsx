@@ -460,7 +460,39 @@ const executeActionFn = async (action: Action): Promise<{ success: boolean; data
           toast.info("📱 Aucun message WhatsApp récent");
           return { success: true };
         }
-      
+        
+        case "create_execution_plan":
+          const { title, steps } = action.params;
+          // Créer un plan d'exécution dans l'état
+          return { 
+            success: true, 
+            data: { 
+              type: "execution_plan", 
+              planId: Date.now().toString(),
+              title, 
+              steps,
+              completedSteps: []
+            } 
+          };
+        
+        case "complete_execution_step":
+          const stepIndex = action.params.step_index;
+          // Marquer l'étape comme complétée
+          return { 
+            success: true, 
+            data: { 
+              type: "execution_step_completed", 
+              stepIndex 
+            } 
+          };
+        
+        case "complete_execution_plan":
+          return { 
+            success: true, 
+            data: { 
+              type: "execution_plan_completed"
+            } 
+          };
       // ========== WHATSAPP ENVOI AVEC IMAGE ==========
       case "whatsapp_send_image":
         toast.info("🖼️ Envoi d'image WhatsApp...", { duration: 2000 });
