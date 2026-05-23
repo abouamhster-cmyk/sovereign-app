@@ -63,83 +63,81 @@ export function LiveVoiceChat({ userId, onClose }: LiveVoiceChatProps) {
   }, [cleanup]);
 
   // Démarrer le micro
-  const startMicrophone = useCallback(async () => {
-    if (streamRef.current) {
-      toast.info("Micro déjà actif");
-      return;
-    }
+// Version corrigée de startMicrophone
+const startMicrophone = useCallback(async () => {
+  if (streamRef.current) {
+    toast.info("Micro déjà actif");
+    return;
+  }
+  
+  if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) {
+    toast.error("WebSocket non connecté");
+    return;
+  }
+  
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    streamRef.current = stream;
     
-    if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) {
-      toast.error("WebSocket non connecté");
-      return;
-    }
+    const mediaRecorder = new MediaRecorder(stream, { mimeType: "audio/webm" });
+    mediaRecorderRef.current = mediaRecorder;
     
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      streamRef.current = stream;
+    mediaRecorder.ondataavailable = (event) => {
+      if (event.data.size > 0) {
+        audioChunksRef.current.push(event.data);
+      }
+    };
+    
+    mediaRecorder.onstop = () => {
+      if (audioChunksRef.current.length === 0) return;
       
-      const mediaRecorder = new MediaRecorder(stream, { mimeType: "audio/webm" });
-      mediaRecorderRef.current = mediaRecorder;
+      const audioBlob = new Blob(audioChunksRef.current, { type: "audio/webm" });
+      audioChunksRef.current = [];
       
-      mediaRecorder.ondataavailable = (event) => {
-        if (event.data.size > 0) {
-          audioChunksRef.current.push(event.data);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const base64 = (reader.result as string).split(",")[1];
+        // Vérifier que le WebSocket est encore ouvert AVANT d'envoyer
+        if (wsRef.current?.readyState === WebSocket.OPEN) {
+          wsRef.current.send(JSON.stringify({
+            type: "audio_chunk",
+            audio: base64,
+            is_final: true
+          }));
+          console.log("🎤 Audio envoyé, taille:", base64.length);
+        } else {
+          console.log("⚠️ WebSocket fermé, audio non envoyé");
         }
       };
-      
-      mediaRecorder.onstop = () => {
-        if (audioChunksRef.current.length === 0) return;
-        
-        const audioBlob = new Blob(audioChunksRef.current, { type: "audio/webm" });
-        audioChunksRef.current = [];
-        
-        const reader = new FileReader();
-        reader.onloadend = () => {
-          const base64 = (reader.result as string).split(",")[1];
-          if (wsRef.current?.readyState === WebSocket.OPEN) {
-            wsRef.current.send(JSON.stringify({
-              type: "audio_chunk",
-              audio: base64,
-              is_final: true
-            }));
-            console.log("🎤 Audio envoyé, taille:", base64.length);
-          }
-        };
-        reader.readAsDataURL(audioBlob);
-      };
-      
-      // Détection de silence
-      const checkSilence = () => {
-        if (!mediaRecorderRef.current) return;
-        
-        if (mediaRecorderRef.current.state === "recording") {
-          if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
-          silenceTimerRef.current = setTimeout(() => {
-            if (mediaRecorderRef.current?.state === "recording") {
-              mediaRecorderRef.current.stop();
-              setIsListening(false);
-            }
-          }, 1500);
-        }
-      };
-      
-      mediaRecorder.start(100);
-      setIsListening(true);
-      toast.success("🎤 Micro activé - Parlez maintenant");
-      
-      // Vérifier périodiquement la fin de parole
-      const interval = setInterval(checkSilence, 500);
-      mediaRecorder.onstop = () => {
-        clearInterval(interval);
-        if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
-      };
-      
-    } catch (error) {
-      console.error("Erreur microphone:", error);
-      toast.error("Impossible d'accéder au microphone");
-    }
-  }, []);
-
+      reader.readAsDataURL(audioBlob);
+    };
+    
+    // Démarrer l'enregistrement
+    mediaRecorder.start(100);
+    setIsListening(true);
+    toast.success("🎤 Micro activé - Parlez maintenant");
+    
+    // Auto-stop après 10 secondes de silence (optionnel)
+    let lastSoundTime = Date.now();
+    const checkSilence = setInterval(() => {
+      if (Date.now() - lastSoundTime > 3000 && mediaRecorder.state === "recording") {
+        mediaRecorder.stop();
+        setIsListening(false);
+        clearInterval(checkSilence);
+      }
+    }, 500);
+    
+    // Sauvegarder le timer pour le cleanup
+    if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
+    silenceTimerRef.current = setTimeout(() => {
+      clearInterval(checkSilence);
+    }, 30000);
+    
+  } catch (error) {
+    console.error("Erreur microphone:", error);
+    toast.error("Impossible d'accéder au microphone");
+  }
+}, []);
   // Connexion WebSocket
   const connect = useCallback(() => {
     if (wsRef.current?.readyState === WebSocket.OPEN) return;
