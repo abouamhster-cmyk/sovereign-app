@@ -1,8 +1,10 @@
 "use client";
+
 import { useState } from "react";
 import { CheckCircle, Loader2, Mic, Send, MapPin, Clock, Mail, FileText, ListTodo, Sparkles, DollarSign, Calendar, Phone, MessageCircle, ImageIcon, X } from "lucide-react";
 import { toast } from "sonner";
 import ReactMarkdown from 'react-markdown';
+import { ExecutionPlan } from "@/components/ExecutionPlan";
 
 const API_URL = "https://sovereign-bridge.onrender.com";
 
@@ -44,7 +46,6 @@ function parseActionsFromText(text: string): { cleanText: string; actions: Actio
   }
   
   cleanText = cleanText.replace(/\n{3,}/g, '\n\n').trim();
-  console.log("🔍 Actions parsées:", actions.length);
   
   return { cleanText, actions };
 }
@@ -73,9 +74,17 @@ const getActionIcon = (type: string) => {
     case "whatsapp_get_conversations": return <MessageCircle className="w-3 h-3" />;
     case "whatsapp_send_image": return <ImageIcon className="w-3 h-3" />;
     case "whatsapp_quick_reply": return <MessageCircle className="w-3 h-3" />;
+    case "create_execution_plan": return <ListTodo className="w-3 h-3" />;
+    case "complete_execution_step": return <CheckCircle className="w-3 h-3" />;
+    case "complete_execution_plan": return <Sparkles className="w-3 h-3" />;
     default: return <Sparkles className="w-3 h-3" />;
   }
 };
+
+// ============================================================
+// ÉTAT DES PLANS D'EXÉCUTION
+// ============================================================
+let executionPlans: Map<string, { title: string; steps: string[]; completedSteps: number[] }> = new Map();
 
 // ============================================================
 // EXÉCUTION D'UNE ACTION
@@ -86,7 +95,71 @@ const executeActionFn = async (action: Action): Promise<{ success: boolean; data
     console.log("🔘 Action cliquée:", { type, params });
     
     switch (type) {
-      // ========== EMAILS - NOUVEAU ==========
+      // ========== EXÉCUTION PLANIFIÉE ==========
+      case "create_execution_plan":
+        const { title, steps } = params;
+        const planId = Date.now().toString();
+        executionPlans.set(planId, {
+          title,
+          steps,
+          completedSteps: []
+        });
+        return { 
+          success: true, 
+          data: { 
+            type: "execution_plan", 
+            planId,
+            title, 
+            steps,
+            completedSteps: []
+          } 
+        };
+      
+      case "complete_execution_step":
+        const planIdStep = params.plan_id;
+        const stepIndex = params.step_index;
+        const plan = executionPlans.get(planIdStep);
+        if (plan && !plan.completedSteps.includes(stepIndex)) {
+          plan.completedSteps.push(stepIndex);
+          executionPlans.set(planIdStep, plan);
+        }
+        return { 
+          success: true, 
+          data: { 
+            type: "execution_step_completed", 
+            planId: planIdStep,
+            stepIndex,
+            completedSteps: plan?.completedSteps || [],
+            totalSteps: plan?.steps.length || 0,
+            isComplete: plan?.completedSteps.length === plan?.steps.length
+          } 
+        };
+      
+      case "complete_execution_plan":
+        const planIdComplete = params.plan_id;
+        executionPlans.delete(planIdComplete);
+        return { 
+          success: true, 
+          data: { 
+            type: "execution_plan_completed"
+          } 
+        };
+      
+      case "get_execution_plan_status":
+        const planIdStatus = params.plan_id;
+        const currentPlan = executionPlans.get(planIdStatus);
+        return { 
+          success: true, 
+          data: { 
+            type: "execution_plan_status",
+            planId: planIdStatus,
+            completedSteps: currentPlan?.completedSteps || [],
+            totalSteps: currentPlan?.steps.length || 0,
+            progress: currentPlan ? (currentPlan.completedSteps.length / currentPlan.steps.length) * 100 : 0
+          } 
+        };
+
+      // ========== EMAILS ==========
       case "get_emails":
         try {
           toast.info("📧 Récupération des emails...", { duration: 1500 });
@@ -186,13 +259,6 @@ const executeActionFn = async (action: Action): Promise<{ success: boolean; data
           return { success: true };
         }
         break;
-      
-      // ========== ANALYSE DÉPENSES ==========
-      case "analyze_spending":
-      case "analyze_expenses":
-        toast.info("🔍 Analyse des dépenses - Redirection vers Money", { duration: 2000 });
-        setTimeout(() => window.open("/money", "_self"), 500);
-        return { success: true };
       
       // ========== ÉCRITURE TABLE ==========
       case "write_to_table":
@@ -386,11 +452,6 @@ const executeActionFn = async (action: Action): Promise<{ success: boolean; data
           break;
         }
 
-      // ========== MESSAGES VOCAUX ==========
-      case "voice_message":
-        toast.info("🎤 Message vocal - Fonctionnalité à venir", { duration: 3000 });
-        return { success: true };
-
       // ========== WHATSAPP RÉPONSES ==========
       case "whatsapp_reply":
         const recipient = params.to || params.conversation_id;
@@ -446,8 +507,6 @@ const executeActionFn = async (action: Action): Promise<{ success: boolean; data
             });
           });
           
-          console.log("📦 allActions:", allActions);  
-          
           return { 
             success: true, 
             data: { 
@@ -460,39 +519,7 @@ const executeActionFn = async (action: Action): Promise<{ success: boolean; data
           toast.info("📱 Aucun message WhatsApp récent");
           return { success: true };
         }
-        
-        case "create_execution_plan":
-          const { title, steps } = action.params;
-          // Créer un plan d'exécution dans l'état
-          return { 
-            success: true, 
-            data: { 
-              type: "execution_plan", 
-              planId: Date.now().toString(),
-              title, 
-              steps,
-              completedSteps: []
-            } 
-          };
-        
-        case "complete_execution_step":
-          const stepIndex = action.params.step_index;
-          // Marquer l'étape comme complétée
-          return { 
-            success: true, 
-            data: { 
-              type: "execution_step_completed", 
-              stepIndex 
-            } 
-          };
-        
-        case "complete_execution_plan":
-          return { 
-            success: true, 
-            data: { 
-              type: "execution_plan_completed"
-            } 
-          };
+      
       // ========== WHATSAPP ENVOI AVEC IMAGE ==========
       case "whatsapp_send_image":
         toast.info("🖼️ Envoi d'image WhatsApp...", { duration: 2000 });
@@ -531,7 +558,7 @@ const executeActionFn = async (action: Action): Promise<{ success: boolean; data
           { label: "✏️ Personnaliser", message: null }
         ];
         return { success: true, data: { type: "whatsapp_templates", to: params.to, templates: templates } };
-        
+      
       default:
         console.warn("⚠️ Action non implémentée:", type, params);
         toast.info(`🔧 "${action.label}" - Fonctionnalité en cours d'implémentation`, { duration: 3000 });
@@ -555,6 +582,7 @@ export function MessageWithActions({ content, actions: providedActions = [], onA
   
   const [executingActions, setExecutingActions] = useState<Set<number>>(new Set());
   const [executedActions, setExecutedActions] = useState<Set<number>>(new Set());
+  const [activeExecutionPlan, setActiveExecutionPlan] = useState<{ planId: string; title: string; steps: string[]; completedSteps: number[] } | null>(null);
   const [showDataModal, setShowDataModal] = useState(false);
   const [currentData, setCurrentData] = useState<{ title: string; content: string } | null>(null);
   const [showChecklistModal, setShowChecklistModal] = useState(false);
@@ -577,42 +605,62 @@ export function MessageWithActions({ content, actions: providedActions = [], onA
     const result = await executeActionFn(action);
     
     if (result.success) {
-      // Afficher directement le contenu des emails si c'est une liste d'emails
-      if (result.data?.type === "email_list") {
+      if (result.data?.type === "execution_plan") {
+        setActiveExecutionPlan({
+          planId: result.data.planId,
+          title: result.data.title,
+          steps: result.data.steps,
+          completedSteps: result.data.completedSteps || []
+        });
+        onActionComplete?.();
+      }
+      else if (result.data?.type === "execution_step_completed") {
+        if (activeExecutionPlan) {
+          setActiveExecutionPlan({
+            ...activeExecutionPlan,
+            completedSteps: result.data.completedSteps
+          });
+          if (result.data.isComplete) {
+            toast.success("🎉 Félicitations ! Plan terminé !");
+            setTimeout(() => setActiveExecutionPlan(null), 3000);
+          }
+        }
+        onActionComplete?.();
+      }
+      else if (result.data?.type === "email_list") {
         setCurrentData({ title: "📧 Emails", content: result.data.content });
         setShowDataModal(true);
       }
-      if (result.data?.type === "checklist") {
+      else if (result.data?.type === "checklist") {
         setCurrentChecklist({ title: result.data.title, steps: result.data.steps });
         setShowChecklistModal(true);
       }
-      if (result.data?.type === "table_data") {
+      else if (result.data?.type === "table_data") {
         setCurrentData({ title: result.data.title, content: result.data.content });
         setShowDataModal(true);
       }
-      if (result.data?.type === "draft") {
+      else if (result.data?.type === "draft") {
         setCurrentDraft({ content: result.data.content, type: result.data.draftType });
         setShowDraftModal(true);
       }
-      if (result.data?.type === "whatsapp_custom") {
+      else if (result.data?.type === "whatsapp_custom") {
         setCurrentWhatsApp({ to: result.data.to, original_message: result.data.original_message });
         setCustomReply("");
         setShowWhatsAppModal(true);
       }
-      if (result.data?.type === "whatsapp_conversations") {
-        console.log("📦 result.data.actions:", result.data.actions);
+      else if (result.data?.type === "whatsapp_conversations") {
         setCurrentData({ title: "WhatsApp", content: result.data.text });
         setShowDataModal(true);
         setCurrentWhatsAppActions(result.data.actions || []);
       }
-      if (result.data?.type === "whatsapp_templates") {
+      else if (result.data?.type === "whatsapp_templates") {
         setCurrentTemplates(result.data.templates);
         setCurrentTemplateTo(result.data.to);
         setShowTemplatesModal(true);
       }
+      
       toast.success(`✅ ${action.label}`);
       setExecutedActions(prev => new Set(prev).add(index));
-      onActionComplete?.();
     } else {
       toast.error(`❌ Échec : ${action.label}`);
     }
@@ -628,6 +676,43 @@ export function MessageWithActions({ content, actions: providedActions = [], onA
   const executeWhatsAppReply = async (to: string, message: string) => {
     const result = await executeActionFn({ type: "whatsapp_reply", params: { to, message }, label: "Envoyer" });
     if (result.success) setShowTemplatesModal(false);
+  };
+
+  const handleStepComplete = (stepIndex: number) => {
+    if (activeExecutionPlan) {
+      executeActionFn({
+        type: "complete_execution_step",
+        params: { plan_id: activeExecutionPlan.planId, step_index: stepIndex },
+        label: "Compléter étape"
+      }).then(result => {
+        if (result.success && result.data) {
+          setActiveExecutionPlan({
+            ...activeExecutionPlan,
+            completedSteps: result.data.completedSteps
+          });
+          if (result.data.isComplete) {
+            toast.success("🎉 Mission accomplie !");
+            setTimeout(() => setActiveExecutionPlan(null), 3000);
+          }
+        }
+      });
+    }
+  };
+
+  const handlePlanComplete = () => {
+    if (activeExecutionPlan) {
+      executeActionFn({
+        type: "complete_execution_plan",
+        params: { plan_id: activeExecutionPlan.planId },
+        label: "Terminer le plan"
+      });
+      setActiveExecutionPlan(null);
+      toast.success("🏆 Plan terminé avec succès !");
+    }
+  };
+
+  const handleAskHelp = (stepIndex: number, question: string) => {
+    toast.info(`💬 Question sur l'étape ${stepIndex + 1}: "${question}"`, { duration: 5000 });
   };
 
   return (
@@ -646,7 +731,21 @@ export function MessageWithActions({ content, actions: providedActions = [], onA
           {cleanText || content}
         </ReactMarkdown>
         
-        {actions.length > 0 && (
+        {activeExecutionPlan && (
+          <div className="mt-4">
+            <ExecutionPlan
+              planId={activeExecutionPlan.planId}
+              title={activeExecutionPlan.title}
+              steps={activeExecutionPlan.steps}
+              completedSteps={activeExecutionPlan.completedSteps}
+              onStepComplete={handleStepComplete}
+              onPlanComplete={handlePlanComplete}
+              onAskHelp={handleAskHelp}
+            />
+          </div>
+        )}
+        
+        {actions.length > 0 && !activeExecutionPlan && (
           <div className="flex flex-wrap gap-2 mt-3 pt-2 border-t border-white/10">
             {actions.map((action, idx) => (
               <button
@@ -689,7 +788,7 @@ export function MessageWithActions({ content, actions: providedActions = [], onA
         </div>
       )}
 
-      {/* MODALE DONNÉES TABLE AVEC RÉPONSE WHATSAPP - VERSION MINI MODAL */}
+      {/* MODALE DONNÉES TABLE */}
       {showDataModal && currentData && (
         <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4" onClick={() => { setShowDataModal(false); setShowReplyInput(false); }}>
           <div className="bg-midnight border border-gold-500/30 rounded-xl max-w-lg w-full p-6" onClick={(e) => e.stopPropagation()}>
@@ -702,7 +801,6 @@ export function MessageWithActions({ content, actions: providedActions = [], onA
               <pre className="text-sm text-ivory whitespace-pre-wrap font-sans">{currentData.content}</pre>
             </div>
             
-            {/* Bouton pour répondre (affiche le mini modal) */}
             {currentWhatsAppActions.length > 0 && !showReplyInput && (
               <div className="flex flex-wrap gap-2 mt-3 pt-2 border-t border-white/10">
                 {currentWhatsAppActions.map((action, idx) => (
@@ -722,7 +820,6 @@ export function MessageWithActions({ content, actions: providedActions = [], onA
               </div>
             )}
             
-            {/* Mini modal de saisie */}
             {showReplyInput && (
               <div className="mt-4 p-3 bg-white/5 rounded-lg border border-gold-500/30">
                 <p className="text-xs text-gray-400 mb-2">✏️ Répondre à {currentReplyTo}</p>
