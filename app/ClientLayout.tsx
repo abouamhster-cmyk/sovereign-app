@@ -48,6 +48,7 @@ const menuItems: MenuItem[] = [
   { name: "Family", icon: Heart, href: "/family", group: "vie" },
   
   { name: "Rescue & Wins", icon: ShieldAlert, href: "/rescue-wins", group: "alignment" },
+  { name: "Carte de Vie", icon: Crown, href: "/life-map", group: "alignment" },
   { name: "Alignment", icon: Zap, href: "/alignment", group: "alignment" },
   { name: "Mémoire", icon: Brain, href: "/memory", group: "alignment" },
 
