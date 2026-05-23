@@ -79,7 +79,7 @@ const startMicrophone = useCallback(async () => {
     const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
     streamRef.current = stream;
     
-    // Configurer l'analyse audio pour détecter la voix
+    // Configurer l'analyse audio
     const audioContext = new AudioContext();
     const source = audioContext.createMediaStreamSource(stream);
     const analyser = audioContext.createAnalyser();
@@ -94,10 +94,15 @@ const startMicrophone = useCallback(async () => {
     mediaRecorderRef.current = mediaRecorder;
     let isRecording = false;
     let silenceFrames = 0;
+    let isProcessing = false; // Éviter les envois multiples
+    let cooldown = false; // Période de repos après l'envoi
     
-    // Détection de la voix en continu
+    // Détection de la voix avec seuil plus élevé
     const detectVoice = () => {
-      if (!analyser) return;
+      if (!analyser || cooldown) {
+        requestAnimationFrame(detectVoice);
+        return;
+      }
       
       const dataArray = new Uint8Array(analyser.frequencyBinCount);
       analyser.getByteFrequencyData(dataArray);
@@ -107,10 +112,11 @@ const startMicrophone = useCallback(async () => {
         sum += dataArray[i];
       }
       const avgVolume = sum / dataArray.length;
-      const isVoiceDetected = avgVolume > 20; // Seuil de détection de voix
       
-      if (isVoiceDetected && !isRecording) {
-        // Voix détectée → commencer l'enregistrement
+      // Seuil augmenté à 30 pour éviter le bruit de fond
+      const isVoiceDetected = avgVolume > 30;
+      
+      if (isVoiceDetected && !isRecording && !isProcessing) {
         console.log("🎤 Voix détectée, début enregistrement");
         audioChunksRef.current = [];
         mediaRecorder.start(100);
@@ -120,13 +126,21 @@ const startMicrophone = useCallback(async () => {
       } 
       else if (!isVoiceDetected && isRecording) {
         silenceFrames++;
-        // Après 30 frames de silence (~1.5 secondes), arrêter
-        if (silenceFrames > 30) {
+        // Après 40 frames de silence (~2 secondes)
+        if (silenceFrames > 40) {
           console.log("🔇 Silence détecté, fin enregistrement");
           mediaRecorder.stop();
           isRecording = false;
           setIsListening(false);
+          isProcessing = true;
           silenceFrames = 0;
+          
+          // Cooldown pour éviter les envois en rafale
+          cooldown = true;
+          setTimeout(() => {
+            cooldown = false;
+            isProcessing = false;
+          }, 2000);
         }
       }
       
@@ -142,19 +156,29 @@ const startMicrophone = useCallback(async () => {
     mediaRecorder.onstop = () => {
       if (audioChunksRef.current.length === 0) return;
       
+      // Calculer la taille totale
+      const totalSize = audioChunksRef.current.reduce((sum, chunk) => sum + chunk.size, 0);
+      
+      // Ignorer les fragments trop petits (< 5000 bytes = probablement du silence)
+      if (totalSize < 5000) {
+        console.log("⏭️ Fragment audio trop petit, ignoré:", totalSize);
+        audioChunksRef.current = [];
+        return;
+      }
+      
       const audioBlob = new Blob(audioChunksRef.current, { type: "audio/webm" });
       audioChunksRef.current = [];
       
       const reader = new FileReader();
       reader.onloadend = () => {
         const base64 = (reader.result as string).split(",")[1];
-        if (wsRef.current?.readyState === WebSocket.OPEN) {
+        if (wsRef.current?.readyState === WebSocket.OPEN && !isProcessing) {
           wsRef.current.send(JSON.stringify({
             type: "audio_chunk",
             audio: base64,
             is_final: true
           }));
-          console.log("🎤 Audio envoyé, taille:", base64.length);
+          console.log("🎤 Audio envoyé, taille:", totalSize);
         }
       };
       reader.readAsDataURL(audioBlob);
