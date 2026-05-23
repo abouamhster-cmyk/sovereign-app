@@ -1,3 +1,4 @@
+// components/LiveVoiceChat.tsx
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
@@ -28,6 +29,7 @@ export function LiveVoiceChat({ userId, onClose }: LiveVoiceChatProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [transcript, setTranscript] = useState("");
   const [manualInput, setManualInput] = useState("");
+  const [isWakeWordActive, setIsWakeWordActive] = useState(false);
   
   const wsRef = useRef<WebSocket | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -38,13 +40,19 @@ export function LiveVoiceChat({ userId, onClose }: LiveVoiceChatProps) {
   const analyserRef = useRef<AnalyserNode | null>(null);
   const animationFrameRef = useRef<number | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  
+  // Reconnaissance du wake word "Hey Sovereign"
+  const wakeWordDetectionRef = useRef<{ buffer: Float32Array[]; lastProcessed: number }>({
+    buffer: [],
+    lastProcessed: 0
+  });
 
   // Auto-scroll
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  // Connexion WebSocket
+  // Connexion WebSocket persistante
   const connect = useCallback(() => {
     if (wsRef.current?.readyState === WebSocket.OPEN) return;
     
@@ -52,11 +60,12 @@ export function LiveVoiceChat({ userId, onClose }: LiveVoiceChatProps) {
     
     const ws = new WebSocket(`${API_URL.replace("https", "wss")}/ws/voice/${userId}`);
     
-     ws.onopen = () => {
+    ws.onopen = () => {
+      console.log("🔊 WebSocket vocal connecté");
       setIsConnected(true);
       setIsConnecting(false);
-      startMicrophone();  
-      toast.success("🎤 Mode vocal activé - Parlez maintenant");
+      startMicrophone();
+      toast.success("🎤 Mode vocal activé - Parlez naturellement");
     };
     
     ws.onmessage = (event) => {
@@ -86,13 +95,19 @@ export function LiveVoiceChat({ userId, onClose }: LiveVoiceChatProps) {
       if (data.type === "ready") {
         toast.info(data.message);
       }
+      
+      if (data.type === "wake_word_detected") {
+        setIsWakeWordActive(true);
+        toast.info("🎤 Je t'écoute...", { duration: 2000 });
+        setTimeout(() => setIsWakeWordActive(false), 10000);
+      }
     };
     
     ws.onclose = () => {
+      console.log("🔊 WebSocket vocal déconnecté");
       setIsConnected(false);
       setIsListening(false);
       stopMicrophone();
-      toast.info("🔌 Mode vocal désactivé");
     };
     
     ws.onerror = (error) => {
@@ -115,13 +130,13 @@ export function LiveVoiceChat({ userId, onClose }: LiveVoiceChatProps) {
     setIsListening(false);
   }, []);
 
-  // Démarrer le microphone avec détection de silence
+  // Démarrer le microphone avec analyse audio continue
   const startMicrophone = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       streamRef.current = stream;
       
-      // Configurer l'analyse audio pour détection de silence
+      // Configurer l'analyse audio
       const audioContext = new AudioContext();
       audioContextRef.current = audioContext;
       const analyser = audioContext.createAnalyser();
@@ -131,12 +146,11 @@ export function LiveVoiceChat({ userId, onClose }: LiveVoiceChatProps) {
       const source = audioContext.createMediaStreamSource(stream);
       source.connect(analyser);
       
-      // Démarrer le contexte audio
       if (audioContext.state === "suspended") {
         await audioContext.resume();
       }
       
-      // MediaRecorder
+      // MediaRecorder pour l'envoi audio
       const mediaRecorder = new MediaRecorder(stream, { mimeType: "audio/webm" });
       mediaRecorderRef.current = mediaRecorder;
       
@@ -152,7 +166,6 @@ export function LiveVoiceChat({ userId, onClose }: LiveVoiceChatProps) {
         const audioBlob = new Blob(audioChunksRef.current, { type: "audio/webm" });
         audioChunksRef.current = [];
         
-        // Convertir en base64
         const reader = new FileReader();
         reader.onloadend = () => {
           const base64 = (reader.result as string).split(",")[1];
@@ -168,48 +181,49 @@ export function LiveVoiceChat({ userId, onClose }: LiveVoiceChatProps) {
         reader.readAsDataURL(audioBlob);
       };
       
-      // Détection de silence en continu
-      const checkSilence = () => {
+      // Détection de silence et détection de wake word
+      const checkAudio = () => {
         if (!analyserRef.current || !mediaRecorderRef.current) {
-          animationFrameRef.current = requestAnimationFrame(checkSilence);
+          animationFrameRef.current = requestAnimationFrame(checkAudio);
           return;
         }
         
         const dataArray = new Uint8Array(analyserRef.current.frequencyBinCount);
         analyserRef.current.getByteFrequencyData(dataArray);
         
-        // Calculer le volume moyen
         let sum = 0;
         for (let i = 0; i < dataArray.length; i++) {
           sum += dataArray[i];
         }
         const avgVolume = sum / dataArray.length;
-        
-        // Seuil de silence (15 est un bon compromis)
         const isSilent = avgVolume < 15;
         
+        // Si son détecté et pas en train d'enregistrer
         if (!isSilent && mediaRecorderRef.current.state !== "recording") {
-          // Son détecté, commencer l'enregistrement
           if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
           audioChunksRef.current = [];
           mediaRecorderRef.current.start(100);
           setIsListening(true);
-          setTranscript("");
-        } 
+          
+          // Envoyer un signal "wake" au serveur
+          if (wsRef.current?.readyState === WebSocket.OPEN) {
+            wsRef.current.send(JSON.stringify({ type: "wake_word" }));
+          }
+        }
+        // Si silence pendant l'enregistrement
         else if (isSilent && mediaRecorderRef.current.state === "recording") {
-          // Silence pendant l'enregistrement, démarrer le timer
           if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
           silenceTimerRef.current = setTimeout(() => {
             if (mediaRecorderRef.current?.state === "recording") {
               mediaRecorderRef.current.stop();
             }
-          }, 1500);
+          }, 1000); // 1 seconde de silence = fin de parole
         }
         
-        animationFrameRef.current = requestAnimationFrame(checkSilence);
+        animationFrameRef.current = requestAnimationFrame(checkAudio);
       };
       
-      checkSilence();
+      checkAudio();
       
     } catch (error) {
       console.error("Erreur microphone:", error);
@@ -243,7 +257,6 @@ export function LiveVoiceChat({ userId, onClose }: LiveVoiceChatProps) {
   const sendManualMessage = () => {
     if (!manualInput.trim() || wsRef.current?.readyState !== WebSocket.OPEN) return;
     
-    // Simuler un message utilisateur
     setMessages(prev => [...prev, {
       id: Date.now().toString(),
       role: "user",
@@ -251,12 +264,11 @@ export function LiveVoiceChat({ userId, onClose }: LiveVoiceChatProps) {
       timestamp: new Date()
     }]);
     
-    // Envoyer via WebSocket (comme si c'était de l'audio)
     wsRef.current.send(JSON.stringify({
       type: "audio_chunk",
-      audio: "",  // Pas d'audio, mais le texte sera utilisé
+      audio: "",
       is_final: true,
-      text_override: manualInput  // Optionnel: si backend supporte
+      text_override: manualInput
     }));
     
     setManualInput("");
@@ -271,7 +283,7 @@ export function LiveVoiceChat({ userId, onClose }: LiveVoiceChatProps) {
     }
   };
 
-  // Nettoyage au démontage
+  // Nettoyage
   useEffect(() => {
     return () => {
       disconnect();
@@ -299,6 +311,12 @@ export function LiveVoiceChat({ userId, onClose }: LiveVoiceChatProps) {
               <div className="flex items-center gap-1 text-xs text-gray-400">
                 <Loader2 className="w-3 h-3 animate-spin" />
                 <span>Becks réfléchit...</span>
+              </div>
+            )}
+            {isWakeWordActive && (
+              <div className="flex items-center gap-1 text-xs text-gold-400">
+                <Mic className="w-3 h-3 animate-pulse" />
+                <span>Je t'écoute...</span>
               </div>
             )}
           </div>
@@ -340,7 +358,7 @@ export function LiveVoiceChat({ userId, onClose }: LiveVoiceChatProps) {
             <div className="text-center py-12 text-gray-500">
               <Volume2 className="w-12 h-12 mx-auto mb-3 opacity-30" />
               <p className="text-sm">Parle à Becks en direct</p>
-              <p className="text-xs mt-1">Active le microphone et parle naturellement</p>
+              <p className="text-xs mt-1">Parle naturellement, le micro se déclenche automatiquement</p>
               <p className="text-xs text-gold-500 mt-2">💡 Dis "Hey Sovereign" pour réveiller l'assistant</p>
             </div>
           )}
@@ -386,7 +404,7 @@ export function LiveVoiceChat({ userId, onClose }: LiveVoiceChatProps) {
               {isConnected ? (
                 <div className="flex items-center gap-2 text-xs text-emerald-400">
                   <Mic className="w-4 h-4" />
-                  <span>Micro actif</span>
+                  <span>Micro actif - Parlez naturellement</span>
                 </div>
               ) : (
                 <div className="flex items-center gap-2 text-xs text-gray-500">
@@ -422,6 +440,10 @@ export function LiveVoiceChat({ userId, onClose }: LiveVoiceChatProps) {
                 <Send className="w-3 h-3" />
               </button>
             </div>
+          </div>
+          
+          <div className="mt-2 text-center text-[10px] text-gray-500">
+            💡 Astuce : Parlez naturellement. Le micro se coupe après 1 seconde de silence.
           </div>
         </div>
       </motion.div>
