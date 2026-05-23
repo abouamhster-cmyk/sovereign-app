@@ -10,15 +10,25 @@ import {
   CheckCircle, AlertCircle, Target, Heart, DollarSign,
   Briefcase, Sprout, FileText, Plus, Trash2, Edit2, 
   X, Flag, FolderOpen, Loader2, Download, LayoutGrid,
-  CalendarDays, ListTodo
+  CalendarDays, ListTodo, TrendingUp
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { exportTasksToPDF } from "@/lib/exportPDF";
+import { 
+  autoScoreTask, 
+  calculateTotalScore, 
+  getPriorityLevel, 
+  getPriorityStyles,
+  sortTasksByPriority,
+  getPriorityRecommendation,
+  type PriorityScores,
+  type ScoredTask
+} from "@/lib/priorities";
 
 // =====================================================
-// TYPES OPTIMISÉS - CORRIGÉS
+// TYPES OPTIMISÉS
 // =====================================================
 
 type Task = {
@@ -28,9 +38,9 @@ type Task = {
   status: "not_started" | "today" | "in_progress" | "waiting" | "done";
   priority: "critical" | "high" | "normal" | "low";
   project: string;
-  estimated_time?: number | null;      // ← rendu optionnel
-  mission_id?: string | null;          // ← rendu optionnel
-  created_at?: string;                 // ← rendu optionnel
+  estimated_time?: number | null;
+  mission_id?: string | null;
+  created_at?: string;
   sync_calendar?: boolean;
   calendar_synced?: boolean;
   calendar_link?: string;
@@ -88,6 +98,10 @@ const projects = [
   "Personnel"
 ];
 
+// =====================================================
+// COMPOSANT PRINCIPAL
+// =====================================================
+
 export default function AgendaPage() {
   const { user } = useAuth();
   const userId = user?.id || null;
@@ -106,11 +120,13 @@ export default function AgendaPage() {
 
   // ========== ÉTATS TÂCHES ==========
   const [taskList, setTaskList] = useState<Task[]>([]);
+  const [scoredTasks, setScoredTasks] = useState<ScoredTask[]>([]);
   const [isTasksLoading, setIsTasksLoading] = useState(true);
   const [showTaskForm, setShowTaskForm] = useState(false);
   const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
   const [filterStatus, setFilterStatus] = useState<string>("all");
   const [filterPriority, setFilterPriority] = useState<string>("all");
+  const [sortBy, setSortBy] = useState<string>("score");
   const [syncCalendar, setSyncCalendar] = useState(false);
   
   const [taskFormData, setTaskFormData] = useState({
@@ -121,6 +137,24 @@ export default function AgendaPage() {
     due_date: "",
     estimated_time: ""
   });
+
+  // ========== FONCTION DE CALCUL DE SCORE ==========
+  const calculateTaskPriority = useCallback((task: Task): { scores: PriorityScores; totalScore: number; level: "critical" | "high" | "normal" | "low" } => {
+    const hasRevenuePotential = ["Money", "Love & Fire", "Business", "Santé Plus"].includes(task.project);
+    const isFamilyRelated = task.project === "Famille" || task.project === "Family";
+    
+    const scores = autoScoreTask(
+      task.title,
+      task.due_date,
+      task.priority,
+      hasRevenuePotential,
+      isFamilyRelated,
+      task.estimated_time || 30
+    );
+    const totalScore = calculateTotalScore(scores);
+    const level = getPriorityLevel(totalScore);
+    return { scores, totalScore, level };
+  }, []);
 
   // ========== CHARGEMENT OPTIMISÉ ==========
   useEffect(() => {
@@ -172,7 +206,6 @@ export default function AgendaPage() {
       .order("due_date", { ascending: true })
       .limit(50);
     
-    // Cast sécurisé avec les champs optionnels
     setTasks((data || []) as Task[]);
   }
 
@@ -181,12 +214,34 @@ export default function AgendaPage() {
     
     const { data } = await supabase
       .from("tasks")
-      .select("id, title, status, priority, project, due_date, created_at")
+      .select("id, title, status, priority, project, due_date, created_at, estimated_time")
       .eq("user_id", userId)
       .order("created_at", { ascending: false })
       .limit(100);
     
-    setTaskList((data || []) as Task[]);
+    const tasksData = (data || []) as Task[];
+    setTaskList(tasksData);
+    
+    // Calculer les scores pour chaque tâche
+    const scored = tasksData.map(task => {
+      const { scores, totalScore, level } = calculateTaskPriority(task);
+      return {
+        id: task.id,
+        title: task.title,
+        scores,
+        totalScore,
+        level,
+        estimatedTime: task.estimated_time || undefined,
+        dueDate: task.due_date,
+        priority: task.priority,
+        status: task.status,
+        project: task.project
+      };
+    });
+    
+    // Trier par score
+    const sorted = sortTasksByPriority(scored);
+    setScoredTasks(sorted);
   }
 
   async function fetchFamilyEventsOptimized() {
@@ -375,21 +430,45 @@ export default function AgendaPage() {
     });
   }
 
+  // ========== FILTRES ET TRI ==========
+  const getFilteredAndSortedTasks = useMemo(() => {
+    let filtered = [...scoredTasks];
+    
+    // Filtrer par statut
+    if (filterStatus !== "all") {
+      filtered = filtered.filter(t => t.status === filterStatus);
+    }
+    
+    // Filtrer par priorité
+    if (filterPriority !== "all") {
+      filtered = filtered.filter(t => t.priority === filterPriority);
+    }
+    
+    // Trier
+    if (sortBy === "score") {
+      filtered.sort((a, b) => b.totalScore - a.totalScore);
+    } else if (sortBy === "due_date") {
+      filtered.sort((a, b) => {
+        if (!a.dueDate) return 1;
+        if (!b.dueDate) return -1;
+        return new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime();
+      });
+    } else if (sortBy === "title") {
+      filtered.sort((a, b) => a.title.localeCompare(b.title));
+    }
+    
+    return filtered;
+  }, [scoredTasks, filterStatus, filterPriority, sortBy]);
+
   // ========== STATS MEMOIZED ==========
   const taskStats = useMemo(() => ({
-    total: taskList.length,
-    today: taskList.filter(t => t.status === "today").length,
-    in_progress: taskList.filter(t => t.status === "in_progress").length,
-    done: taskList.filter(t => t.status === "done").length
-  }), [taskList]);
-
-  const filteredTasks = useMemo(() => {
-    return taskList.filter(t => {
-      if (filterStatus !== "all" && t.status !== filterStatus) return false;
-      if (filterPriority !== "all" && t.priority !== filterPriority) return false;
-      return true;
-    });
-  }, [taskList, filterStatus, filterPriority]);
+    total: scoredTasks.length,
+    today: scoredTasks.filter(t => t.status === "today").length,
+    in_progress: scoredTasks.filter(t => t.status === "in_progress").length,
+    done: scoredTasks.filter(t => t.status === "done").length,
+    critical: scoredTasks.filter(t => t.level === "critical").length,
+    high: scoredTasks.filter(t => t.level === "high").length
+  }), [scoredTasks]);
 
   if (!userId) {
     return (
@@ -426,7 +505,7 @@ export default function AgendaPage() {
           </div>
           <div className="flex gap-3">
             <button
-              onClick={() => exportTasksToPDF(filteredTasks)}
+              onClick={() => exportTasksToPDF(scoredTasks)}
               className="bg-white/10 p-2 rounded-full hover:bg-white/20 transition-colors"
               title="Exporter les tâches en PDF"
             >
@@ -435,14 +514,14 @@ export default function AgendaPage() {
           </div>
         </div>
 
-        {/* Bloc Becks */}
+        {/* Bloc Becks avec infos priorités */}
         <div className="bg-blue-500/10 border border-blue-500/20 rounded-xl p-4 mb-6">
           <div className="flex items-center gap-3">
-            <Clock className="w-5 h-5 text-blue-400" />
+            <TrendingUp className="w-5 h-5 text-blue-400" />
             <div>
-              <p className="text-sm text-blue-400 font-medium">Becks - Agenda</p>
+              <p className="text-sm text-blue-400 font-medium">Becks - Priorités</p>
               <p className="text-sm text-ivory">
-                📋 {taskStats.today} tâche(s) aujourd'hui • 📅 {taskStats.in_progress} en cours • ✅ {taskStats.done} terminées
+                🔴 {taskStats.critical} critique(s) • 🟠 {taskStats.high} haute(s) priorité • 📋 {taskStats.today} aujourd'hui
               </p>
             </div>
           </div>
@@ -553,14 +632,22 @@ export default function AgendaPage() {
           </>
         )}
 
-        {/* ==================== ONGLET TÂCHES ==================== */}
+        {/* ==================== ONGLET TÂCHES AVEC SCORING ==================== */}
         {activeTab === "tasks" && (
           <div>
-            {/* STATS TÂCHES */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+            {/* STATS TÂCHES AVEC SCORES */}
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
               <div className="bg-white/5 border border-white/10 rounded-xl p-4 text-center">
                 <div className="text-2xl font-serif text-ivory">{taskStats.total}</div>
                 <div className="text-xs text-gray-500">Total</div>
+              </div>
+              <div className="bg-white/5 border border-white/10 rounded-xl p-4 text-center">
+                <div className="text-2xl font-serif text-red-400">{taskStats.critical}</div>
+                <div className="text-xs text-gray-500">Critiques</div>
+              </div>
+              <div className="bg-white/5 border border-white/10 rounded-xl p-4 text-center">
+                <div className="text-2xl font-serif text-orange-400">{taskStats.high}</div>
+                <div className="text-xs text-gray-500">Haute priorité</div>
               </div>
               <div className="bg-white/5 border border-white/10 rounded-xl p-4 text-center">
                 <div className="text-2xl font-serif text-orange-400">{taskStats.today}</div>
@@ -570,13 +657,9 @@ export default function AgendaPage() {
                 <div className="text-2xl font-serif text-blue-400">{taskStats.in_progress}</div>
                 <div className="text-xs text-gray-500">En cours</div>
               </div>
-              <div className="bg-white/5 border border-white/10 rounded-xl p-4 text-center">
-                <div className="text-2xl font-serif text-emerald-400">{taskStats.done}</div>
-                <div className="text-xs text-gray-500">Terminées</div>
-              </div>
             </div>
 
-            {/* FILTRES */}
+            {/* FILTRES ET TRI */}
             <div className="flex flex-wrap gap-3 mb-6">
               <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)} className="bg-white/5 border border-white/10 rounded-full px-4 py-2 text-sm">
                 <option value="all">📋 Tous les statuts</option>
@@ -585,6 +668,11 @@ export default function AgendaPage() {
               <select value={filterPriority} onChange={(e) => setFilterPriority(e.target.value)} className="bg-white/5 border border-white/10 rounded-full px-4 py-2 text-sm">
                 <option value="all">🚩 Toutes les priorités</option>
                 {Object.entries(priorityConfig).map(([key, conf]) => <option key={key} value={key}>{conf.label}</option>)}
+              </select>
+              <select value={sortBy} onChange={(e) => setSortBy(e.target.value)} className="bg-white/5 border border-white/10 rounded-full px-4 py-2 text-sm">
+                <option value="score">⭐ Trier par score</option>
+                <option value="due_date">📅 Trier par échéance</option>
+                <option value="title">🔤 Trier par titre</option>
               </select>
               <button onClick={() => { setShowTaskForm(true); setEditingTaskId(null); setTimeout(() => document.getElementById("form-container")?.scrollIntoView({ behavior: "smooth" }), 100); }} className="bg-gold-500 text-midnight px-4 py-2 rounded-full text-sm font-medium flex items-center gap-2">
                 <Plus className="w-4 h-4" /> Nouvelle tâche
@@ -627,16 +715,18 @@ export default function AgendaPage() {
               )}
             </AnimatePresence>
 
-            {/* LISTE DES TÂCHES */}
+            {/* LISTE DES TÂCHES AVEC SCORES */}
             <div className="space-y-3">
-              {isTasksLoading ? <LoadingSpinner /> : filteredTasks.length === 0 ? (
+              {isTasksLoading ? <LoadingSpinner /> : getFilteredAndSortedTasks.length === 0 ? (
                 <div className="text-center py-12 text-gray-500"><CheckCircle className="w-12 h-12 mx-auto mb-4 opacity-30" /><p>Aucune tâche</p></div>
               ) : (
-                filteredTasks.map((task) => {
+                getFilteredAndSortedTasks.map((task) => {
                   const statusConf = statusConfig[task.status as keyof typeof statusConfig] || statusConfig.not_started;
                   const priorityConf = priorityConfig[task.priority as keyof typeof priorityConfig] || priorityConfig.normal;
                   const StatusIcon = statusConf.icon;
                   const PriorityIcon = priorityConf.icon;
+                  const styles = getPriorityStyles(task.level);
+                  const recommendation = getPriorityRecommendation(task.totalScore, task.level);
                   
                   return (
                     <motion.div key={task.id} initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} className={`bg-white/5 border-l-4 ${statusConf.border} rounded-xl p-4 hover:bg-white/10 transition-colors`}>
@@ -646,20 +736,24 @@ export default function AgendaPage() {
                             <h3 className="text-ivory font-medium">{task.title}</h3>
                             <span className={`text-xs px-2 py-0.5 rounded-full ${priorityConf.color}`}><PriorityIcon className="w-3 h-3 inline mr-1" /> {priorityConf.label}</span>
                             <span className={`text-xs px-2 py-0.5 rounded-full ${statusConf.color}`}><StatusIcon className="w-3 h-3 inline mr-1" /> {statusConf.label}</span>
-                            {task.calendar_synced && <span className="text-xs text-emerald-400 flex items-center gap-1"><CheckCircle className="w-3 h-3" /> 📅 Synchronisé</span>}
+                            <span className={`text-xs px-2 py-0.5 rounded-full ${styles.badge}`}>
+                              Score: {task.totalScore} - {task.level === "critical" ? "Critique" : task.level === "high" ? "Haute" : task.level === "normal" ? "Normale" : "Basse"}
+                            </span>
                           </div>
                           <div className="flex flex-wrap gap-4 text-xs text-gray-500">
                             <span className="flex items-center gap-1"><FolderOpen className="w-3 h-3" /> {task.project}</span>
-                            {task.due_date && <span className="flex items-center gap-1"><Calendar className="w-3 h-3" /> {new Date(task.due_date).toLocaleDateString('fr-FR')}</span>}
-                            {task.estimated_time && <span>⏱️ {task.estimated_time} min</span>}
-                            {task.calendar_link && <a href={task.calendar_link} target="_blank" rel="noopener noreferrer" className="text-gold-500 hover:underline flex items-center gap-1">Voir dans Calendar →</a>}
+                            {task.dueDate && <span className="flex items-center gap-1"><Calendar className="w-3 h-3" /> {new Date(task.dueDate).toLocaleDateString('fr-FR')}</span>}
+                            {task.estimatedTime && <span>⏱️ {task.estimatedTime} min</span>}
+                          </div>
+                          <div className="mt-2 text-xs text-gold-500">
+                            💡 {recommendation}
                           </div>
                         </div>
                         <div className="flex items-center gap-2">
                           <select value={task.status} onChange={(e) => updateTaskStatus(task.id, e.target.value as Task["status"])} className="bg-white/10 border border-white/10 rounded-lg px-2 py-1 text-xs">
                             {Object.entries(statusConfig).map(([key, conf]) => <option key={key} value={key}>{conf.label}</option>)}
                           </select>
-                          <button onClick={() => editTask(task)} className="text-gray-500 hover:text-gold-500"><Edit2 className="w-4 h-4" /></button>
+                          <button onClick={() => editTask({ ...task, due_date: task.dueDate, estimated_time: task.estimatedTime } as Task)} className="text-gray-500 hover:text-gold-500"><Edit2 className="w-4 h-4" /></button>
                           <button onClick={() => deleteTask(task.id)} className="text-gray-500 hover:text-red-400"><Trash2 className="w-4 h-4" /></button>
                         </div>
                       </div>
