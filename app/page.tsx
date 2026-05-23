@@ -46,7 +46,7 @@ ChartJS.register(
 );
 
 // =====================================================
-// TYPES (alignés avec le backend)
+// TYPES
 // =====================================================
 
 type Priority = { 
@@ -73,11 +73,12 @@ type Mission = {
   priority: string 
 };
 
-type Spending = { amount: number; date: string }; 
+// Pour les graphiques, on n'a besoin que de amount et date
+type Spending = { amount: number; date: string };
 type Revenue = { amount: number; date: string };
-type Revenue = { id: string; source: string; amount: number; date: string };
 type Memory = { id: string; key: string; value: string; category: string };
 
+ 
 const chartColors = {
   gold: '#D4AF37',
   red: '#EF4444',
