@@ -10,7 +10,7 @@ import { WhatsAppSuggestions } from "@/components/WhatsAppSuggestions";
 import ReactMarkdown from 'react-markdown';
 import { 
   Send, ArrowLeft, Plus, Trash2, ChevronLeft, ChevronRight, 
-  Search, Edit2, Check, X, Loader2, Menu, Mic, Paperclip, 
+  Search, Edit2, Check, X, Loader2, Menu, Mic, MicOff, Paperclip, 
   File, XCircle, Heart, Zap, Trophy, Baby, DollarSign, 
   FileText, Crown, ChevronDown, Sparkles, Volume2, VolumeX,
   Phone, MessageCircle, Clock, MapPin, Calendar, Mail, ListTodo
