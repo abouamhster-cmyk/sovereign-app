@@ -608,7 +608,7 @@ const executeActionFn = async (action: Action): Promise<{ success: boolean; data
 // ============================================================
 // COMPOSANT PRINCIPAL
 // ============================================================
-export function MessageWithActions({ content, actions: providedActions = [], onActionComplete }: MessageWithActionsProps) {
+export function MessageWithActions({ content, actions: providedActions = [], onActionComplete, onPlanUpdate }: MessageWithActionsProps) {
   const { cleanText, actions: parsedActions } = parseActionsFromText(content);
   const actions = providedActions.length > 0 ? providedActions : parsedActions;
   
@@ -648,10 +648,15 @@ export function MessageWithActions({ content, actions: providedActions = [], onA
       }
       else if (result.data?.type === "execution_step_completed") {
         if (activeExecutionPlan) {
+          const newCompletedSteps = result.data.completedSteps;
           setActiveExecutionPlan({
             ...activeExecutionPlan,
-            completedSteps: result.data.completedSteps
+            completedSteps: newCompletedSteps
           });
+          // Appeler onPlanUpdate pour sauvegarder l'état
+          if (onPlanUpdate && activeExecutionPlan.planId) {
+            onPlanUpdate(activeExecutionPlan.planId, newCompletedSteps);
+          }
           if (result.data.isComplete) {
             toast.success("🎉 Félicitations ! Plan terminé !");
             setTimeout(() => setActiveExecutionPlan(null), 3000);
@@ -730,10 +735,15 @@ export function MessageWithActions({ content, actions: providedActions = [], onA
         label: "Compléter étape"
       }).then(result => {
         if (result.success && result.data) {
+          const newCompletedSteps = result.data.completedSteps;
           setActiveExecutionPlan({
             ...activeExecutionPlan,
-            completedSteps: result.data.completedSteps
+            completedSteps: newCompletedSteps
           });
+          // Appeler onPlanUpdate pour sauvegarder
+          if (onPlanUpdate && activeExecutionPlan.planId) {
+            onPlanUpdate(activeExecutionPlan.planId, newCompletedSteps);
+          }
           if (result.data.isComplete) {
             toast.success("🎉 Mission accomplie !");
             setTimeout(() => setActiveExecutionPlan(null), 3000);
@@ -777,23 +787,23 @@ export function MessageWithActions({ content, actions: providedActions = [], onA
         
         {activeExecutionPlan && (
           <div className="mt-4">
-              <ExecutionPlan
-                planId={activeExecutionPlan.planId}
-                title={activeExecutionPlan.title}
-                steps={activeExecutionPlan.steps}
-                completedSteps={activeExecutionPlan.completedSteps}
-                onStepComplete={handleStepComplete}
-                onPlanComplete={handlePlanComplete}
-                onAskHelp={handleAskHelp}
-                onUpdate={(completedSteps) => {
-                  // Mettre à jour l'état local
-                  setActiveExecutionPlan(prev => prev ? { ...prev, completedSteps } : null);
-                  // Appeler la prop parent pour sauvegarder
-                  if (onPlanUpdate) {
-                    onPlanUpdate(activeExecutionPlan.planId, completedSteps);
-                  }
-                }}
-              />
+            <ExecutionPlan
+              planId={activeExecutionPlan.planId}
+              title={activeExecutionPlan.title}
+              steps={activeExecutionPlan.steps}
+              completedSteps={activeExecutionPlan.completedSteps}
+              onStepComplete={handleStepComplete}
+              onPlanComplete={handlePlanComplete}
+              onAskHelp={handleAskHelp}
+              onUpdate={(completedSteps) => {
+                // Mettre à jour l'état local
+                setActiveExecutionPlan(prev => prev ? { ...prev, completedSteps } : null);
+                // Appeler la prop parent pour sauvegarder
+                if (onPlanUpdate && activeExecutionPlan) {
+                  onPlanUpdate(activeExecutionPlan.planId, completedSteps);
+                }
+              }}
+            />
           </div>
         )}
         
