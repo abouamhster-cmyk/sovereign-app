@@ -6,6 +6,7 @@ import { ExecutionGuide } from "@/components/ExecutionGuide";
 import { ReadyToSend } from "@/components/ReadyToSend";
 import { DecisionMode } from "@/components/DecisionMode";
 import { LiveVoiceChat } from "@/components/LiveVoiceChat";
+import { WhatsAppSuggestions } from "@/components/WhatsAppSuggestions";
 import ReactMarkdown from 'react-markdown';
 import { 
   Send, ArrowLeft, Plus, Trash2, ChevronLeft, ChevronRight, 
@@ -46,7 +47,6 @@ type Message = {
 // =====================================================
 
 const modes = [
-  // ========== MODE 1 : PARLE-MOI (Émotionnel) ==========
   {
     id: "parle-moi",
     name: "Parle-moi",
@@ -88,15 +88,14 @@ QUAND ELLE DIT "j'ai pas mangé" :
 IMPORTANT : Parle comme une vraie personne. Naturelle. Pas comme une appli.`
   },
 
-  // ========== MODE 2 : FAIS-LE AVEC MOI (Exécution guidée) ==========
- { 
-  id: "fais-le-avec-moi", 
-  name: "Fais-le avec moi", 
-  icon: Zap, 
-  color: "text-yellow-400", 
-  bg: "bg-yellow-500/10", 
-  description: "Exécution guidée interactive",
-  prompt: `Tu es Becks en mode EXÉCUTION GUIDÉE INTERACTIVE.
+  { 
+    id: "fais-le-avec-moi", 
+    name: "Fais-le avec moi", 
+    icon: Zap, 
+    color: "text-yellow-400", 
+    bg: "bg-yellow-500/10", 
+    description: "Exécution guidée interactive",
+    prompt: `Tu es Becks en mode EXÉCUTION GUIDÉE INTERACTIVE.
 
 🎯 OBJECTIF : Rebecca doit avancer concrètement, étape par étape, avec ton aide.
 
@@ -159,35 +158,9 @@ Prochaine action naturelle : [suggestion].
 
 On continue ?"
 
-EXEMPLE CONCRET POUR LE GRANT :
-
-Rebecca : "Aide-moi à préparer mon dossier pour le grant Love & Fire Sport"
-
-Becks : "Ok, je m'occupe de préparer ton dossier grant Love & Fire Sport.
-
-[ACTION:{"type":"create_execution_plan","params":{"title":"Préparation dossier grant Love & Fire Sport","steps":["Rassembler les documents nécessaires","Rédiger la lettre de motivation","Préparer le budget prévisionnel","Relire et finaliser","Soumettre le dossier"]},"label":"📋 Démarrer le plan"}]
-
-Voici le plan :
-
-🎯 1. Rassembler les documents (10 min)
-📋 2. Rédiger la lettre de motivation (20 min)
-⚡ 3. Préparer le budget prévisionnel (15 min)
-📄 4. Relire et finaliser (10 min)
-✅ 5. Soumettre le dossier (5 min)
-
-On commence par l'étape 1 : rassembler les documents.
-
-Je peux t'aider à :
-- Lister les documents types pour un grant
-- Vérifier ce que tu as déjà dans tes dossiers
-- Chercher les documents manquants
-
-Dis-moi ce que tu veux faire."
-
 Tu es Becks. Interractive, précise, qui accompagne vraiment.`
-},
+  },
 
-  // ========== MODE 3 : LOVE & FIRE SPORT ==========
   { 
     id: "love-fire-sport", 
     name: "Love & Fire Sport", 
@@ -209,7 +182,6 @@ QUAND ELLE ARRIVE AVEC UN DOSSIER :
 OBJECTIF : Aider Rebecca à avancer avec sérieux et confiance.`
   },
 
-  // ========== MODE 4 : MES ENFANTS ==========
   { 
     id: "mes-enfants", 
     name: "Mes enfants", 
@@ -228,7 +200,6 @@ STYLE : Parle comme une amie qui comprend la maternité. Sois simple. Sois rassu
 OBJECTIF : Rebecca doit se sentir soutenue comme mère, pas évaluée.`
   },
 
-  // ========== MODE 5 : BUSINESS & ARGENT ==========
   { 
     id: "business-argent", 
     name: "Business & Argent", 
@@ -267,7 +238,6 @@ PROCHAINE ACTION : [action concrète]
 [ACTION:{"type":"create_task","params":{"title":"[action]","priority":"high"},"label":"📋 Créer la tâche"}]`
   },
 
-  // ========== MODE 6 : DOCUMENTS ==========
   { 
     id: "documents", 
     name: "Documents", 
@@ -293,7 +263,6 @@ QUAND TU RÉDIGES :
 OBJECTIF : Rebecca doit comprendre vite et utiliser le document sans se fatiguer.`
   },
 
-  // ========== MODE 7 : SOVEREIGN MODE ==========
   { 
     id: "sovereign-mode", 
     name: "Sovereign Mode", 
@@ -325,7 +294,7 @@ RÈGLE : Ne propose pas de bouton [ACTION] dans ce mode. Aide d'abord Rebecca à
 // Cache pour les conversations
 let conversationsCache: Conversation[] | null = null;
 let lastFetch = 0;
-const CACHE_TTL = 30000; // 30 secondes
+const CACHE_TTL = 30000;
 
 // =====================================================
 // COMPOSANT PRINCIPAL
@@ -362,6 +331,7 @@ export default function ChatPage() {
   const { transcript, resetTranscript } = useSpeechRecognition();
 
   const [lastEmailsCache, setLastEmailsCache] = useState<any[]>([]);
+  const [whatsappSuggestions, setWhatsappSuggestions] = useState<{ show: boolean; message: string; contactName: string; contactNumber: string } | null>(null);
 
   const [showChecklistModal, setShowChecklistModal] = useState(false);
   const [currentChecklist, setCurrentChecklist] = useState<{ title: string; steps: string[] } | null>(null);
@@ -394,7 +364,6 @@ export default function ChatPage() {
     if (currentConversationId) fetchMessages(currentConversationId);
   }, [currentConversationId]);
 
-  // Debounce pour la recherche
   useEffect(() => {
     const timeout = setTimeout(() => {
       if (!searchTerm.trim()) {
@@ -444,7 +413,7 @@ export default function ChatPage() {
     return uploaded;
   }
 
-  // ========== CONVERSATIONS AVEC CACHE ==========
+  // ========== CONVERSATIONS ==========
   async function fetchConversations() {
     if (!userId) return;
     
@@ -476,7 +445,7 @@ export default function ChatPage() {
       .select("*")
       .eq("conversation_id", conversationId)
       .order("created_at", { ascending: true })
-      .limit(100); // Limite à 100 messages pour la performance
+      .limit(100);
     
     if (error) return;
     if (data && data.length > 0) {
@@ -498,7 +467,7 @@ export default function ChatPage() {
     if (!userId) return;
     const { data, error } = await supabase.from("conversations").insert({ title: "Nouvelle conversation...", user_id: userId }).select().single();
     if (!error && data) {
-      conversationsCache = null; // Invalider le cache
+      conversationsCache = null;
       setConversations(prev => [data, ...prev]);
       setFilteredConversations(prev => [data, ...prev]);
       setCurrentConversationId(data.id);
@@ -511,7 +480,7 @@ export default function ChatPage() {
   async function updateConversationTitle(id: string, newTitle: string) {
     if (!newTitle.trim()) return;
     await supabase.from("conversations").update({ title: newTitle }).eq("id", id);
-    conversationsCache = null; // Invalider le cache
+    conversationsCache = null;
     setConversations(prev => prev.map(conv => conv.id === id ? { ...conv, title: newTitle } : conv));
     setFilteredConversations(prev => prev.map(conv => conv.id === id ? { ...conv, title: newTitle } : conv));
     setEditingTitleId(null);
@@ -520,7 +489,7 @@ export default function ChatPage() {
   async function deleteConversation(id: string) {
     if (confirm("Supprimer cette conversation ?")) {
       await supabase.from("conversations").delete().eq("id", id);
-      conversationsCache = null; // Invalider le cache
+      conversationsCache = null;
       const newConversations = conversations.filter(c => c.id !== id);
       setConversations(newConversations);
       setFilteredConversations(newConversations);
@@ -637,6 +606,18 @@ export default function ChatPage() {
             }
           });
           list += `💡 Dis-moi 'réponds à [nom]' pour envoyer un message`;
+          
+          // Stocker pour afficher les suggestions
+          if (result.conversations[0]) {
+            const firstConv = result.conversations[0];
+            setWhatsappSuggestions({
+              show: true,
+              message: firstConv.messages[0]?.message || "",
+              contactName: firstConv.from_name,
+              contactNumber: firstConv.from
+            });
+          }
+          
           return list;
         }
         return "📱 Aucun message WhatsApp en attente.";
@@ -803,7 +784,7 @@ export default function ChatPage() {
     }
   };
 
-  // ========== STREAMING CORRIGÉ ==========
+  // ========== STREAMING ==========
   const sendMessageStreaming = async (allMessages: any[], onChunk: (chunk: string) => void): Promise<string> => {
     const response = await fetch(`${API_URL}/chat/stream-simple`, {
       method: "POST",
@@ -845,7 +826,7 @@ export default function ChatPage() {
     return fullResponse;
   };
 
-  // ========== ENVOI DE MESSAGE PRINCIPAL CORRIGÉ ==========
+  // ========== ENVOI DE MESSAGE ==========
   const sendMessage = async () => {
     if (isSending || (!input.trim() && uploadedFiles.length === 0) || isLoading || !currentConversationId) return;
     
@@ -955,7 +936,6 @@ export default function ChatPage() {
     setMessages(prev => [...prev, userMsg]);
     await saveMessage(currentConversationId, "user", userContent, undefined, uploaded);
     
-    // ✅ CORRECTION : Ajoute un message assistant vide et garde sa référence
     const assistantMsgIndex = messages.length + 1;
     setMessages(prev => [...prev, { role: "assistant", content: "" }]);
     
@@ -968,7 +948,6 @@ export default function ChatPage() {
       
       await sendMessageStreaming(allMsgs, (chunk) => {
         assistantContent += chunk;
-        // ✅ Met à jour le message assistant en place
         setMessages(prev => {
           const newMsgs = [...prev];
           if (newMsgs[assistantMsgIndex]) {
@@ -978,7 +957,6 @@ export default function ChatPage() {
         });
       });
       
-      // ✅ Sauvegarde le message final
       await saveMessage(currentConversationId, "assistant", assistantContent);
       setLastAssistantMessage(assistantContent);
       
@@ -1082,12 +1060,8 @@ export default function ChatPage() {
   const handlePlanComplete = () => { toast.success("🎉 Félicitations ! Plan accompli !"); setExecutionPlan(null); };
   const handleClosePlan = () => setExecutionPlan(null);
 
-  // Animation conditionnelle pour mobile
-  const shouldAnimate = typeof window !== 'undefined' && window.innerWidth >= 768;
-
   if (userIdLoading) return <div className="flex items-center justify-center h-screen"><Loader2 className="w-8 h-8 text-gold-500 animate-spin" /></div>;
 
-  // ========== RENDU ==========
   return (
     <div className="fixed inset-0 bg-midnight flex flex-col">
       <header className="sticky top-0 z-10 h-12 border-b border-white/10 flex items-center justify-between px-3 bg-midnight/95 backdrop-blur-lg shrink-0">
@@ -1106,7 +1080,7 @@ export default function ChatPage() {
         </div>
       </header>
 
-      {/* SIDEBAR - Le reste du rendu reste identique, juste les animations conditionnelles */}
+      {/* SIDEBAR */}
       <AnimatePresence>
         {isSidebarOpen && (
           <>
@@ -1137,7 +1111,7 @@ export default function ChatPage() {
         )}
       </AnimatePresence>
 
-      {/* MESSAGES AVEC ANIMATIONS CONDITIONNELLES */}
+      {/* MESSAGES */}
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
         {messages.map((m, i) => (
           <div key={i} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
@@ -1168,6 +1142,23 @@ export default function ChatPage() {
             )}
           </div>
         ))}
+        
+        {/* WhatsApp Suggestions Modal */}
+        {whatsappSuggestions?.show && (
+          <div className="flex justify-start mt-2">
+            <div className="max-w-[85%] w-full">
+              <WhatsAppSuggestions
+                message={whatsappSuggestions.message}
+                contactName={whatsappSuggestions.contactName}
+                contactNumber={whatsappSuggestions.contactNumber}
+                onSend={async (text) => {
+                  await executeAction("whatsapp_reply", { to: whatsappSuggestions.contactNumber, message: text });
+                  setWhatsappSuggestions(null);
+                }}
+              />
+            </div>
+          </div>
+        )}
         
         {executionPlan && (<div className="flex justify-start"><div className="max-w-[85%] w-full"><ExecutionGuide planId={executionPlan.planId} plan={executionPlan.plan} onComplete={handlePlanComplete} onClose={handleClosePlan} /></div></div>)}
         {selectedMode === "documents" && (<div className="flex justify-start mt-4"><div className="max-w-[85%] w-full"><ReadyToSend onInsert={(text) => setInput(prev => prev + "\n\n" + text)} /></div></div>)}
