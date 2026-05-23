@@ -11,7 +11,8 @@ import {
   Calendar, AlertCircle, ArrowRight, Loader2, Edit2, Inbox, CheckSquare, 
   Briefcase, Globe, Trophy, Users, Zap, ShieldAlert, Map, Mail, FileText, 
   TrendingUp, CalendarDays, FolderOpen, Star, Sun, Moon, BarChart3,
-  PieChart, LineChart, Activity, CreditCard, Wallet, Clock, MessageCircle
+  PieChart, LineChart, Activity, CreditCard, Wallet, Clock, MessageCircle,
+  WifiOff
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -49,7 +50,7 @@ ChartJS.register(
 type Priority = { 
   id: string; 
   title: string; 
-  priority_reason: string;  // ← backend renvoie "priority_reason", pas "reason"
+  priority_reason: string;
   score: number;
   source: string;
   source_id: string;
@@ -86,6 +87,31 @@ const chartColors = {
   cyan: '#06B6D4'
 };
 
+// Phrases interdites (filtrage)
+const FORBIDDEN_PATTERNS = [
+  /prends soin de toi/i,
+  /une chose à la fois/i,
+  /tu es (formidable|incroyable|géniale)/i,
+  /je suis là pour toi/i,
+  /n'hésite pas/i,
+  /courage/i,
+  /tout va bien se passer/i,
+  /respire profondément/i,
+  /chaque pas compte/i,
+  /je comprends ce que tu ressens/i,
+  /sois fière/i
+];
+
+function sanitizeMessage(text: string): string {
+  if (!text) return "";
+  for (const pattern of FORBIDDEN_PATTERNS) {
+    if (pattern.test(text)) {
+      return text.replace(pattern, "").trim();
+    }
+  }
+  return text;
+}
+
 export default function DashboardPage() {
   const router = useRouter();
   const { user } = useAuth();
@@ -94,8 +120,9 @@ export default function DashboardPage() {
   const [greeting, setGreeting] = useState("");
   const [userName, setUserName] = useState("Rebecca");
   const [isLoading, setIsLoading] = useState(true);
+  const [isOnline, setIsOnline] = useState(true);
   
-  // Données du dashboard (alignées avec le backend)
+  // Données du dashboard
   const [priorities, setPriorities] = useState<Priority[]>([]);
   const [tasksToday, setTasksToday] = useState<Task[]>([]);
   const [overdueTasks, setOverdueTasks] = useState<Task[]>([]);
@@ -109,7 +136,7 @@ export default function DashboardPage() {
   const [calmGuidance, setCalmGuidance] = useState("");
   const [mood, setMood] = useState<string | null>(null);
   
-  // Données secondaires (graphiques)
+  // Données secondaires
   const [recentSpending, setRecentSpending] = useState<Spending[]>([]);
   const [recentRevenue, setRecentRevenue] = useState<Revenue[]>([]);
   const [weeklyProgress, setWeeklyProgress] = useState<{ day: string; completed: number; created: number }[]>([]);
@@ -117,17 +144,42 @@ export default function DashboardPage() {
   const [upcomingTasks, setUpcomingTasks] = useState<Task[]>([]);
   const [financialSummary, setFinancialSummary] = useState({ revenue: 0, spending: 0, balance: 0 });
   const [completionRate, setCompletionRate] = useState(0);
-  const [farmNextAction, setFarmNextAction] = useState("Vérifier l'avancement");
+  const [farmNextAction, setFarmNextAction] = useState("");
   const [recentMemories, setRecentMemories] = useState<Memory[]>([]);
   const [isLoadingMemories, setIsLoadingMemories] = useState(true);
   const [overloadData, setOverloadData] = useState<any>(null);
+  const [specialEvents, setSpecialEvents] = useState<{ type: string; title: string; detail: string }[]>([]);
+  const [timeOfDay, setTimeOfDay] = useState<"morning" | "afternoon" | "evening" | "night">("morning");
 
-  // ========== SALUTATION ==========
+  // ========== DÉTECTION CONNEXION ==========
+  useEffect(() => {
+    setIsOnline(navigator.onLine);
+    const handleOnline = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
+
+  // ========== SALUTATION ADAPTATIVE ==========
   useEffect(() => {
     const hour = new Date().getHours();
-    if (hour < 12) setGreeting("Bonjour");
-    else if (hour < 18) setGreeting("Bon après-midi");
-    else setGreeting("Bonsoir");
+    if (hour >= 5 && hour < 12) {
+      setTimeOfDay("morning");
+      setGreeting("☀️ Bonjour");
+    } else if (hour >= 12 && hour < 18) {
+      setTimeOfDay("afternoon");
+      setGreeting("🌤️ Bon après-midi");
+    } else if (hour >= 18 && hour < 22) {
+      setTimeOfDay("evening");
+      setGreeting("🌙 Bonsoir");
+    } else {
+      setTimeOfDay("night");
+      setGreeting("🌃 Bonne nuit");
+    }
     
     const savedMood = localStorage.getItem("todayMood");
     const savedDate = localStorage.getItem("todayMoodDate");
@@ -157,9 +209,7 @@ export default function DashboardPage() {
     
     if (profileData) setUserName(profileData);
     if (dashboardData) {
-      // Mise à jour avec les données du backend
-      setGreeting(dashboardData.greeting || greeting);
-      setPriorities(dashboardData.top_priorities || []);
+      setPriorities(sanitizePriorities(dashboardData.top_priorities || []));
       setTasksToday(dashboardData.tasks_today || []);
       setOverdueTasks(dashboardData.overdue_tasks || []);
       setActiveMissions(dashboardData.active_missions || []);
@@ -169,7 +219,13 @@ export default function DashboardPage() {
       setRecentWinsCount(dashboardData.recent_wins || 0);
       setFamilyEventsCount(dashboardData.family_today_count || 0);
       setSuggestions(dashboardData.suggestions || {});
-      setCalmGuidance(dashboardData.calm_guidance || "");
+      setSpecialEvents(dashboardData.special_events || []);
+      
+      // Guidance calme - uniquement si non générique
+      const rawGuidance = dashboardData.calm_guidance || "";
+      const cleanGuidance = sanitizeMessage(rawGuidance);
+      setCalmGuidance(cleanGuidance);
+      
       if (dashboardData.current_mood) setMood(dashboardData.current_mood);
     }
     if (memoriesData) setRecentMemories(memoriesData);
@@ -180,8 +236,16 @@ export default function DashboardPage() {
     Promise.all([
       fetchChartDataOptimized(),
       fetchOverloadDetectionOptimized(),
-      fetchFarmStatusOptimized()
+      fetchFarmStatusOptimized(),
+      detectSpecialEvents()
     ]).catch(console.error);
+  }
+
+  function sanitizePriorities(prioritiesList: Priority[]): Priority[] {
+    return prioritiesList.filter(p => {
+      const isGeneric = FORBIDDEN_PATTERNS.some(pattern => pattern.test(p.title) || pattern.test(p.priority_reason));
+      return !isGeneric && p.title && p.title.length > 5;
+    });
   }
 
   async function fetchUserNameOptimized(): Promise<string | null> {
@@ -218,7 +282,8 @@ export default function DashboardPage() {
           family_today_count: data.family_today_count || 0,
           suggestions: data.suggestions || {},
           calm_guidance: data.calm_guidance || "",
-          current_mood: data.current_mood
+          current_mood: data.current_mood,
+          special_events: data.special_events || []
         };
       }
     } catch (error) {
@@ -241,6 +306,56 @@ export default function DashboardPage() {
       setIsLoadingMemories(false);
     }
     return [];
+  }
+
+  async function detectSpecialEvents() {
+    if (!userId) return;
+    
+    const today = new Date().toISOString().split('T')[0];
+    const events: { type: string; title: string; detail: string }[] = [];
+    
+    // Vérifier les anniversaires
+    const { data: profile } = await supabase
+      .from("user_profile")
+      .select("children")
+      .eq("user_id", userId)
+      .maybeSingle();
+    
+    const todayMD = today.slice(5);
+    const children = profile?.children || [];
+    for (const child of children) {
+      if (child.birthday) {
+        const birthdayMD = child.birthday.slice(5);
+        if (birthdayMD === todayMD) {
+          const age = new Date().getFullYear() - parseInt(child.birthday.slice(0, 4));
+          events.push({
+            type: "birthday",
+            title: `🎂 Anniversaire de ${child.name}`,
+            detail: `${child.name} fête ses ${age} ans aujourd'hui !`
+          });
+        }
+      }
+    }
+    
+    // Vérifier les deadlines de grants (Love & Fire)
+    const { data: grants } = await supabase
+      .from("lf_grants")
+      .select("title, deadline, amount")
+      .eq("user_id", userId)
+      .not("deadline", "is", null);
+    
+    for (const grant of grants || []) {
+      const daysLeft = Math.ceil((new Date(grant.deadline).getTime() - Date.now()) / (1000 * 3600 * 24));
+      if (daysLeft >= 0 && daysLeft <= 3) {
+        events.push({
+          type: "grant_urgent",
+          title: `⚠️ Grant urgent : ${grant.title}`,
+          detail: `À rendre dans ${daysLeft} jour(s) • ${grant.amount?.toLocaleString()} CFA`
+        });
+      }
+    }
+    
+    setSpecialEvents(prev => [...prev, ...events]);
   }
 
   async function fetchChartDataOptimized() {
@@ -416,6 +531,36 @@ export default function DashboardPage() {
 
   const currentMood = moodButtons.find(m => m.value === mood);
 
+  // Message de bienvenue adaptatif (non générique)
+  const getAdaptiveWelcome = () => {
+    if (overdueTasks.length > 0) {
+      return `⚠️ ${overdueTasks.length} tâche(s) en retard. La plus ancienne : "${overdueTasks[0].title}".`;
+    }
+    if (whatsappUrgent > 0) {
+      return `📱 ${whatsappUrgent} message(s) WhatsApp urgent(s) en attente.`;
+    }
+    if (financialSummary.balance < -100000) {
+      return `💰 Solde négatif de ${Math.abs(financialSummary.balance).toLocaleString()} CFA.`;
+    }
+    if (specialEvents.length > 0) {
+      return specialEvents[0].detail;
+    }
+    if (tasksToday.length > 0) {
+      return `📋 ${tasksToday.length} tâche(s) aujourd'hui. ${tasksToday[0].title}${tasksToday.length > 1 ? ` et ${tasksToday.length - 1} autre(s)` : ""}.`;
+    }
+    return "";
+  };
+
+  const adaptiveWelcome = getAdaptiveWelcome();
+
+  if (!userId) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <p className="text-gray-500">Veuillez vous connecter</p>
+      </div>
+    );
+  }
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
@@ -424,7 +569,18 @@ export default function DashboardPage() {
     );
   }
 
-  // ========== RENDU ==========
+  if (!isOnline) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="text-center">
+          <WifiOff className="w-12 h-12 text-gray-500 mx-auto mb-4" />
+          <p className="text-gray-500">Mode hors ligne</p>
+          <p className="text-xs text-gray-600 mt-2">Les données sont en cache</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="max-w-6xl mx-auto space-y-6 pb-24 px-4">
       {/* HEADER */}
@@ -441,20 +597,27 @@ export default function DashboardPage() {
           </Link>
         </div>
       
-        {/* Message Becks - NON GÉNÉRIQUE */}
-        <div className="bg-gradient-to-r from-gold-500/10 to-transparent border-l-4 border-gold-500 rounded-xl p-4">
-          {isLoading ? (
-            <div className="flex items-center gap-2"><Loader2 className="w-4 h-4 text-gold-500 animate-spin" /><span className="text-sm text-gray-400">Becks réfléchit...</span></div>
-          ) : (
+        {/* Message Becks - UNIQUEMENT BASÉ SUR DES DONNÉES RÉELLES */}
+        {adaptiveWelcome && (
+          <div className="bg-gradient-to-r from-gold-500/10 to-transparent border-l-4 border-gold-500 rounded-xl p-4">
             <div className="flex items-start gap-3">
               <Sparkles className="w-5 h-5 text-gold-500 mt-0.5 flex-shrink-0" />
-              <p className="text-ivory text-sm leading-relaxed">
-                {greeting || "Bonjour, je suis là."}
-              </p>
+              <p className="text-ivory text-sm leading-relaxed">{adaptiveWelcome}</p>
             </div>
-          )}
-        </div>
+          </div>
+        )}
       </div>
+
+      {/* ÉVÉNEMENTS SPÉCIAUX */}
+      {specialEvents.length > 0 && (
+        <div className="space-y-2">
+          {specialEvents.slice(0, 2).map((event, idx) => (
+            <div key={idx} className="bg-gold-500/10 border border-gold-500/20 rounded-xl p-3">
+              <p className="text-gold-400 text-sm">{event.detail}</p>
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* HUMEUR DU JOUR */}
       <div className="bg-white/5 border border-white/10 rounded-xl p-4">
@@ -484,7 +647,7 @@ export default function DashboardPage() {
         )}
       </div>
 
-      {/* STATS RAPIDES (WhatsApp, documents, etc.) */}
+      {/* STATS RAPIDES */}
       {(whatsappPending > 0 || pendingDocs.length > 0 || familyEventsCount > 0) && (
         <div className="grid grid-cols-3 gap-3">
           {whatsappPending > 0 && (
@@ -514,7 +677,7 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* TOP 3 PRIORITÉS - AVEC SOURCES */}
+      {/* TOP 3 PRIORITÉS */}
       <div className="bg-white/5 border border-white/10 rounded-2xl overflow-hidden">
         <div className="px-5 pt-4 pb-2 flex items-center justify-between">
           <h2 className="text-sm font-serif text-gold-500 flex items-center gap-2">
@@ -561,7 +724,7 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* MESSAGES WHATSAPP URGENTS (si pas déjà dans les priorités) */}
+      {/* MESSAGES WHATSAPP URGENTS */}
       {whatsappUrgent > 0 && priorities.filter(p => p.source === "whatsapp").length === 0 && (
         <div className="bg-green-500/10 border border-green-500/20 rounded-xl p-4">
           <div className="flex items-center gap-2 mb-2">
@@ -573,10 +736,35 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* 4 MOVES (basés sur les suggestions du backend) */}
+      {/* TÂCHES À ÉCHÉANCE */}
+      {upcomingTasks.length > 0 && (
+        <div className="bg-white/5 border border-white/10 rounded-xl p-4">
+          <div className="flex items-center gap-2 mb-3">
+            <Clock className="w-4 h-4 text-orange-400" />
+            <h3 className="text-sm font-medium text-ivory">📅 Tâches à échéance (7 jours)</h3>
+          </div>
+          <div className="space-y-2">
+            {upcomingTasks.slice(0, 4).map((task) => (
+              <div key={task.id} className="flex items-center justify-between text-sm p-2 hover:bg-white/5 rounded-lg">
+                <span className="text-gray-300">{task.title}</span>
+                <span className={`text-xs px-2 py-0.5 rounded-full ${
+                  task.priority === 'critical' ? 'bg-red-500/20 text-red-400' : 
+                  task.priority === 'high' ? 'bg-orange-500/20 text-orange-400' : 
+                  'bg-blue-500/20 text-blue-400'
+                }`}>
+                  📅 {new Date(task.due_date!).toLocaleDateString('fr-FR')}
+                </span>
+              </div>
+            ))}
+          </div>
+          <Link href="/agenda" className="text-xs text-gold-500 hover:underline block text-center mt-3">Voir toutes les tâches →</Link>
+        </div>
+      )}
+
+      {/* 4 MOVES */}
       <div className="grid grid-cols-2 gap-3">
         <Link href="/money-opportunities" className="block">
-          <div className="bg-gradient-to-br from-emerald-500/5 to-transparent border border-emerald-500/20 rounded-xl p-4 hover:border-emerald-500/40">
+          <div className="bg-gradient-to-br from-emerald-500/5 to-transparent border border-emerald-500/20 rounded-xl p-4 hover:border-emerald-500/40 transition-all group">
             <div className="flex items-center gap-2 mb-2">
               <DollarSign className="w-4 h-4 text-emerald-400" />
               <span className="text-xs text-emerald-400/70 uppercase tracking-wider">Move Argent</span>
@@ -586,59 +774,171 @@ export default function DashboardPage() {
           </div>
         </Link>
         <Link href="/family" className="block">
-          <div className="bg-gradient-to-br from-pink-500/5 to-transparent border border-pink-500/20 rounded-xl p-4 hover:border-pink-500/40">
+          <div className="bg-gradient-to-br from-pink-500/5 to-transparent border border-pink-500/20 rounded-xl p-4 hover:border-pink-500/40 transition-all group">
             <div className="flex items-center gap-2 mb-2">
               <Heart className="w-4 h-4 text-pink-400" />
               <span className="text-xs text-pink-400/70 uppercase tracking-wider">Move Famille</span>
             </div>
-            <p className="text-sm text-ivory">{suggestions.family_move || "Prendre des nouvelles des enfants"}</p>
+            <p className="text-sm text-ivory">{suggestions.family_move || (familyEventsCount > 0 ? `${familyEventsCount} événement(s) aujourd'hui` : "Prendre des nouvelles des enfants")}</p>
             <span className="text-xs text-gold-500 opacity-0 group-hover:opacity-100 transition-opacity mt-2 inline-block">Voir famille →</span>
           </div>
         </Link>
         <Link href="/farm" className="block">
-          <div className="bg-gradient-to-br from-green-500/5 to-transparent border border-green-500/20 rounded-xl p-4 hover:border-green-500/40">
+          <div className="bg-gradient-to-br from-green-500/5 to-transparent border border-green-500/20 rounded-xl p-4 hover:border-green-500/40 transition-all group">
             <div className="flex items-center gap-2 mb-2">
               <Sprout className="w-4 h-4 text-green-400" />
               <span className="text-xs text-green-400/70 uppercase tracking-wider">Move Ferme</span>
             </div>
-            <p className="text-sm text-ivory">{suggestions.business_move || farmNextAction}</p>
+            <p className="text-sm text-ivory">{suggestions.business_move || farmNextAction || "Vérifier l'avancement des travaux"}</p>
             <span className="text-xs text-gold-500 opacity-0 group-hover:opacity-100 transition-opacity mt-2 inline-block">Voir ferme →</span>
           </div>
         </Link>
         <Link href="/rescue-wins" className="block">
-          <div className="bg-gradient-to-br from-yellow-500/5 to-transparent border border-yellow-500/20 rounded-xl p-4 hover:border-yellow-500/40">
+          <div className="bg-gradient-to-br from-yellow-500/5 to-transparent border border-yellow-500/20 rounded-xl p-4 hover:border-yellow-500/40 transition-all group">
             <div className="flex items-center gap-2 mb-2">
               <Sun className="w-4 h-4 text-yellow-400" />
               <span className="text-xs text-yellow-400/70 uppercase tracking-wider">Move Stabilisation</span>
             </div>
-            <p className="text-sm text-ivory">{suggestions.stabilization_move || "Prendre 5 minutes pour respirer"}</p>
+            <p className="text-sm text-ivory">{suggestions.stabilization_move || (recentWinsCount > 0 ? `${recentWinsCount} victoire(s) récente(s) à célébrer` : "Prendre 5 minutes pour respirer")}</p>
             <span className="text-xs text-gold-500 opacity-0 group-hover:opacity-100 transition-opacity mt-2 inline-block">S'aligner →</span>
           </div>
         </Link>
       </div>
 
-      {/* GUIDANCE CALME (non générique) */}
-      {calmGuidance && (
-        <div className="bg-gold-500/5 border border-gold-500/20 rounded-xl p-4 text-center">
-          <Sparkles className="w-4 h-4 text-gold-500 mx-auto mb-2" />
-          <p className="text-sm text-ivory italic">"{calmGuidance}"</p>
+      {/* CE QUE BECKS SAIT DE TOI */}
+      <div className="bg-white/5 border border-white/10 rounded-xl p-4">
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-2">
+            <Brain className="w-4 h-4 text-gold-500" />
+            <h3 className="text-xs font-medium text-ivory">🧠 Becks se souvient de toi</h3>
+          </div>
+          <Link href="/memory" className="text-[10px] text-gold-500 hover:underline">Voir tout →</Link>
         </div>
-      )}
+        {isLoadingMemories ? (
+          <div className="flex justify-center py-4"><Loader2 className="w-4 h-4 text-gold-500 animate-spin" /></div>
+        ) : recentMemories.length > 0 ? (
+          <div className="space-y-2">
+            {recentMemories.slice(0, 3).map((mem, idx) => (
+              <div key={idx} className="flex items-center justify-between group">
+                <div className="flex items-center gap-2 flex-1 min-w-0">
+                  <span className="text-gold-500 text-xs">✨</span>
+                  <div className="flex-1 min-w-0">
+                    <span className="text-gray-400 text-xs">{mem.key}:</span>
+                    <span className="text-ivory text-xs ml-1 truncate block sm:inline">
+                      {mem.value.length > 40 ? mem.value.substring(0, 40) + "..." : mem.value}
+                    </span>
+                  </div>
+                </div>
+                <button onClick={() => router.push(`/memory?edit=${mem.id}`)} className="opacity-0 group-hover:opacity-100 transition-opacity text-gray-500 hover:text-gold-500">
+                  <Edit2 className="w-3 h-3" />
+                </button>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="text-center py-4">
+            <p className="text-xs text-gray-500">Aucun souvenir pour l'instant</p>
+            <button onClick={() => router.push("/memory")} className="text-xs text-gold-500 mt-2 hover:underline">+ Ajouter un souvenir</button>
+          </div>
+        )}
+      </div>
 
+      {/* RESCUE MODE ALERT */}
+      {overloadData && overloadData.level !== "low" && (
+        <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} 
+          className={`rounded-xl p-4 border-2 ${overloadData.level === "critical" ? "bg-red-950/30 border-red-500/50" : "bg-orange-950/30 border-orange-500/50"}`}>
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <AlertCircle className={`w-5 h-5 ${overloadData.level === "critical" ? "text-red-400" : "text-orange-400"}`} />
+              <h3 className="text-sm font-medium text-ivory">{overloadData.level === "critical" ? "⚠️ SURCHARGE DÉTECTÉE" : "🟡 CHARGE ÉLEVÉE"}</h3>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-16 h-1.5 bg-white/10 rounded-full overflow-hidden">
+                <div className={`h-full rounded-full ${overloadData.level === "critical" ? "bg-red-500" : "bg-orange-500"}`} style={{ width: `${overloadData.overload_score}%` }} />
+              </div>
+              <span className="text-xs text-gray-400">{overloadData.overload_score}%</span>
+            </div>
+          </div>
+          <p className="text-sm text-ivory mb-3">{overloadData.message}</p>
+          <div className="flex flex-wrap gap-2">
+            {overloadData.rescue_actions?.slice(0, 3).map((action: any, idx: number) => (
+              <button 
+                key={idx} 
+                onClick={() => { 
+                  if (action.type === "focus_task" && action.task_id) router.push(`/agenda?highlight=${action.task_id}`); 
+                  else if (action.type === "breathing") toast.info("🌬️ Respire profondément...", { duration: 10000 }); 
+                  else if (action.url) router.push(action.url); 
+                  else router.push("/rescue-wins"); 
+                }} 
+                className="px-3 py-1.5 bg-white/10 rounded-full text-xs text-gray-300 hover:bg-white/20"
+              >
+                {action.title}
+              </button>
+            ))}
+            <Link href="/rescue-wins" className="px-3 py-1.5 bg-gold-500/20 text-gold-500 rounded-full text-xs hover:bg-gold-500/30">Voir Rescue Mode →</Link>
+          </div>
+        </motion.div>
+      )}
+      
       {/* BOUTON D'AIDE */}
       <motion.button 
         whileHover={{ scale: 1.02 }} 
         whileTap={{ scale: 0.98 }} 
         onClick={handleHelpMeMoveForward} 
-        className="w-full py-4 bg-gradient-to-r from-gold-500/20 to-gold-500/5 border border-gold-500/30 rounded-xl text-gold-500 font-medium flex items-center justify-center gap-3 hover:bg-gold-500/30"
+        className="w-full py-4 bg-gradient-to-r from-gold-500/20 to-gold-500/5 border border-gold-500/30 rounded-xl text-gold-500 font-medium flex items-center justify-center gap-3 hover:bg-gold-500/30 transition-all"
       >
         <Sparkles className="w-5 h-5" />
         <span>🧠 Aide-moi à avancer maintenant</span>
         <ArrowRight className="w-4 h-4" />
       </motion.button>
 
+      {/* ACCÈS RAPIDE */}
+      <div className="pt-4 border-t border-white/10">
+        <div className="flex items-center gap-2 mb-4">
+          <Star className="w-4 h-4 text-gold-500" />
+          <h2 className="text-xs font-serif text-gold-500 tracking-wider">ACCÈS RAPIDE</h2>
+        </div>
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
+          <Link href="/inbox" className="flex items-center gap-2 p-2 rounded-lg bg-white/5 hover:bg-white/10 transition-colors">
+            <Inbox className="w-4 h-4 text-blue-400" />
+            <span className="text-xs text-gray-300">Brain Dump</span>
+          </Link>
+          <Link href="/agenda" className="flex items-center gap-2 p-2 rounded-lg bg-white/5 hover:bg-white/10 transition-colors">
+            <CheckSquare className="w-4 h-4 text-blue-400" />
+            <span className="text-xs text-gray-300">Agenda</span>
+          </Link>
+          <Link href="/money-opportunities" className="flex items-center gap-2 p-2 rounded-lg bg-white/5 hover:bg-white/10 transition-colors">
+            <DollarSign className="w-4 h-4 text-emerald-400" />
+            <span className="text-xs text-gray-300">Money</span>
+          </Link>
+          <Link href="/communications" className="flex items-center gap-2 p-2 rounded-lg bg-white/5 hover:bg-white/10 transition-colors">
+            <FolderOpen className="w-4 h-4 text-orange-400" />
+            <span className="text-xs text-gray-300">Documents</span>
+          </Link>
+          <Link href="/missions-business" className="flex items-center gap-2 p-2 rounded-lg bg-white/5 hover:bg-white/10 transition-colors">
+            <Target className="w-4 h-4 text-gold-500" />
+            <span className="text-xs text-gray-300">Missions</span>
+          </Link>
+          <Link href="/farm" className="flex items-center gap-2 p-2 rounded-lg bg-white/5 hover:bg-white/10 transition-colors">
+            <Sprout className="w-4 h-4 text-green-400" />
+            <span className="text-xs text-gray-300">Ifè Farm</span>
+          </Link>
+          <Link href="/family" className="flex items-center gap-2 p-2 rounded-lg bg-white/5 hover:bg-white/10 transition-colors">
+            <Users className="w-4 h-4 text-pink-400" />
+            <span className="text-xs text-gray-300">Family</span>
+          </Link>
+          <Link href="/rescue-wins" className="flex items-center gap-2 p-2 rounded-lg bg-white/5 hover:bg-white/10 transition-colors">
+            <Trophy className="w-4 h-4 text-yellow-400" />
+            <span className="text-xs text-gray-300">Wins</span>
+          </Link>
+        </div>
+      </div>
+
       {/* BOUTON BRAIN DUMP FLOTTANT */}
-      <button onClick={() => router.push("/inbox")} className="fixed bottom-6 right-6 z-40 bg-gold-500 text-midnight p-4 rounded-full shadow-lg hover:scale-105 transition-transform">
+      <button 
+        onClick={() => router.push("/inbox")} 
+        className="fixed bottom-6 right-6 z-40 bg-gold-500 text-midnight p-4 rounded-full shadow-lg hover:scale-105 transition-transform"
+      >
         <Brain className="w-6 h-6" />
       </button>
     </div>
