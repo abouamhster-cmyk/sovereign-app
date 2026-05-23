@@ -5,7 +5,6 @@ import { CheckCircle, Loader2, Mic, Send, MapPin, Clock, Mail, FileText, ListTod
 import { toast } from "sonner";
 import ReactMarkdown from 'react-markdown';
 import { ExecutionPlan } from "@/components/ExecutionPlan";
-type MessageWithActionsProps = {
 
 
   
