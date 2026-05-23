@@ -18,6 +18,9 @@ export type ScoredTask = {
   level: PriorityLevel;
   estimatedTime?: number;
   dueDate?: string | null;
+  status?: string;        
+  priority?: string;      
+  project?: string;       
 };
 
 /**
