@@ -39,6 +39,17 @@ export function ExecutionPlan({
     }
   };
 
+  // Mettre à jour la progression quand completedSteps change
+  const handleStepComplete = (idx: number) => {
+    if (!completedSteps.includes(idx)) {
+      const newCompletedSteps = [...completedSteps, idx];
+      onStepComplete(idx);
+      if (onUpdate) {
+        onUpdate(newCompletedSteps);
+      }
+    }
+  };
+
   if (isComplete) {
     return (
       <div className="bg-gradient-to-r from-emerald-500/10 to-transparent border border-emerald-500/30 rounded-xl p-6 text-center">
@@ -90,7 +101,7 @@ export function ExecutionPlan({
             >
               <div className="flex items-start gap-3">
                 <button
-                  onClick={() => !isCompleted && onStepComplete(idx)}
+                  onClick={() => !isCompleted && handleStepComplete(idx)}
                   disabled={isCompleted}
                   className="flex-shrink-0 mt-0.5"
                 >
