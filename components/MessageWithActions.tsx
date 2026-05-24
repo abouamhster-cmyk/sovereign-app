@@ -200,23 +200,29 @@ const executeActionFn = async (action: Action): Promise<{ success: boolean; data
           });
           const result = await response.json();
           
+          console.log("📧 Réponse brute:", result);
+          
           if (result.success && result.messages && result.messages.length > 0) {
-            let emailList = `📧 **${result.count} email(s) non lu(s) :**\n\n`;
+            let emailList = `📧 **${result.messages.length} email(s) non lu(s) :**\n\n`;
             result.messages.forEach((email: any, idx: number) => {
               const fromClean = email.from?.split('<')[0].trim() || 'Inconnu';
               emailList += `${idx + 1}. **${fromClean}**\n   📧 ${email.subject}\n`;
             });
             emailList += `\n💡 Dis-moi 'ouvre l'email [numéro]' pour voir le contenu`;
-            toast.success(`${result.count} email(s) trouvé(s)`);
+            toast.success(`${result.messages.length} email(s) trouvé(s)`);
             return { success: true, data: { type: "email_list", content: emailList } };
-          } else {
+          } 
+          else if (result.success && (!result.messages || result.messages.length === 0)) {
+            return { success: true, data: { type: "email_list", content: "📭 Aucun email non lu dans ta boîte." } };
+          }
+          else {
             toast.info("Aucun email non lu");
-            return { success: true, data: { type: "email_list", content: "📧 Aucun email non lu dans ta boîte." } };
+            return { success: true, data: { type: "email_list", content: "📭 Aucun email non lu dans ta boîte." } };
           }
         } catch (error) {
           console.error("Erreur get_emails:", error);
           toast.error("❌ Erreur lors de la récupération des emails");
-          return { success: false };
+          return { success: false, data: { type: "email_list", content: "❌ Impossible de récupérer les emails. Vérifie ta connexion." } };
         }
       
       // ========== TÂCHES ==========
@@ -511,45 +517,68 @@ const executeActionFn = async (action: Action): Promise<{ success: boolean; data
 
       // ========== WHATSAPP - GET CONVERSATIONS ==========
       case "whatsapp_get_conversations":
-        const convResponse = await fetch(`${API_URL}/api/whatsapp/conversations?days=${params.days || 30}`, { 
-          method: "GET", 
-          headers: { "Content-Type": "application/json" } 
-        });
-        const convResult = await convResponse.json();
-        
-        if (convResult.conversations && convResult.conversations.length > 0) {
-          let messageText = "📱 Messages WhatsApp du mois\n\n";
-          const allActions: Action[] = [];
-          
-          convResult.conversations.forEach((conv: any) => {
-            const unreadBadge = conv.unread > 0 ? ` (${conv.unread} non lu)` : "";
-            messageText += `👤 ${conv.from_name}${unreadBadge}\n`;
-            
-            const lastMsg = conv.messages[0];
-            if (lastMsg) {
-              messageText += `   💬 ${lastMsg.message}\n`;
-              messageText += `   📅 ${new Date(lastMsg.created_at).toLocaleDateString('fr-FR')}\n`;
-            }
-            messageText += `\n`;
-            
-            allActions.push({
-              type: "whatsapp_reply",
-              params: { to: conv.from, message: "" },
-              label: `✏️ Répondre à ${conv.from_name}`
-            });
+        try {
+          const convResponse = await fetch(`${API_URL}/api/whatsapp/conversations?days=${params.days || 30}`, { 
+            method: "GET", 
+            headers: { "Content-Type": "application/json" } 
           });
+          const convResult = await convResponse.json();
           
+          console.log("📱 WhatsApp réponse brute:", convResult);
+          
+          if (convResult.conversations && convResult.conversations.length > 0) {
+            let messageText = "📱 **Messages WhatsApp en attente**\n\n";
+            const allActions: Action[] = [];
+            
+            convResult.conversations.forEach((conv: any) => {
+              const pendingCount = conv.pending || conv.messages?.filter((m: any) => m.status === "pending").length || 0;
+              const urgentCount = conv.messages?.filter((m: any) => m.importance === "high").length || 0;
+              
+              messageText += `👤 **${conv.from_name}**\n`;
+              messageText += `   📱 ${conv.from}\n`;
+              messageText += `   📨 ${pendingCount} message(s) non lu(s)${urgentCount > 0 ? ` (${urgentCount} urgent⚠️)` : ""}\n`;
+              
+              const lastMsg = conv.messages?.[0];
+              if (lastMsg) {
+                messageText += `   💬 Dernier message: "${lastMsg.message?.substring(0, 50)}"\n`;
+              }
+              messageText += `\n`;
+              
+              allActions.push({
+                type: "whatsapp_reply",
+                params: { to: conv.from, message: "" },
+                label: `✏️ Répondre à ${conv.from_name}`
+              });
+            });
+            
+            return { 
+              success: true, 
+              data: { 
+                type: "whatsapp_conversations",
+                text: messageText,
+                actions: allActions
+              } 
+            };
+          } else {
+            return { 
+              success: true, 
+              data: { 
+                type: "whatsapp_conversations", 
+                text: "📭 Aucun message WhatsApp non lu.",
+                actions: []
+              } 
+            };
+          }
+        } catch (error) {
+          console.error("Erreur whatsapp_get_conversations:", error);
           return { 
-            success: true, 
+            success: false, 
             data: { 
-              type: "whatsapp_conversations",
-              text: messageText,
-              actions: allActions
+              type: "whatsapp_conversations", 
+              text: "❌ Impossible de récupérer les messages WhatsApp.",
+              actions: [] 
             } 
           };
-        } else {
-          toast.info("📱 Aucun message WhatsApp récent");
-          return { success: true };
         }
         
       // ========== WHATSAPP ENVOI AVEC IMAGE ==========
@@ -653,7 +682,6 @@ export function MessageWithActions({ content, actions: providedActions = [], onA
             ...activeExecutionPlan,
             completedSteps: newCompletedSteps
           });
-          // Appeler onPlanUpdate pour sauvegarder l'état
           if (onPlanUpdate && activeExecutionPlan.planId) {
             onPlanUpdate(activeExecutionPlan.planId, newCompletedSteps);
           }
@@ -740,7 +768,6 @@ export function MessageWithActions({ content, actions: providedActions = [], onA
             ...activeExecutionPlan,
             completedSteps: newCompletedSteps
           });
-          // Appeler onPlanUpdate pour sauvegarder
           if (onPlanUpdate && activeExecutionPlan.planId) {
             onPlanUpdate(activeExecutionPlan.planId, newCompletedSteps);
           }
@@ -796,9 +823,7 @@ export function MessageWithActions({ content, actions: providedActions = [], onA
               onPlanComplete={handlePlanComplete}
               onAskHelp={handleAskHelp}
               onUpdate={(completedSteps) => {
-                // Mettre à jour l'état local
                 setActiveExecutionPlan(prev => prev ? { ...prev, completedSteps } : null);
-                // Appeler la prop parent pour sauvegarder
                 if (onPlanUpdate && activeExecutionPlan) {
                   onPlanUpdate(activeExecutionPlan.planId, completedSteps);
                 }
