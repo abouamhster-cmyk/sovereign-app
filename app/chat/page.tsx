@@ -396,7 +396,8 @@ export default function ChatPage() {
       const saved = localStorage.getItem(`execution_plan_${currentConversationId}`);
       if (saved) {
         try {
-          setExecutionPlan(JSON.parse(saved));
+          const parsed = JSON.parse(saved);
+          setExecutionPlan(parsed);
         } catch(e) {}
       }
     }
@@ -836,7 +837,11 @@ export default function ChatPage() {
     }
   };
 
-  const handlePlanComplete = () => { toast.success("🎉 Félicitations ! Plan accompli !"); setExecutionPlan(null); };
+  const handlePlanComplete = () => { 
+    toast.success("🎉 Félicitations ! Plan accompli !"); 
+    setExecutionPlan(null);
+  };
+  
   const handleClosePlan = () => setExecutionPlan(null);
 
   const handlePlanUpdate = useCallback((planId: string, completedSteps: number[]) => {
