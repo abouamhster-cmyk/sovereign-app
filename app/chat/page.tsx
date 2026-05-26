@@ -709,7 +709,19 @@ export default function ChatPage() {
       await saveMessage(currentConversationId, "assistant", assistantContent);
       setLastAssistantMessage(assistantContent);
       
-      if (selectedMode === "fais-le-avec-moi" && userContent.length > 10 && userContent.length < 500) {
+      // ========== GÉNÉRATION DE PLAN UNIQUEMENT SI DEMANDÉ ==========
+      // Ne génère un plan que si l'utilisateur le demande EXPLICITEMENT
+      const needsPlan = selectedMode === "fais-le-avec-moi" && (
+        userContent.includes("plan") || 
+        userContent.includes("étape") || 
+        userContent.includes("étapes") ||
+        userContent.includes("guide-moi") ||
+        userContent.includes("accompagne-moi") ||
+        userContent.includes("démarche") ||
+        userContent.includes("comment faire")
+      );
+      
+      if (needsPlan && userContent.length > 10 && userContent.length < 500) {
         const hasPlan = await generateExecutionPlan(userContent);
         if (hasPlan && executionPlan) {
           const guide = `🎯 Je vais t'aider à avancer étape par étape.\n\n**Plan : ${executionPlan.plan.title}**\n*Durée estimée : ${executionPlan.plan.estimated_duration}*\n\nCoche les étapes au fur et à mesure. Une chose à la fois. ✨`;
