@@ -165,6 +165,45 @@ export function MessageWithActions({ content, actions: providedActions = [], onA
     }
   }, [activeExecutionPlan?.planId]);
 
+
+  // 🔥 CHARGER LA PROGRESSION QUAND LE PLAN EST CRÉÉ
+useEffect(() => {
+  const loadProgress = async () => {
+    if (!activeExecutionPlan || !activeExecutionPlan.planId) return;
+    
+    const planId = activeExecutionPlan.planId;
+    const userId = getUserId();
+    
+    // 1. Essayer de charger depuis Supabase
+    try {
+      const response = await fetch(`${API_URL}/api/execute/get-progress/${planId}?user_id=${userId}`);
+      const data = await response.json();
+      if (data.success && data.completed_steps && data.completed_steps.length > 0) {
+        setActiveExecutionPlan(prev => prev ? { ...prev, completedSteps: data.completed_steps } : prev);
+        // Mettre à jour le cache local aussi
+        const plan = executionPlans.get(planId);
+        if (plan) {
+          plan.completedSteps = data.completed_steps;
+          executionPlans.set(planId, plan);
+        }
+        return;
+      }
+    } catch(e) {}
+    
+    // 2. Fallback sur localStorage
+    const saved = localStorage.getItem(`execution_plan_${planId}`);
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (parsed.completedSteps && parsed.completedSteps.length > 0) {
+          setActiveExecutionPlan(prev => prev ? { ...prev, completedSteps: parsed.completedSteps } : prev);
+        }
+      } catch(e) {}
+    }
+  };
+  
+  loadProgress();
+}, [activeExecutionPlan?.planId]);
   // ============================================================
   // SAUVEGARDER LA PROGRESSION
   // ============================================================
@@ -215,7 +254,7 @@ export function MessageWithActions({ content, actions: providedActions = [], onA
           };
         }
         
-       case "complete_execution_step": {
+      case "complete_execution_step": {
   const planIdStep = params.plan_id;
   const stepIndex = params.step_index;
   const plan = executionPlans.get(planIdStep);
@@ -223,11 +262,22 @@ export function MessageWithActions({ content, actions: providedActions = [], onA
     plan.completedSteps.push(stepIndex);
     executionPlans.set(planIdStep, plan);
     
-    // Sauvegarde immédiate
+    // 🔥 SAUVEGARDE IMMÉDIATE dans localStorage
     localStorage.setItem(`execution_plan_${planIdStep}`, JSON.stringify(plan));
-    await saveProgress(planIdStep, plan.completedSteps); // ← assure-toi que c'est bien await
     
-    // Force la mise à jour de l'état
+    // 🔥 SAUVEGARDE dans Supabase
+    const userId = getUserId();
+    fetch(`${API_URL}/api/execute/update-progress`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        plan_id: planIdStep,
+        completed_steps: plan.completedSteps,
+        user_id: userId
+      })
+    }).catch(e => console.error("Erreur sauvegarde:", e));
+    
+    // 🔥 FORCER la mise à jour de l'affichage
     setActiveExecutionPlan(prev => prev ? {
       ...prev,
       completedSteps: plan.completedSteps
@@ -241,7 +291,7 @@ export function MessageWithActions({ content, actions: providedActions = [], onA
       stepIndex,
       completedSteps: plan?.completedSteps || [],
       totalSteps: plan?.steps.length || 0,
-      isComplete: plan?.completedSteps.length === plan?.steps.length  // ← utilise cette variable
+      isComplete: plan?.completedSteps.length === plan?.steps.length
     } 
   };
 }
