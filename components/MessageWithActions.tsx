@@ -215,31 +215,36 @@ export function MessageWithActions({ content, actions: providedActions = [], onA
           };
         }
         
-        case "complete_execution_step": {
-          const planIdStep = params.plan_id;
-          const stepIndex = params.step_index;
-          const plan = executionPlans.get(planIdStep);
-          if (plan && !plan.completedSteps.includes(stepIndex)) {
-            plan.completedSteps.push(stepIndex);
-            executionPlans.set(planIdStep, plan);
-            // Sauvegarder dans localStorage
-            localStorage.setItem(`execution_plan_${planIdStep}`, JSON.stringify(plan));
-            // Sauvegarder dans le backend
-            await saveProgress(planIdStep, plan.completedSteps);
-          }
-          return { 
-            success: true, 
-            data: { 
-              type: "execution_step_completed", 
-              planId: planIdStep,
-              stepIndex,
-              completedSteps: plan?.completedSteps || [],
-              totalSteps: plan?.steps.length || 0,
-              isComplete: plan?.completedSteps.length === plan?.steps.length
-            } 
-          };
-        }
-        
+       case "complete_execution_step": {
+  const planIdStep = params.plan_id;
+  const stepIndex = params.step_index;
+  const plan = executionPlans.get(planIdStep);
+  if (plan && !plan.completedSteps.includes(stepIndex)) {
+    plan.completedSteps.push(stepIndex);
+    executionPlans.set(planIdStep, plan);
+    
+    // Sauvegarde immédiate
+    localStorage.setItem(`execution_plan_${planIdStep}`, JSON.stringify(plan));
+    await saveProgress(planIdStep, plan.completedSteps); // ← assure-toi que c'est bien await
+    
+    // Force la mise à jour de l'état
+    setActiveExecutionPlan(prev => prev ? {
+      ...prev,
+      completedSteps: plan.completedSteps
+    } : prev);
+  }
+  return { 
+    success: true, 
+    data: { 
+      type: "execution_step_completed", 
+      planId: planIdStep,
+      stepIndex,
+      completedSteps: plan?.completedSteps || [],
+      totalSteps: plan?.steps.length || 0,
+      isComplete: plan?.completedSteps.length === plan?.steps.length  // ← utilise cette variable
+    } 
+  };
+}
         case "complete_execution_plan": {
           const planIdComplete = params.plan_id;
           executionPlans.delete(planIdComplete);
