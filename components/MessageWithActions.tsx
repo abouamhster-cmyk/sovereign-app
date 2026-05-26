@@ -55,6 +55,7 @@ function parseActionsFromText(text: string): { cleanText: string; actions: Actio
   
   return { cleanText, actions };
 }
+
 // ============================================================
 // ICONES DES ACTIONS
 // ============================================================
@@ -193,62 +194,88 @@ const executeActionFn = async (action: Action): Promise<{ success: boolean; data
       }
 
       // ========== EMAILS ==========
-case "get_emails":
-    try {
-        toast.info("📧 Récupération des emails...", { duration: 1500 });
-        
-        const response = await fetch(`${API_URL}/api/chat`, {
+      case "get_emails":
+        try {
+          toast.info("📧 Récupération des emails...", { duration: 1500 });
+          
+          const response = await fetch(`${API_URL}/api/chat`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
-                messages: [{ role: "user", content: "montre-moi mes emails" }]
+              messages: [{ role: "user", content: "montre-moi mes emails" }]
             })
-        });
-        const result = await response.json();
-        
-        // Essayer de parser le JSON si c'est un email_list
-        try {
+          });
+          const result = await response.json();
+          
+          // Vérifier si la réponse contient une liste d'emails formatée
+          if (result.reply && result.reply.includes("📧") && result.reply.includes("email(s) non lu(s)")) {
+            setCurrentData({ title: "📧 Emails non lus", content: result.reply });
+            setShowDataModal(true);
+            return { success: true };
+          }
+          
+          // Essayer de parser le JSON si c'est un email_list
+          try {
             const parsed = JSON.parse(result.reply);
             if (parsed.type === "email_list" && parsed.emails) {
-                let emailText = `📧 **${parsed.emails.length} email(s) non lu(s) :**\n\n`;
-                parsed.emails.forEach((email: any, idx: number) => {
-                    const fromClean = email.from?.split('<')[0].trim() || 'Inconnu';
-                    emailText += `${idx + 1}. **${fromClean}**\n`;
-                    emailText += `   📧 ${email.subject}\n`;
-                    if (email.snippet) emailText += `   📝 ${email.snippet.substring(0, 80)}...\n`;
-                    emailText += `\n`;
-                });
-                emailText += `\n💡 Dis-moi 'ouvre l'email [numéro]' pour voir le contenu complet.`;
-                
-                setCurrentData({ title: "📧 Emails non lus", content: emailText });
-                setShowDataModal(true);
-                
-                // Créer des actions pour chaque email
-                const emailActions = parsed.emails.map((email: any, idx: number) => ({
-                    type: "open_email",
-                    params: { email_number: idx + 1 },
-                    label: `📖 Lire email de ${email.from?.split('<')[0].trim()}`
-                }));
-                setCurrentWhatsAppActions(emailActions);
-                
-                return { success: true, data: { type: "email_list", emails: parsed.emails } };
+              let emailText = `📧 **${parsed.emails.length} email(s) non lu(s) :**\n\n`;
+              parsed.emails.forEach((email: any, idx: number) => {
+                const fromClean = email.from?.split('<')[0].trim() || 'Inconnu';
+                emailText += `${idx + 1}. **${fromClean}**\n`;
+                emailText += `   📧 ${email.subject}\n`;
+                if (email.snippet) emailText += `   📝 ${email.snippet.substring(0, 80)}...\n`;
+                emailText += `\n`;
+              });
+              emailText += `\n💡 Dis-moi 'ouvre l'email [numéro]' pour voir le contenu complet.`;
+              
+              setCurrentData({ title: "📧 Emails non lus", content: emailText });
+              setShowDataModal(true);
+              return { success: true };
             }
-        } catch {
-            // Si ce n'est pas du JSON, c'est du texte brut
-            if (result.reply && result.reply.includes("📧")) {
-                setCurrentData({ title: "📧 Emails", content: result.reply });
-                setShowDataModal(true);
-                return { success: true };
-            }
+          } catch {
+            // Si ce n'est pas du JSON valide
+          }
+          
+          toast.info(result.reply || "Aucun email non lu");
+          return { success: true };
+        } catch (error) {
+          console.error("Erreur get_emails:", error);
+          toast.error("❌ Erreur lors de la récupération des emails");
+          return { success: false };
         }
-        
-        toast.info(result.reply || "Aucun email non lu");
-        return { success: true };
-    } catch (error) {
-        console.error("Erreur get_emails:", error);
-        toast.error("❌ Erreur lors de la récupération des emails");
-        return { success: false };
-    }
+      
+      // ========== WHATSAPP - LECTURE MESSAGES ==========
+      case "read_table":
+      case "whatsapp_get_conversations":
+        if (params.table === "whatsapp_messages" || type === "whatsapp_get_conversations") {
+          try {
+            toast.info("📱 Récupération des messages WhatsApp...", { duration: 1500 });
+            
+            const response = await fetch(`${API_URL}/api/chat`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                messages: [{ role: "user", content: "montre-moi mes WhatsApp" }]
+              })
+            });
+            const result = await response.json();
+            
+            if (result.reply && result.reply.includes("📱") && result.reply.includes("WhatsApp")) {
+              setCurrentData({ title: "📱 Messages WhatsApp", content: result.reply });
+              setShowDataModal(true);
+              return { success: true };
+            }
+            
+            toast.info(result.reply || "📭 Aucun message WhatsApp non lu");
+            return { success: true };
+          } catch (error) {
+            console.error("Erreur WhatsApp:", error);
+            toast.error("❌ Erreur récupération WhatsApp");
+            return { success: false };
+          }
+        }
+        break;
+
       // ========== TÂCHES ==========
       case "create_task":
         const taskResponse = await fetch(`${API_URL}/api/execute/create-task`, {
@@ -257,7 +284,8 @@ case "get_emails":
           body: JSON.stringify({
             title: params.title,
             priority: params.priority || "normal",
-            due_date: params.due_date || null
+            due_date: params.due_date || null,
+            user_id: localStorage.getItem("userId") || "rebecca"
           })
         });
         const taskResult = await taskResponse.json();
@@ -270,7 +298,7 @@ case "get_emails":
       // ========== FINANCES ==========
       case "get_financial_summary":
         toast.info("💰 Redirection vers la page Money", { duration: 2000 });
-        setTimeout(() => window.open("/money", "_self"), 500);
+        setTimeout(() => window.open("/money-opportunities", "_self"), 500);
         return { success: true };
       
       // ========== EMAILS - ENVOI ==========
@@ -388,7 +416,7 @@ case "get_emails":
         toast.error("❌ Numéro de téléphone non disponible");
         break;
 
-      // ========== WHATSAPP ==========
+      // ========== WHATSAPP - ENVOI ==========
       case "send_whatsapp":
         const waNumber = params.phone || params.number || params.to;
         const waMessage = params.body || params.message || "Message de Sovereign";
@@ -401,6 +429,33 @@ case "get_emails":
         toast.error("❌ Numéro WhatsApp non disponible");
         break;
 
+      // ========== WHATSAPP - RÉPONSE ==========
+      case "whatsapp_reply":
+        const recipient = params.to || params.conversation_id;
+        if (!recipient) {
+          toast.error("❌ Destinataire manquant");
+          return { success: false };
+        }
+        
+        const replyResponse = await fetch(`${API_URL}/api/whatsapp/reply`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ 
+            to: recipient, 
+            message: params.message, 
+            message_id: params.message_id,
+            user_id: localStorage.getItem("userId") || "rebecca"
+          })
+        });
+        const replyResult = await replyResponse.json();
+        if (replyResult.success) {
+          toast.success(`📱 Réponse envoyée à ${recipient}`);
+          return { success: true };
+        } else {
+          toast.error(`❌ Échec de l'envoi: ${replyResult.error || "erreur inconnue"}`);
+          return { success: false };
+        }
+      
       // ========== TELEGRAM ==========
       case "send_telegram":
         const tgUsername = params.username || params.to;
@@ -481,123 +536,6 @@ case "get_emails":
         toast.error("❌ Géolocalisation non supportée");
         break;
 
-      // ========== LECTURE TABLE ==========
-     case "read_table":
-    if (params.table === "whatsapp_messages") {
-        try {
-            const response = await fetch(`${API_URL}/api/chat`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    messages: [{ role: "user", content: "montre-moi mes WhatsApp" }]
-                })
-            });
-            const result = await response.json();
-            
-            let messageText = result.reply || "📱 Aucun message WhatsApp non lu.";
-            
-            setCurrentData({ title: "📱 WhatsApp", content: messageText });
-            setShowDataModal(true);
-            
-            return { success: true };
-        } catch (error) {
-            toast.error("❌ Erreur récupération WhatsApp");
-            return { success: false };
-        }
-    }
-    break;
-
-      // ========== WHATSAPP RÉPONSES ==========
-      case "whatsapp_reply":
-        const recipient = params.to || params.conversation_id;
-        if (!recipient) {
-          toast.error("❌ Destinataire manquant");
-          return { success: false };
-        }
-        
-        const replyResponse = await fetch(`${API_URL}/api/whatsapp/reply`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ to: recipient, message: params.message, message_id: params.message_id })
-        });
-        const replyResult = await replyResponse.json();
-        if (replyResult.success) {
-          toast.success(`📱 Réponse envoyée à ${recipient}`);
-          return { success: true };
-        } else {
-          toast.error(`❌ Échec de l'envoi: ${replyResult.error || "erreur inconnue"}`);
-          return { success: false };
-        }
-      
-      case "whatsapp_reply_custom":
-        return { success: true, data: { type: "whatsapp_custom", to: params.to, original_message: params.original_message } };
-
-      // ========== WHATSAPP - GET CONVERSATIONS ==========
-      case "whatsapp_get_conversations":
-        try {
-          const convResponse = await fetch(`${API_URL}/api/whatsapp/conversations?days=${params.days || 30}`, { 
-            method: "GET", 
-            headers: { "Content-Type": "application/json" } 
-          });
-          const convResult = await convResponse.json();
-          
-          console.log("📱 WhatsApp réponse brute:", convResult);
-          
-          if (convResult.conversations && convResult.conversations.length > 0) {
-            let messageText = "📱 **Messages WhatsApp en attente**\n\n";
-            const allActions: Action[] = [];
-            
-            convResult.conversations.forEach((conv: any) => {
-              const pendingCount = conv.pending || conv.messages?.filter((m: any) => m.status === "pending").length || 0;
-              const urgentCount = conv.messages?.filter((m: any) => m.importance === "high").length || 0;
-              
-              messageText += `👤 **${conv.from_name}**\n`;
-              messageText += `   📱 ${conv.from}\n`;
-              messageText += `   📨 ${pendingCount} message(s) non lu(s)${urgentCount > 0 ? ` (${urgentCount} urgent⚠️)` : ""}\n`;
-              
-              const lastMsg = conv.messages?.[0];
-              if (lastMsg) {
-                messageText += `   💬 Dernier message: "${lastMsg.message?.substring(0, 50)}"\n`;
-              }
-              messageText += `\n`;
-              
-              allActions.push({
-                type: "whatsapp_reply",
-                params: { to: conv.from, message: "" },
-                label: `✏️ Répondre à ${conv.from_name}`
-              });
-            });
-            
-            return { 
-              success: true, 
-              data: { 
-                type: "whatsapp_conversations",
-                text: messageText,
-                actions: allActions
-              } 
-            };
-          } else {
-            return { 
-              success: true, 
-              data: { 
-                type: "whatsapp_conversations", 
-                text: "📭 Aucun message WhatsApp non lu.",
-                actions: []
-              } 
-            };
-          }
-        } catch (error) {
-          console.error("Erreur whatsapp_get_conversations:", error);
-          return { 
-            success: false, 
-            data: { 
-              type: "whatsapp_conversations", 
-              text: "❌ Impossible de récupérer les messages WhatsApp.",
-              actions: [] 
-            } 
-          };
-        }
-        
       // ========== WHATSAPP ENVOI AVEC IMAGE ==========
       case "whatsapp_send_image":
         toast.info("🖼️ Envoi d'image WhatsApp...", { duration: 2000 });
@@ -651,6 +589,37 @@ case "get_emails":
   }
 };
 
+// Déclaration des variables globales pour les modales (en dehors du composant pour être accessibles)
+let setShowDataModalGlobal: ((show: boolean) => void) | null = null;
+let setCurrentDataGlobal: ((data: { title: string; content: string } | null) => void) | null = null;
+let setShowReplyInputGlobal: ((show: boolean) => void) | null = null;
+let setCurrentReplyToGlobal: ((to: string) => void) | null = null;
+let setReplyMessageGlobal: ((msg: string) => void) | null = null;
+let setShowWhatsAppModalGlobal: ((show: boolean) => void) | null = null;
+let setCurrentWhatsAppGlobal: ((wa: { to: string; original_message: string } | null) => void) | null = null;
+let setCustomReplyGlobal: ((reply: string) => void) | null = null;
+let setShowTemplatesModalGlobal: ((show: boolean) => void) | null = null;
+let setCurrentTemplatesGlobal: ((templates: any[]) => void) | null = null;
+let setCurrentTemplateToGlobal: ((to: string) => void) | null = null;
+
+// Exporter une fonction pour ouvrir une modale email depuis l'extérieur
+export function openEmailModal(emails: any[]) {
+  if (setShowDataModalGlobal && setCurrentDataGlobal) {
+    let emailText = `📧 **${emails.length} email(s) non lu(s) :**\n\n`;
+    emails.forEach((email, idx) => {
+      const fromClean = email.from?.split('<')[0].trim() || 'Inconnu';
+      emailText += `${idx + 1}. **${fromClean}**\n`;
+      emailText += `   📧 ${email.subject}\n`;
+      if (email.snippet) emailText += `   📝 ${email.snippet.substring(0, 80)}...\n`;
+      emailText += `\n`;
+    });
+    emailText += `\n💡 Dis-moi 'ouvre l'email [numéro]' pour voir le contenu complet.`;
+    
+    setCurrentDataGlobal({ title: "📧 Emails non lus", content: emailText });
+    setShowDataModalGlobal(true);
+  }
+}
+
 // ============================================================
 // COMPOSANT PRINCIPAL
 // ============================================================
@@ -677,6 +646,21 @@ export function MessageWithActions({ content, actions: providedActions = [], onA
   const [showReplyInput, setShowReplyInput] = useState(false);
   const [currentReplyTo, setCurrentReplyTo] = useState("");
   const [replyMessage, setReplyMessage] = useState("");
+
+  // Enregistrer les setters globaux
+  if (typeof window !== 'undefined') {
+    setShowDataModalGlobal = setShowDataModal;
+    setCurrentDataGlobal = setCurrentData;
+    setShowReplyInputGlobal = setShowReplyInput;
+    setCurrentReplyToGlobal = setCurrentReplyTo;
+    setReplyMessageGlobal = setReplyMessage;
+    setShowWhatsAppModalGlobal = setShowWhatsAppModal;
+    setCurrentWhatsAppGlobal = setCurrentWhatsApp;
+    setCustomReplyGlobal = setCustomReply;
+    setShowTemplatesModalGlobal = setShowTemplatesModal;
+    setCurrentTemplatesGlobal = setCurrentTemplates;
+    setCurrentTemplateToGlobal = setCurrentTemplateTo;
+  }
 
   const handleExecuteAction = async (index: number, action: Action) => {
     setExecutingActions(prev => new Set(prev).add(index));
@@ -946,7 +930,8 @@ export function MessageWithActions({ content, actions: providedActions = [], onA
                             headers: { "Content-Type": "application/json" },
                             body: JSON.stringify({
                               to: currentReplyTo,
-                              message: replyMessage
+                              message: replyMessage,
+                              user_id: localStorage.getItem("userId") || "rebecca"
                             })
                           });
                           const result = await response.json();
