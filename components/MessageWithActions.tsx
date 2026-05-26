@@ -48,11 +48,13 @@ function parseActionsFromText(text: string): { cleanText: string; actions: Actio
     }
   }
   
+  // Nettoyer aussi les marqueurs spéciaux
+  cleanText = cleanText.replace(/\[EMAIL_LIST_START\]/g, '');
+  cleanText = cleanText.replace(/\[EMAIL_LIST_END\]/g, '');
   cleanText = cleanText.replace(/\n{3,}/g, '\n\n').trim();
   
   return { cleanText, actions };
 }
-
 // ============================================================
 // ICONES DES ACTIONS
 // ============================================================
@@ -191,40 +193,62 @@ const executeActionFn = async (action: Action): Promise<{ success: boolean; data
       }
 
       // ========== EMAILS ==========
-      case "get_emails":
+case "get_emails":
+    try {
+        toast.info("📧 Récupération des emails...", { duration: 1500 });
+        
+        const response = await fetch(`${API_URL}/api/chat`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                messages: [{ role: "user", content: "montre-moi mes emails" }]
+            })
+        });
+        const result = await response.json();
+        
+        // Essayer de parser le JSON si c'est un email_list
         try {
-          toast.info("📧 Récupération des emails...", { duration: 1500 });
-          const response = await fetch(`${API_URL}/api/gmail/direct-test`, {
-            method: "GET",
-            headers: { "Content-Type": "application/json" }
-          });
-          const result = await response.json();
-          
-          console.log("📧 Réponse brute:", result);
-          
-          if (result.success && result.messages && result.messages.length > 0) {
-            let emailList = `📧 **${result.messages.length} email(s) non lu(s) :**\n\n`;
-            result.messages.forEach((email: any, idx: number) => {
-              const fromClean = email.from?.split('<')[0].trim() || 'Inconnu';
-              emailList += `${idx + 1}. **${fromClean}**\n   📧 ${email.subject}\n`;
-            });
-            emailList += `\n💡 Dis-moi 'ouvre l'email [numéro]' pour voir le contenu`;
-            toast.success(`${result.messages.length} email(s) trouvé(s)`);
-            return { success: true, data: { type: "email_list", content: emailList } };
-          } 
-          else if (result.success && (!result.messages || result.messages.length === 0)) {
-            return { success: true, data: { type: "email_list", content: "📭 Aucun email non lu dans ta boîte." } };
-          }
-          else {
-            toast.info("Aucun email non lu");
-            return { success: true, data: { type: "email_list", content: "📭 Aucun email non lu dans ta boîte." } };
-          }
-        } catch (error) {
-          console.error("Erreur get_emails:", error);
-          toast.error("❌ Erreur lors de la récupération des emails");
-          return { success: false, data: { type: "email_list", content: "❌ Impossible de récupérer les emails. Vérifie ta connexion." } };
+            const parsed = JSON.parse(result.reply);
+            if (parsed.type === "email_list" && parsed.emails) {
+                let emailText = `📧 **${parsed.emails.length} email(s) non lu(s) :**\n\n`;
+                parsed.emails.forEach((email: any, idx: number) => {
+                    const fromClean = email.from?.split('<')[0].trim() || 'Inconnu';
+                    emailText += `${idx + 1}. **${fromClean}**\n`;
+                    emailText += `   📧 ${email.subject}\n`;
+                    if (email.snippet) emailText += `   📝 ${email.snippet.substring(0, 80)}...\n`;
+                    emailText += `\n`;
+                });
+                emailText += `\n💡 Dis-moi 'ouvre l'email [numéro]' pour voir le contenu complet.`;
+                
+                setCurrentData({ title: "📧 Emails non lus", content: emailText });
+                setShowDataModal(true);
+                
+                // Créer des actions pour chaque email
+                const emailActions = parsed.emails.map((email: any, idx: number) => ({
+                    type: "open_email",
+                    params: { email_number: idx + 1 },
+                    label: `📖 Lire email de ${email.from?.split('<')[0].trim()}`
+                }));
+                setCurrentWhatsAppActions(emailActions);
+                
+                return { success: true, data: { type: "email_list", emails: parsed.emails } };
+            }
+        } catch {
+            // Si ce n'est pas du JSON, c'est du texte brut
+            if (result.reply && result.reply.includes("📧")) {
+                setCurrentData({ title: "📧 Emails", content: result.reply });
+                setShowDataModal(true);
+                return { success: true };
+            }
         }
-      
+        
+        toast.info(result.reply || "Aucun email non lu");
+        return { success: true };
+    } catch (error) {
+        console.error("Erreur get_emails:", error);
+        toast.error("❌ Erreur lors de la récupération des emails");
+        return { success: false };
+    }
       // ========== TÂCHES ==========
       case "create_task":
         const taskResponse = await fetch(`${API_URL}/api/execute/create-task`, {
@@ -458,37 +482,30 @@ const executeActionFn = async (action: Action): Promise<{ success: boolean; data
         break;
 
       // ========== LECTURE TABLE ==========
-      case "read_table":
-        const tableName = params.table;
-        if (!tableName) {
-          toast.error("❌ Nom de table manquant");
-          break;
-        }
-        toast.info(`📊 Chargement des données depuis ${tableName}...`, { duration: 1500 });
+     case "read_table":
+    if (params.table === "whatsapp_messages") {
         try {
-          const readResponse = await fetch(`${API_URL}/${tableName}?limit=${params.limit || 20}`, { method: "GET", headers: { "Content-Type": "application/json" } });
-          const readResult = await readResponse.json();
-          if (readResult.success && readResult.data && readResult.data.length > 0) {
-            const data = readResult.data;
-            let formattedData = `📋 **${tableName.toUpperCase()}** (${data.length} élément(s)):\n\n`;
-            data.slice(0, 10).forEach((item: any, idx: number) => {
-              if (tableName === "tasks") formattedData += `${idx + 1}. ${item.title} - ${item.status || 'pending'} ${item.due_date ? `📅 ${item.due_date}` : ''}\n`;
-              else if (tableName === "spending" || tableName === "revenue") formattedData += `${idx + 1}. ${item.title || item.source} : ${item.amount?.toLocaleString()} CFA\n`;
-              else if (tableName === "missions") formattedData += `${idx + 1}. 🎯 ${item.name} - ${item.status}\n`;
-              else formattedData += `${idx + 1}. ${JSON.stringify(item).substring(0, 100)}...\n`;
+            const response = await fetch(`${API_URL}/api/chat`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    messages: [{ role: "user", content: "montre-moi mes WhatsApp" }]
+                })
             });
-            if (data.length > 10) formattedData += `\n... et ${data.length - 10} autre(s)`;
-            toast.success(`📊 Données chargées (${data.length} éléments)`);
-            return { success: true, data: { type: "table_data", title: tableName, content: formattedData, rawData: data } };
-          } else {
-            toast.info(`📊 Aucune donnée trouvée dans ${tableName}`);
-            return { success: true, data: { type: "table_data", title: tableName, content: `📊 Aucune donnée dans ${tableName}` } };
-          }
+            const result = await response.json();
+            
+            let messageText = result.reply || "📱 Aucun message WhatsApp non lu.";
+            
+            setCurrentData({ title: "📱 WhatsApp", content: messageText });
+            setShowDataModal(true);
+            
+            return { success: true };
         } catch (error) {
-          console.error("Erreur read_table:", error);
-          toast.error("❌ Erreur chargement des données");
-          break;
+            toast.error("❌ Erreur récupération WhatsApp");
+            return { success: false };
         }
+    }
+    break;
 
       // ========== WHATSAPP RÉPONSES ==========
       case "whatsapp_reply":
