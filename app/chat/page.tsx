@@ -22,7 +22,7 @@ import { supabase } from "@/lib/supabase";
 import { useDropzone } from "react-dropzone";
 import SpeechRecognition, { useSpeechRecognition } from "react-speech-recognition";
 import { useTextToSpeech, VOICE_OPTIONS } from "@/hooks/useTextToSpeech";
-import { MessageWithActions, openEmailModal } from "@/components/MessageWithActions";
+import { MessageWithActions } from "@/components/MessageWithActions";
 
 const API_URL = "https://sovereign-bridge.onrender.com";
 
