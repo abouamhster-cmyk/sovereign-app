@@ -220,34 +220,34 @@ export function MessageWithActions({ content, actions: providedActions = [], onA
         }
 
         // ========== EMAILS ==========
-        case "get_emails": {
-          try {
-            toast.info("📧 Récupération des emails...", { duration: 1500 });
-            
-            const response = await fetch(`${API_URL}/api/chat`, {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                messages: [{ role: "user", content: "montre-moi mes emails" }]
-              })
-            });
-            const result = await response.json();
-            
-            if (result.reply && result.reply.includes("📧") && result.reply.includes("email(s) non lu(s)")) {
-              // Afficher dans la modale
-              setCurrentData({ title: "📧 Emails non lus", content: result.reply });
-              setShowDataModal(true);
-              return { success: true };
-            }
-            
-            toast.info(result.reply || "Aucun email non lu");
+       case "get_emails":
+    try {
+        toast.info("📧 Récupération des emails...", { duration: 1500 });
+        
+        const response = await fetch(`${API_URL}/api/chat`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                messages: [{ role: "user", content: "montre-moi mes emails" }],
+                user_id: localStorage.getItem("userId") || "rebecca"
+            })
+        });
+        const result = await response.json();
+        
+        // Afficher directement la réponse dans la modale
+        if (result.reply) {
+            setCurrentData({ title: "📧 Emails non lus", content: result.reply });
+            setShowDataModal(true);
             return { success: true };
-          } catch (error) {
-            console.error("Erreur get_emails:", error);
-            toast.error("❌ Erreur lors de la récupération des emails");
-            return { success: false };
-          }
         }
+        
+        toast.info(result.reply || "Aucun email non lu");
+        return { success: true };
+    } catch (error) {
+        console.error("Erreur get_emails:", error);
+        toast.error("❌ Erreur lors de la récupération des emails");
+        return { success: false };
+    }
         
         // ========== WHATSAPP - LECTURE MESSAGES ==========
         case "read_table":
