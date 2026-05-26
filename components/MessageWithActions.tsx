@@ -48,7 +48,6 @@ function parseActionsFromText(text: string): { cleanText: string; actions: Actio
     }
   }
   
-  // Nettoyer aussi les marqueurs spéciaux
   cleanText = cleanText.replace(/\[EMAIL_LIST_START\]/g, '');
   cleanText = cleanText.replace(/\[EMAIL_LIST_END\]/g, '');
   cleanText = cleanText.replace(/\n{3,}/g, '\n\n').trim();
@@ -94,533 +93,6 @@ const getActionIcon = (type: string) => {
 let executionPlans: Map<string, { title: string; steps: string[]; completedSteps: number[] }> = new Map();
 
 // ============================================================
-// EXÉCUTION D'UNE ACTION
-// ============================================================
-const executeActionFn = async (action: Action): Promise<{ success: boolean; data?: any }> => {
-  try {
-    const { type, params } = action;
-    console.log("🔘 Action cliquée:", { type, params });
-    
-    switch (type) {
-      // ========== EXÉCUTION PLANIFIÉE ==========
-      case "create_execution_plan": {
-        const { title, steps } = params;
-        const planId = Date.now().toString();
-        executionPlans.set(planId, {
-          title,
-          steps,
-          completedSteps: []
-        });
-        return { 
-          success: true, 
-          data: { 
-            type: "execution_plan", 
-            planId,
-            title, 
-            steps,
-            completedSteps: []
-          } 
-        };
-      }
-      
-      case "complete_execution_step": {
-        const planIdStep = params.plan_id;
-        const stepIndex = params.step_index;
-        const plan = executionPlans.get(planIdStep);
-        if (plan && !plan.completedSteps.includes(stepIndex)) {
-          plan.completedSteps.push(stepIndex);
-          executionPlans.set(planIdStep, plan);
-        }
-        return { 
-          success: true, 
-          data: { 
-            type: "execution_step_completed", 
-            planId: planIdStep,
-            stepIndex,
-            completedSteps: plan?.completedSteps || [],
-            totalSteps: plan?.steps.length || 0,
-            isComplete: plan?.completedSteps.length === plan?.steps.length
-          } 
-        };
-      }
-      
-      case "complete_execution_plan": {
-        const planIdComplete = params.plan_id;
-        executionPlans.delete(planIdComplete);
-        return { 
-          success: true, 
-          data: { 
-            type: "execution_plan_completed"
-          } 
-        };
-      }
-      
-      case "get_execution_plan_status": {
-        const planIdStatus = params.plan_id;
-        const currentPlan = executionPlans.get(planIdStatus);
-        return { 
-          success: true, 
-          data: { 
-            type: "execution_plan_status",
-            planId: planIdStatus,
-            completedSteps: currentPlan?.completedSteps || [],
-            totalSteps: currentPlan?.steps.length || 0,
-            progress: currentPlan ? (currentPlan.completedSteps.length / currentPlan.steps.length) * 100 : 0
-          } 
-        };
-      }
-
-      // ========== WHATSAPP SUGGESTIONS ==========
-      case "whatsapp_suggest_reply": {
-        const suggestResponse = await fetch(`${API_URL}/api/whatsapp/suggest-reply`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ message: params.message, contact_name: params.contact_name })
-        });
-        const suggestResult = await suggestResponse.json();
-        if (suggestResult.success) {
-          return { 
-            success: true, 
-            data: { 
-              type: "whatsapp_suggestions", 
-              analysis: suggestResult.analysis,
-              suggestions: suggestResult.suggestions,
-              quick_actions: suggestResult.quick_actions,
-              to: params.to 
-            } 
-          };
-        }
-        break;
-      }
-
-      // ========== EMAILS ==========
-      case "get_emails":
-        try {
-          toast.info("📧 Récupération des emails...", { duration: 1500 });
-          
-          const response = await fetch(`${API_URL}/api/chat`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              messages: [{ role: "user", content: "montre-moi mes emails" }]
-            })
-          });
-          const result = await response.json();
-          
-          // Vérifier si la réponse contient une liste d'emails formatée
-          if (result.reply && result.reply.includes("📧") && result.reply.includes("email(s) non lu(s)")) {
-            setCurrentData({ title: "📧 Emails non lus", content: result.reply });
-            setShowDataModal(true);
-            return { success: true };
-          }
-          
-          // Essayer de parser le JSON si c'est un email_list
-          try {
-            const parsed = JSON.parse(result.reply);
-            if (parsed.type === "email_list" && parsed.emails) {
-              let emailText = `📧 **${parsed.emails.length} email(s) non lu(s) :**\n\n`;
-              parsed.emails.forEach((email: any, idx: number) => {
-                const fromClean = email.from?.split('<')[0].trim() || 'Inconnu';
-                emailText += `${idx + 1}. **${fromClean}**\n`;
-                emailText += `   📧 ${email.subject}\n`;
-                if (email.snippet) emailText += `   📝 ${email.snippet.substring(0, 80)}...\n`;
-                emailText += `\n`;
-              });
-              emailText += `\n💡 Dis-moi 'ouvre l'email [numéro]' pour voir le contenu complet.`;
-              
-              setCurrentData({ title: "📧 Emails non lus", content: emailText });
-              setShowDataModal(true);
-              return { success: true };
-            }
-          } catch {
-            // Si ce n'est pas du JSON valide
-          }
-          
-          toast.info(result.reply || "Aucun email non lu");
-          return { success: true };
-        } catch (error) {
-          console.error("Erreur get_emails:", error);
-          toast.error("❌ Erreur lors de la récupération des emails");
-          return { success: false };
-        }
-      
-      // ========== WHATSAPP - LECTURE MESSAGES ==========
-      case "read_table":
-      case "whatsapp_get_conversations":
-        if (params.table === "whatsapp_messages" || type === "whatsapp_get_conversations") {
-          try {
-            toast.info("📱 Récupération des messages WhatsApp...", { duration: 1500 });
-            
-            const response = await fetch(`${API_URL}/api/chat`, {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                messages: [{ role: "user", content: "montre-moi mes WhatsApp" }]
-              })
-            });
-            const result = await response.json();
-            
-            if (result.reply && result.reply.includes("📱") && result.reply.includes("WhatsApp")) {
-              setCurrentData({ title: "📱 Messages WhatsApp", content: result.reply });
-              setShowDataModal(true);
-              return { success: true };
-            }
-            
-            toast.info(result.reply || "📭 Aucun message WhatsApp non lu");
-            return { success: true };
-          } catch (error) {
-            console.error("Erreur WhatsApp:", error);
-            toast.error("❌ Erreur récupération WhatsApp");
-            return { success: false };
-          }
-        }
-        break;
-
-      // ========== TÂCHES ==========
-      case "create_task":
-        const taskResponse = await fetch(`${API_URL}/api/execute/create-task`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            title: params.title,
-            priority: params.priority || "normal",
-            due_date: params.due_date || null,
-            user_id: localStorage.getItem("userId") || "rebecca"
-          })
-        });
-        const taskResult = await taskResponse.json();
-        if (taskResult.success) {
-          toast.success(`✅ Tâche créée: "${params.title}"`);
-          return { success: true, data: taskResult.task };
-        }
-        break;
-      
-      // ========== FINANCES ==========
-      case "get_financial_summary":
-        toast.info("💰 Redirection vers la page Money", { duration: 2000 });
-        setTimeout(() => window.open("/money-opportunities", "_self"), 500);
-        return { success: true };
-      
-      // ========== EMAILS - ENVOI ==========
-      case "send_email":
-        const emailResponse = await fetch(`${API_URL}/api/email/send`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ to: params.to, subject: params.subject, body: params.body })
-        });
-        const emailResult = await emailResponse.json();
-        if (emailResult.success) {
-          toast.success(`📧 Email envoyé à ${params.to}`);
-          return { success: true };
-        }
-        break;
-      
-      // ========== CHECKLISTS ==========
-      case "create_checklist": {
-        const checklistSteps = params.steps || ["Étape 1: Préparer les documents", "Étape 2: Contacter les parties prenantes", "Étape 3: Finaliser et soumettre"];
-        return { success: true, data: { type: "checklist", title: params.title || "Checklist", steps: checklistSteps } };
-      }
-      
-      // ========== BROUILLONS ==========
-      case "create_draft":
-        const draftResponse = await fetch(`${API_URL}/api/execute/create-draft`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ type: params.type || "email", context: params.context || "Document à rédiger" })
-        });
-        const draftResult = await draftResponse.json();
-        if (draftResult.success && draftResult.draft) {
-          toast.success(`📄 Brouillon généré: ${draftResult.draft.type}`);
-          return { success: true, data: { type: "draft", content: draftResult.draft.content, draftType: draftResult.draft.type } };
-        }
-        break;
-      
-      // ========== CALENDRIER ==========
-      case "create_calendar_event":
-        const calendarResponse = await fetch(`${API_URL}/api/calendar/event`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ summary: params.summary, start_datetime: params.start_datetime, end_datetime: params.end_datetime, description: params.description || "" })
-        });
-        const calendarResult = await calendarResponse.json();
-        if (calendarResult.success) {
-          toast.success(`📅 Événement créé: ${params.summary}`);
-          if (calendarResult.link) window.open(calendarResult.link, "_blank");
-          return { success: true };
-        }
-        break;
-      
-      // ========== ÉCRITURE TABLE ==========
-      case "write_to_table":
-        const table = params.table || "spending";
-        const writeResponse = await fetch(`${API_URL}/${table}`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ data: params })
-        });
-        const writeResult = await writeResponse.json();
-        if (writeResult.success) {
-          toast.success(`💾 Enregistré dans ${table}`);
-          return { success: true };
-        }
-        break;
-
-      // ========== APPELS TÉLÉPHONIQUES ==========
-      case "make_call":
-        const phoneNumber = params.phone || params.number || params.to;
-        if (phoneNumber && phoneNumber !== "__NUMÉRO__" && !phoneNumber.includes("__")) {
-          toast.info(`📞 Appel de ${phoneNumber}...`, { duration: 2000 });
-          setTimeout(() => window.location.href = `tel:${phoneNumber.replace(/\s/g, '').replace(/^\+/, '')}`, 500);
-          return { success: true };
-        }
-        toast.error("❌ Numéro de téléphone non disponible");
-        break;
-
-      // ========== SAUVEGARDER EN MÉMOIRE ==========
-      case "save_memory":
-        const saveResponse = await fetch(`${API_URL}/api/memory/save`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ category: params.category || "general", key: params.key, value: params.value })
-        });
-        const saveResult = await saveResponse.json();
-        if (saveResult.success) {
-          toast.success(`💾 "${params.key}" sauvegardé`);
-          return { success: true };
-        }
-        break;
-
-      // ========== SMS ==========
-      case "send_sms":
-        const smsNumber = params.phone || params.number || params.to;
-        const smsBody = params.body || params.message || "Message de Sovereign";
-        if (smsNumber && smsNumber !== "__NUMÉRO__" && !smsNumber.includes("__")) {
-          const cleanNumber = smsNumber.replace(/\s/g, '').replace(/^\+/, '');
-          const encodedBody = encodeURIComponent(smsBody);
-          const isMobile = /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
-          if (isMobile) {
-            toast.info(`📱 Envoi SMS à ${smsNumber}...`, { duration: 2000 });
-            setTimeout(() => window.location.href = `sms:${cleanNumber}?body=${encodedBody}`, 500);
-          } else {
-            toast.info(`📱 Sur ordinateur, copie du numéro: ${smsNumber}`, { duration: 4000 });
-            navigator.clipboard.writeText(smsNumber);
-            toast.success(`📋 Numéro copié`);
-            setTimeout(() => {
-              if (confirm("Ouvrir WhatsApp Web pour envoyer ce message ?")) {
-                window.open(`https://wa.me/${cleanNumber}?text=${encodedBody}`, '_blank');
-              }
-            }, 1000);
-          }
-          return { success: true };
-        }
-        toast.error("❌ Numéro de téléphone non disponible");
-        break;
-
-      // ========== WHATSAPP - ENVOI ==========
-      case "send_whatsapp":
-        const waNumber = params.phone || params.number || params.to;
-        const waMessage = params.body || params.message || "Message de Sovereign";
-        if (waNumber && waNumber !== "__NUMÉRO__" && !waNumber.includes("__")) {
-          const cleanNumber = waNumber.replace(/\s/g, '').replace(/^\+/, '');
-          toast.info(`💬 Ouverture WhatsApp...`, { duration: 2000 });
-          setTimeout(() => window.open(`https://wa.me/${cleanNumber}?text=${encodeURIComponent(waMessage)}`, '_blank'), 500);
-          return { success: true };
-        }
-        toast.error("❌ Numéro WhatsApp non disponible");
-        break;
-
-      // ========== WHATSAPP - RÉPONSE ==========
-      case "whatsapp_reply":
-        const recipient = params.to || params.conversation_id;
-        if (!recipient) {
-          toast.error("❌ Destinataire manquant");
-          return { success: false };
-        }
-        
-        const replyResponse = await fetch(`${API_URL}/api/whatsapp/reply`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ 
-            to: recipient, 
-            message: params.message, 
-            message_id: params.message_id,
-            user_id: localStorage.getItem("userId") || "rebecca"
-          })
-        });
-        const replyResult = await replyResponse.json();
-        if (replyResult.success) {
-          toast.success(`📱 Réponse envoyée à ${recipient}`);
-          return { success: true };
-        } else {
-          toast.error(`❌ Échec de l'envoi: ${replyResult.error || "erreur inconnue"}`);
-          return { success: false };
-        }
-      
-      // ========== TELEGRAM ==========
-      case "send_telegram":
-        const tgUsername = params.username || params.to;
-        const tgMessage = params.body || params.message;
-        if (tgUsername) {
-          const cleanUsername = tgUsername.replace('@', '');
-          toast.info(`💬 Ouverture Telegram...`, { duration: 2000 });
-          setTimeout(() => {
-            const url = tgMessage ? `https://t.me/${cleanUsername}?text=${encodeURIComponent(tgMessage)}` : `https://t.me/${cleanUsername}`;
-            window.open(url, '_blank');
-          }, 500);
-          return { success: true };
-        }
-        toast.error("❌ Nom d'utilisateur Telegram manquant");
-        break;
-
-      // ========== RAPPELS PROGRAMMÉS ==========
-      case "schedule_reminder":
-        const reminderTitle = params.title || "Rappel";
-        const reminderMinutes = params.minutes;
-        if (reminderMinutes && typeof reminderMinutes === 'number') {
-          toast.success(`⏰ Rappel dans ${reminderMinutes} minute(s): "${reminderTitle}"`);
-          setTimeout(() => {
-            if ("vibrate" in navigator) navigator.vibrate([200, 100, 200, 100, 500]);
-            try {
-              const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
-              const oscillator = audioContext.createOscillator();
-              const gainNode = audioContext.createGain();
-              oscillator.connect(gainNode);
-              gainNode.connect(audioContext.destination);
-              oscillator.frequency.value = 880;
-              gainNode.gain.value = 0.3;
-              oscillator.start();
-              gainNode.gain.exponentialRampToValueAtTime(0.00001, audioContext.currentTime + 1);
-              oscillator.stop(audioContext.currentTime + 0.8);
-            } catch(e) {}
-            toast.info(`🔔 ${reminderTitle}`, { duration: 10000 });
-            if ("Notification" in window) {
-              if (Notification.permission === "granted") {
-                new Notification(reminderTitle, { body: `⏰ Rappel il y a ${reminderMinutes} min`, icon: "/icons/icon-192x192.png" });
-              } else if (Notification.permission !== "denied") {
-                Notification.requestPermission().then(perm => {
-                  if (perm === "granted") new Notification(reminderTitle, { icon: "/icons/icon-192x192.png" });
-                });
-              }
-            }
-          }, reminderMinutes * 60 * 1000);
-          return { success: true };
-        }
-        toast.error("❌ Durée du rappel manquante (ex: minutes: 30)");
-        break;
-
-      // ========== PARTAGE DE POSITION ==========
-      case "share_location":
-        if ("geolocation" in navigator) {
-          toast.info("📍 Récupération de votre position...", { duration: 2000 });
-          navigator.geolocation.getCurrentPosition(
-            (position) => {
-              const mapsUrl = `https://maps.google.com/?q=${position.coords.latitude},${position.coords.longitude}`;
-              toast.success(`📍 Position trouvée !`);
-              navigator.clipboard.writeText(mapsUrl);
-              toast.success(`📋 Lien copié !`);
-              setTimeout(() => {
-                if (confirm("📍 Voir votre position sur Google Maps ?")) window.open(mapsUrl, '_blank');
-              }, 1000);
-            },
-            (error) => {
-              let errorMsg = "❌ Impossible d'obtenir la position";
-              if (error.code === 1) errorMsg = "📍 Permission refusée";
-              if (error.code === 2) errorMsg = "📍 Position non disponible";
-              if (error.code === 3) errorMsg = "📍 Délai dépassé";
-              toast.error(errorMsg);
-            },
-            { timeout: 10000, enableHighAccuracy: true }
-          );
-          return { success: true };
-        }
-        toast.error("❌ Géolocalisation non supportée");
-        break;
-
-      // ========== WHATSAPP ENVOI AVEC IMAGE ==========
-      case "whatsapp_send_image":
-        toast.info("🖼️ Envoi d'image WhatsApp...", { duration: 2000 });
-        const fileInput = document.createElement('input');
-        fileInput.type = 'file';
-        fileInput.accept = 'image/*';
-        fileInput.onchange = async (e: any) => {
-          const file = e.target.files[0];
-          if (file) {
-            const reader = new FileReader();
-            reader.onloadend = async () => {
-              const base64 = reader.result?.toString().split(',')[1];
-              const imageResponse = await fetch(`${API_URL}/api/whatsapp/send-image`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ to: params.to, image: base64, caption: params.caption || "" })
-              });
-              const result = await imageResponse.json();
-              if (result.success) toast.success(`🖼️ Image envoyée à ${params.to}`);
-              else toast.error("❌ Erreur envoi image");
-            };
-            reader.readAsDataURL(file);
-          }
-        };
-        fileInput.click();
-        return { success: true };
-
-      // ========== TEMPLATES RAPIDES WHATSAPP ==========
-      case "whatsapp_quick_reply":
-        const templates = [
-          { label: "✅ OK, je m'en occupe", message: "OK, je m'en occupe aujourd'hui." },
-          { label: "📅 Je te redis ça demain", message: "Je te redis ça demain, promis." },
-          { label: "🙏 Merci !", message: "Merci beaucoup !" },
-          { label: "🔜 Je reviens vers toi", message: "Je reviens vers toi très vite." },
-          { label: "📱 Envoyé de ma part", message: "Message envoyé de ma part." },
-          { label: "✏️ Personnaliser", message: null }
-        ];
-        return { success: true, data: { type: "whatsapp_templates", to: params.to, templates: templates } };
-      
-      default:
-        console.warn("⚠️ Action non implémentée:", type, params);
-        toast.info(`🔧 "${action.label}" - Fonctionnalité en cours d'implémentation`, { duration: 3000 });
-        return { success: true };
-    }
-    
-    return { success: false };
-  } catch (error: any) {
-    console.error("❌ Erreur action:", error);
-    toast.error(`❌ ${error.message || "Erreur d'exécution"}`);
-    return { success: false };
-  }
-};
-
-// Déclaration des variables globales pour les modales (en dehors du composant pour être accessibles)
-let setShowDataModalGlobal: ((show: boolean) => void) | null = null;
-let setCurrentDataGlobal: ((data: { title: string; content: string } | null) => void) | null = null;
-let setShowReplyInputGlobal: ((show: boolean) => void) | null = null;
-let setCurrentReplyToGlobal: ((to: string) => void) | null = null;
-let setReplyMessageGlobal: ((msg: string) => void) | null = null;
-let setShowWhatsAppModalGlobal: ((show: boolean) => void) | null = null;
-let setCurrentWhatsAppGlobal: ((wa: { to: string; original_message: string } | null) => void) | null = null;
-let setCustomReplyGlobal: ((reply: string) => void) | null = null;
-let setShowTemplatesModalGlobal: ((show: boolean) => void) | null = null;
-let setCurrentTemplatesGlobal: ((templates: any[]) => void) | null = null;
-let setCurrentTemplateToGlobal: ((to: string) => void) | null = null;
-
-// Exporter une fonction pour ouvrir une modale email depuis l'extérieur
-export function openEmailModal(emails: any[]) {
-  if (setShowDataModalGlobal && setCurrentDataGlobal) {
-    let emailText = `📧 **${emails.length} email(s) non lu(s) :**\n\n`;
-    emails.forEach((email, idx) => {
-      const fromClean = email.from?.split('<')[0].trim() || 'Inconnu';
-      emailText += `${idx + 1}. **${fromClean}**\n`;
-      emailText += `   📧 ${email.subject}\n`;
-      if (email.snippet) emailText += `   📝 ${email.snippet.substring(0, 80)}...\n`;
-      emailText += `\n`;
-    });
-    emailText += `\n💡 Dis-moi 'ouvre l'email [numéro]' pour voir le contenu complet.`;
-    
-    setCurrentDataGlobal({ title: "📧 Emails non lus", content: emailText });
-    setShowDataModalGlobal(true);
-  }
-}
-
-// ============================================================
 // COMPOSANT PRINCIPAL
 // ============================================================
 export function MessageWithActions({ content, actions: providedActions = [], onActionComplete, onPlanUpdate }: MessageWithActionsProps) {
@@ -647,20 +119,496 @@ export function MessageWithActions({ content, actions: providedActions = [], onA
   const [currentReplyTo, setCurrentReplyTo] = useState("");
   const [replyMessage, setReplyMessage] = useState("");
 
-  // Enregistrer les setters globaux
-  if (typeof window !== 'undefined') {
-    setShowDataModalGlobal = setShowDataModal;
-    setCurrentDataGlobal = setCurrentData;
-    setShowReplyInputGlobal = setShowReplyInput;
-    setCurrentReplyToGlobal = setCurrentReplyTo;
-    setReplyMessageGlobal = setReplyMessage;
-    setShowWhatsAppModalGlobal = setShowWhatsAppModal;
-    setCurrentWhatsAppGlobal = setCurrentWhatsApp;
-    setCustomReplyGlobal = setCustomReply;
-    setShowTemplatesModalGlobal = setShowTemplatesModal;
-    setCurrentTemplatesGlobal = setCurrentTemplates;
-    setCurrentTemplateToGlobal = setCurrentTemplateTo;
-  }
+  // ============================================================
+  // EXÉCUTION D'UNE ACTION (déplacée à l'intérieur du composant)
+  // ============================================================
+  const executeActionFn = async (action: Action): Promise<{ success: boolean; data?: any }> => {
+    try {
+      const { type, params } = action;
+      console.log("🔘 Action cliquée:", { type, params });
+      
+      switch (type) {
+        // ========== EXÉCUTION PLANIFIÉE ==========
+        case "create_execution_plan": {
+          const { title, steps } = params;
+          const planId = Date.now().toString();
+          executionPlans.set(planId, {
+            title,
+            steps,
+            completedSteps: []
+          });
+          return { 
+            success: true, 
+            data: { 
+              type: "execution_plan", 
+              planId,
+              title, 
+              steps,
+              completedSteps: []
+            } 
+          };
+        }
+        
+        case "complete_execution_step": {
+          const planIdStep = params.plan_id;
+          const stepIndex = params.step_index;
+          const plan = executionPlans.get(planIdStep);
+          if (plan && !plan.completedSteps.includes(stepIndex)) {
+            plan.completedSteps.push(stepIndex);
+            executionPlans.set(planIdStep, plan);
+          }
+          return { 
+            success: true, 
+            data: { 
+              type: "execution_step_completed", 
+              planId: planIdStep,
+              stepIndex,
+              completedSteps: plan?.completedSteps || [],
+              totalSteps: plan?.steps.length || 0,
+              isComplete: plan?.completedSteps.length === plan?.steps.length
+            } 
+          };
+        }
+        
+        case "complete_execution_plan": {
+          const planIdComplete = params.plan_id;
+          executionPlans.delete(planIdComplete);
+          return { 
+            success: true, 
+            data: { 
+              type: "execution_plan_completed"
+            } 
+          };
+        }
+        
+        case "get_execution_plan_status": {
+          const planIdStatus = params.plan_id;
+          const currentPlan = executionPlans.get(planIdStatus);
+          return { 
+            success: true, 
+            data: { 
+              type: "execution_plan_status",
+              planId: planIdStatus,
+              completedSteps: currentPlan?.completedSteps || [],
+              totalSteps: currentPlan?.steps.length || 0,
+              progress: currentPlan ? (currentPlan.completedSteps.length / currentPlan.steps.length) * 100 : 0
+            } 
+          };
+        }
+
+        // ========== WHATSAPP SUGGESTIONS ==========
+        case "whatsapp_suggest_reply": {
+          const suggestResponse = await fetch(`${API_URL}/api/whatsapp/suggest-reply`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ message: params.message, contact_name: params.contact_name })
+          });
+          const suggestResult = await suggestResponse.json();
+          if (suggestResult.success) {
+            return { 
+              success: true, 
+              data: { 
+                type: "whatsapp_suggestions", 
+                analysis: suggestResult.analysis,
+                suggestions: suggestResult.suggestions,
+                quick_actions: suggestResult.quick_actions,
+                to: params.to 
+              } 
+            };
+          }
+          break;
+        }
+
+        // ========== EMAILS ==========
+        case "get_emails": {
+          try {
+            toast.info("📧 Récupération des emails...", { duration: 1500 });
+            
+            const response = await fetch(`${API_URL}/api/chat`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                messages: [{ role: "user", content: "montre-moi mes emails" }]
+              })
+            });
+            const result = await response.json();
+            
+            if (result.reply && result.reply.includes("📧") && result.reply.includes("email(s) non lu(s)")) {
+              // Afficher dans la modale
+              setCurrentData({ title: "📧 Emails non lus", content: result.reply });
+              setShowDataModal(true);
+              return { success: true };
+            }
+            
+            toast.info(result.reply || "Aucun email non lu");
+            return { success: true };
+          } catch (error) {
+            console.error("Erreur get_emails:", error);
+            toast.error("❌ Erreur lors de la récupération des emails");
+            return { success: false };
+          }
+        }
+        
+        // ========== WHATSAPP - LECTURE MESSAGES ==========
+        case "read_table":
+        case "whatsapp_get_conversations": {
+          if (params.table === "whatsapp_messages" || type === "whatsapp_get_conversations") {
+            try {
+              toast.info("📱 Récupération des messages WhatsApp...", { duration: 1500 });
+              
+              const response = await fetch(`${API_URL}/api/chat`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  messages: [{ role: "user", content: "montre-moi mes WhatsApp" }]
+                })
+              });
+              const result = await response.json();
+              
+              if (result.reply && result.reply.includes("📱") && result.reply.includes("WhatsApp")) {
+                setCurrentData({ title: "📱 Messages WhatsApp", content: result.reply });
+                setShowDataModal(true);
+                return { success: true };
+              }
+              
+              toast.info(result.reply || "📭 Aucun message WhatsApp non lu");
+              return { success: true };
+            } catch (error) {
+              console.error("Erreur WhatsApp:", error);
+              toast.error("❌ Erreur récupération WhatsApp");
+              return { success: false };
+            }
+          }
+          break;
+        }
+
+        // ========== TÂCHES ==========
+        case "create_task": {
+          const taskResponse = await fetch(`${API_URL}/api/execute/create-task`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              title: params.title,
+              priority: params.priority || "normal",
+              due_date: params.due_date || null,
+              user_id: localStorage.getItem("userId") || "rebecca"
+            })
+          });
+          const taskResult = await taskResponse.json();
+          if (taskResult.success) {
+            toast.success(`✅ Tâche créée: "${params.title}"`);
+            return { success: true, data: taskResult.task };
+          }
+          break;
+        }
+        
+        // ========== FINANCES ==========
+        case "get_financial_summary":
+          toast.info("💰 Redirection vers la page Money", { duration: 2000 });
+          setTimeout(() => window.open("/money-opportunities", "_self"), 500);
+          return { success: true };
+        
+        // ========== EMAILS - ENVOI ==========
+        case "send_email": {
+          const emailResponse = await fetch(`${API_URL}/api/email/send`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ to: params.to, subject: params.subject, body: params.body })
+          });
+          const emailResult = await emailResponse.json();
+          if (emailResult.success) {
+            toast.success(`📧 Email envoyé à ${params.to}`);
+            return { success: true };
+          }
+          break;
+        }
+        
+        // ========== CHECKLISTS ==========
+        case "create_checklist": {
+          const checklistSteps = params.steps || ["Étape 1: Préparer les documents", "Étape 2: Contacter les parties prenantes", "Étape 3: Finaliser et soumettre"];
+          return { success: true, data: { type: "checklist", title: params.title || "Checklist", steps: checklistSteps } };
+        }
+        
+        // ========== BROUILLONS ==========
+        case "create_draft": {
+          const draftResponse = await fetch(`${API_URL}/api/execute/create-draft`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ type: params.type || "email", context: params.context || "Document à rédiger" })
+          });
+          const draftResult = await draftResponse.json();
+          if (draftResult.success && draftResult.draft) {
+            toast.success(`📄 Brouillon généré: ${draftResult.draft.type}`);
+            return { success: true, data: { type: "draft", content: draftResult.draft.content, draftType: draftResult.draft.type } };
+          }
+          break;
+        }
+        
+        // ========== CALENDRIER ==========
+        case "create_calendar_event": {
+          const calendarResponse = await fetch(`${API_URL}/api/calendar/event`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ summary: params.summary, start_datetime: params.start_datetime, end_datetime: params.end_datetime, description: params.description || "" })
+          });
+          const calendarResult = await calendarResponse.json();
+          if (calendarResult.success) {
+            toast.success(`📅 Événement créé: ${params.summary}`);
+            if (calendarResult.link) window.open(calendarResult.link, "_blank");
+            return { success: true };
+          }
+          break;
+        }
+        
+        // ========== ÉCRITURE TABLE ==========
+        case "write_to_table": {
+          const table = params.table || "spending";
+          const writeResponse = await fetch(`${API_URL}/${table}`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ data: params })
+          });
+          const writeResult = await writeResponse.json();
+          if (writeResult.success) {
+            toast.success(`💾 Enregistré dans ${table}`);
+            return { success: true };
+          }
+          break;
+        }
+
+        // ========== APPELS TÉLÉPHONIQUES ==========
+        case "make_call": {
+          const phoneNumber = params.phone || params.number || params.to;
+          if (phoneNumber && phoneNumber !== "__NUMÉRO__" && !phoneNumber.includes("__")) {
+            toast.info(`📞 Appel de ${phoneNumber}...`, { duration: 2000 });
+            setTimeout(() => window.location.href = `tel:${phoneNumber.replace(/\s/g, '').replace(/^\+/, '')}`, 500);
+            return { success: true };
+          }
+          toast.error("❌ Numéro de téléphone non disponible");
+          break;
+        }
+
+        // ========== SAUVEGARDER EN MÉMOIRE ==========
+        case "save_memory": {
+          const saveResponse = await fetch(`${API_URL}/api/memory/save`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ category: params.category || "general", key: params.key, value: params.value })
+          });
+          const saveResult = await saveResponse.json();
+          if (saveResult.success) {
+            toast.success(`💾 "${params.key}" sauvegardé`);
+            return { success: true };
+          }
+          break;
+        }
+
+        // ========== SMS ==========
+        case "send_sms": {
+          const smsNumber = params.phone || params.number || params.to;
+          const smsBody = params.body || params.message || "Message de Sovereign";
+          if (smsNumber && smsNumber !== "__NUMÉRO__" && !smsNumber.includes("__")) {
+            const cleanNumber = smsNumber.replace(/\s/g, '').replace(/^\+/, '');
+            const encodedBody = encodeURIComponent(smsBody);
+            const isMobile = /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+            if (isMobile) {
+              toast.info(`📱 Envoi SMS à ${smsNumber}...`, { duration: 2000 });
+              setTimeout(() => window.location.href = `sms:${cleanNumber}?body=${encodedBody}`, 500);
+            } else {
+              toast.info(`📱 Sur ordinateur, copie du numéro: ${smsNumber}`, { duration: 4000 });
+              navigator.clipboard.writeText(smsNumber);
+              toast.success(`📋 Numéro copié`);
+              setTimeout(() => {
+                if (confirm("Ouvrir WhatsApp Web pour envoyer ce message ?")) {
+                  window.open(`https://wa.me/${cleanNumber}?text=${encodedBody}`, '_blank');
+                }
+              }, 1000);
+            }
+            return { success: true };
+          }
+          toast.error("❌ Numéro de téléphone non disponible");
+          break;
+        }
+
+        // ========== WHATSAPP - ENVOI ==========
+        case "send_whatsapp": {
+          const waNumber = params.phone || params.number || params.to;
+          const waMessage = params.body || params.message || "Message de Sovereign";
+          if (waNumber && waNumber !== "__NUMÉRO__" && !waNumber.includes("__")) {
+            const cleanNumber = waNumber.replace(/\s/g, '').replace(/^\+/, '');
+            toast.info(`💬 Ouverture WhatsApp...`, { duration: 2000 });
+            setTimeout(() => window.open(`https://wa.me/${cleanNumber}?text=${encodeURIComponent(waMessage)}`, '_blank'), 500);
+            return { success: true };
+          }
+          toast.error("❌ Numéro WhatsApp non disponible");
+          break;
+        }
+
+        // ========== WHATSAPP - RÉPONSE ==========
+        case "whatsapp_reply": {
+          const recipient = params.to || params.conversation_id;
+          if (!recipient) {
+            toast.error("❌ Destinataire manquant");
+            return { success: false };
+          }
+          
+          const replyResponse = await fetch(`${API_URL}/api/whatsapp/reply`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ 
+              to: recipient, 
+              message: params.message, 
+              message_id: params.message_id,
+              user_id: localStorage.getItem("userId") || "rebecca"
+            })
+          });
+          const replyResult = await replyResponse.json();
+          if (replyResult.success) {
+            toast.success(`📱 Réponse envoyée à ${recipient}`);
+            return { success: true };
+          } else {
+            toast.error(`❌ Échec de l'envoi: ${replyResult.error || "erreur inconnue"}`);
+            return { success: false };
+          }
+        }
+        
+        // ========== TELEGRAM ==========
+        case "send_telegram": {
+          const tgUsername = params.username || params.to;
+          const tgMessage = params.body || params.message;
+          if (tgUsername) {
+            const cleanUsername = tgUsername.replace('@', '');
+            toast.info(`💬 Ouverture Telegram...`, { duration: 2000 });
+            setTimeout(() => {
+              const url = tgMessage ? `https://t.me/${cleanUsername}?text=${encodeURIComponent(tgMessage)}` : `https://t.me/${cleanUsername}`;
+              window.open(url, '_blank');
+            }, 500);
+            return { success: true };
+          }
+          toast.error("❌ Nom d'utilisateur Telegram manquant");
+          break;
+        }
+
+        // ========== RAPPELS PROGRAMMÉS ==========
+        case "schedule_reminder": {
+          const reminderTitle = params.title || "Rappel";
+          const reminderMinutes = params.minutes;
+          if (reminderMinutes && typeof reminderMinutes === 'number') {
+            toast.success(`⏰ Rappel dans ${reminderMinutes} minute(s): "${reminderTitle}"`);
+            setTimeout(() => {
+              if ("vibrate" in navigator) navigator.vibrate([200, 100, 200, 100, 500]);
+              try {
+                const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+                const oscillator = audioContext.createOscillator();
+                const gainNode = audioContext.createGain();
+                oscillator.connect(gainNode);
+                gainNode.connect(audioContext.destination);
+                oscillator.frequency.value = 880;
+                gainNode.gain.value = 0.3;
+                oscillator.start();
+                gainNode.gain.exponentialRampToValueAtTime(0.00001, audioContext.currentTime + 1);
+                oscillator.stop(audioContext.currentTime + 0.8);
+              } catch(e) {}
+              toast.info(`🔔 ${reminderTitle}`, { duration: 10000 });
+              if ("Notification" in window) {
+                if (Notification.permission === "granted") {
+                  new Notification(reminderTitle, { body: `⏰ Rappel il y a ${reminderMinutes} min`, icon: "/icons/icon-192x192.png" });
+                } else if (Notification.permission !== "denied") {
+                  Notification.requestPermission().then(perm => {
+                    if (perm === "granted") new Notification(reminderTitle, { icon: "/icons/icon-192x192.png" });
+                  });
+                }
+              }
+            }, reminderMinutes * 60 * 1000);
+            return { success: true };
+          }
+          toast.error("❌ Durée du rappel manquante (ex: minutes: 30)");
+          break;
+        }
+
+        // ========== PARTAGE DE POSITION ==========
+        case "share_location": {
+          if ("geolocation" in navigator) {
+            toast.info("📍 Récupération de votre position...", { duration: 2000 });
+            navigator.geolocation.getCurrentPosition(
+              (position) => {
+                const mapsUrl = `https://maps.google.com/?q=${position.coords.latitude},${position.coords.longitude}`;
+                toast.success(`📍 Position trouvée !`);
+                navigator.clipboard.writeText(mapsUrl);
+                toast.success(`📋 Lien copié !`);
+                setTimeout(() => {
+                  if (confirm("📍 Voir votre position sur Google Maps ?")) window.open(mapsUrl, '_blank');
+                }, 1000);
+              },
+              (error) => {
+                let errorMsg = "❌ Impossible d'obtenir la position";
+                if (error.code === 1) errorMsg = "📍 Permission refusée";
+                if (error.code === 2) errorMsg = "📍 Position non disponible";
+                if (error.code === 3) errorMsg = "📍 Délai dépassé";
+                toast.error(errorMsg);
+              },
+              { timeout: 10000, enableHighAccuracy: true }
+            );
+            return { success: true };
+          }
+          toast.error("❌ Géolocalisation non supportée");
+          break;
+        }
+
+        // ========== WHATSAPP ENVOI AVEC IMAGE ==========
+        case "whatsapp_send_image": {
+          toast.info("🖼️ Envoi d'image WhatsApp...", { duration: 2000 });
+          const fileInput = document.createElement('input');
+          fileInput.type = 'file';
+          fileInput.accept = 'image/*';
+          fileInput.onchange = async (e: any) => {
+            const file = e.target.files[0];
+            if (file) {
+              const reader = new FileReader();
+              reader.onloadend = async () => {
+                const base64 = reader.result?.toString().split(',')[1];
+                const imageResponse = await fetch(`${API_URL}/api/whatsapp/send-image`, {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ to: params.to, image: base64, caption: params.caption || "" })
+                });
+                const result = await imageResponse.json();
+                if (result.success) toast.success(`🖼️ Image envoyée à ${params.to}`);
+                else toast.error("❌ Erreur envoi image");
+              };
+              reader.readAsDataURL(file);
+            }
+          };
+          fileInput.click();
+          return { success: true };
+        }
+
+        // ========== TEMPLATES RAPIDES WHATSAPP ==========
+        case "whatsapp_quick_reply": {
+          const templates = [
+            { label: "✅ OK, je m'en occupe", message: "OK, je m'en occupe aujourd'hui." },
+            { label: "📅 Je te redis ça demain", message: "Je te redis ça demain, promis." },
+            { label: "🙏 Merci !", message: "Merci beaucoup !" },
+            { label: "🔜 Je reviens vers toi", message: "Je reviens vers toi très vite." },
+            { label: "📱 Envoyé de ma part", message: "Message envoyé de ma part." },
+            { label: "✏️ Personnaliser", message: null }
+          ];
+          return { success: true, data: { type: "whatsapp_templates", to: params.to, templates: templates } };
+        }
+        
+        default:
+          console.warn("⚠️ Action non implémentée:", type, params);
+          toast.info(`🔧 "${action.label}" - Fonctionnalité en cours d'implémentation`, { duration: 3000 });
+          return { success: true };
+      }
+      
+      return { success: false };
+    } catch (error: any) {
+      console.error("❌ Erreur action:", error);
+      toast.error(`❌ ${error.message || "Erreur d'exécution"}`);
+      return { success: false };
+    }
+  };
 
   const handleExecuteAction = async (index: number, action: Action) => {
     setExecutingActions(prev => new Set(prev).add(index));
@@ -876,7 +824,7 @@ export function MessageWithActions({ content, actions: providedActions = [], onA
         </div>
       )}
 
-      {/* MODALE DONNÉES TABLE */}
+      {/* MODALE DONNÉES */}
       {showDataModal && currentData && (
         <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4" onClick={() => { setShowDataModal(false); setShowReplyInput(false); }}>
           <div className="bg-midnight border border-gold-500/30 rounded-xl max-w-lg w-full p-6" onClick={(e) => e.stopPropagation()}>
