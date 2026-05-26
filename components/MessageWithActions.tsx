@@ -86,9 +86,17 @@ const getActionIcon = (type: string) => {
 };
 
 // ============================================================
-// ÉTAT DES PLANS D'EXÉCUTION
+// ÉTAT DES PLANS D'EXÉCUTION (cache local)
 // ============================================================
 let executionPlans: Map<string, { title: string; steps: string[]; completedSteps: number[] }> = new Map();
+
+// Récupérer l'ID utilisateur depuis localStorage
+const getUserId = () => {
+  if (typeof window !== 'undefined') {
+    return localStorage.getItem("userId") || "rebecca";
+  }
+  return "rebecca";
+};
 
 // ============================================================
 // COMPOSANT PRINCIPAL
@@ -117,20 +125,65 @@ export function MessageWithActions({ content, actions: providedActions = [], onA
   const [currentReplyTo, setCurrentReplyTo] = useState("");
   const [replyMessage, setReplyMessage] = useState("");
 
-  // Charger la progression sauvegardée au montage
+  // ============================================================
+  // CHARGER LA PROGRESSION SAUVEGARDÉE AU MONTAGE
+  // ============================================================
+  const loadProgressFromBackend = async (planId: string) => {
+    try {
+      const userId = getUserId();
+      const response = await fetch(`${API_URL}/api/execute/get-progress/${planId}?user_id=${userId}`);
+      const data = await response.json();
+      if (data.success && data.completed_steps && data.completed_steps.length > 0) {
+        setActiveExecutionPlan(prev => prev ? { ...prev, completedSteps: data.completed_steps } : prev);
+        // Mettre à jour le cache local aussi
+        const plan = executionPlans.get(planId);
+        if (plan) {
+          plan.completedSteps = data.completed_steps;
+          executionPlans.set(planId, plan);
+        }
+      }
+    } catch (error) {
+      console.error("Erreur chargement progression:", error);
+    }
+  };
+
+  // Charger la progression quand un plan est créé
   useEffect(() => {
     if (activeExecutionPlan && activeExecutionPlan.planId) {
+      // D'abord essayer de charger depuis le backend
+      loadProgressFromBackend(activeExecutionPlan.planId);
+      // Puis charger depuis localStorage comme fallback
       const saved = localStorage.getItem(`execution_plan_${activeExecutionPlan.planId}`);
       if (saved) {
         try {
           const parsed = JSON.parse(saved);
-          if (parsed.completedSteps && parsed.completedSteps.length > 0) {
+          if (parsed.completedSteps && parsed.completedSteps.length > 0 && (!activeExecutionPlan.completedSteps || activeExecutionPlan.completedSteps.length === 0)) {
             setActiveExecutionPlan(prev => prev ? { ...prev, completedSteps: parsed.completedSteps } : prev);
           }
         } catch(e) {}
       }
     }
   }, [activeExecutionPlan?.planId]);
+
+  // ============================================================
+  // SAUVEGARDER LA PROGRESSION
+  // ============================================================
+  const saveProgress = async (planId: string, completedSteps: number[]) => {
+    try {
+      const userId = getUserId();
+      await fetch(`${API_URL}/api/execute/update-progress`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          plan_id: planId,
+          completed_steps: completedSteps,
+          user_id: userId
+        })
+      });
+    } catch (error) {
+      console.error("Erreur sauvegarde progression:", error);
+    }
+  };
 
   // ============================================================
   // EXÉCUTION D'UNE ACTION
@@ -171,6 +224,8 @@ export function MessageWithActions({ content, actions: providedActions = [], onA
             executionPlans.set(planIdStep, plan);
             // Sauvegarder dans localStorage
             localStorage.setItem(`execution_plan_${planIdStep}`, JSON.stringify(plan));
+            // Sauvegarder dans le backend
+            await saveProgress(planIdStep, plan.completedSteps);
           }
           return { 
             success: true, 
@@ -189,6 +244,7 @@ export function MessageWithActions({ content, actions: providedActions = [], onA
           const planIdComplete = params.plan_id;
           executionPlans.delete(planIdComplete);
           localStorage.removeItem(`execution_plan_${planIdComplete}`);
+          // Supprimer aussi du backend (optionnel, mais on peut garder l'historique)
           return { 
             success: true, 
             data: { 
@@ -235,7 +291,7 @@ export function MessageWithActions({ content, actions: providedActions = [], onA
           break;
         }
 
-        // ========== EMAILS - CORRIGÉ ==========
+        // ========== EMAILS ==========
         case "get_emails": {
           try {
             toast.info("📧 Récupération des emails...", { duration: 1500 });
@@ -310,7 +366,7 @@ export function MessageWithActions({ content, actions: providedActions = [], onA
               title: params.title,
               priority: params.priority || "normal",
               due_date: params.due_date || null,
-              user_id: localStorage.getItem("userId") || "rebecca"
+              user_id: getUserId()
             })
           });
           const taskResult = await taskResponse.json();
@@ -478,7 +534,7 @@ export function MessageWithActions({ content, actions: providedActions = [], onA
               to: recipient, 
               message: params.message, 
               message_id: params.message_id,
-              user_id: localStorage.getItem("userId") || "rebecca"
+              user_id: getUserId()
             })
           });
           const replyResult = await replyResponse.json();
@@ -898,7 +954,7 @@ export function MessageWithActions({ content, actions: providedActions = [], onA
                             body: JSON.stringify({
                               to: currentReplyTo,
                               message: replyMessage,
-                              user_id: localStorage.getItem("userId") || "rebecca"
+                              user_id: getUserId()
                             })
                           });
                           const result = await response.json();
