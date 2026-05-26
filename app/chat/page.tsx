@@ -22,7 +22,7 @@ import { supabase } from "@/lib/supabase";
 import { useDropzone } from "react-dropzone";
 import SpeechRecognition, { useSpeechRecognition } from "react-speech-recognition";
 import { useTextToSpeech, VOICE_OPTIONS } from "@/hooks/useTextToSpeech";
-import { MessageWithActions } from "@/components/MessageWithActions";
+import { MessageWithActions, openEmailModal } from "@/components/MessageWithActions";
 
 const API_URL = "https://sovereign-bridge.onrender.com";
 
@@ -829,7 +829,7 @@ export default function ChatPage() {
       const res = await fetch(`${API_URL}/api/whatsapp/reply`, { 
         method: "POST", 
         headers: { "Content-Type": "application/json" }, 
-        body: JSON.stringify({ to: recipient, message: params.message, message_id: params.message_id }) 
+        body: JSON.stringify({ to: recipient, message: params.message, message_id: params.message_id, user_id: userId }) 
       });
       const result = await res.json();
       if (result.success) toast.success(`✅ Réponse envoyée à ${recipient}`);
@@ -845,7 +845,6 @@ export default function ChatPage() {
   const handleClosePlan = () => setExecutionPlan(null);
 
   const handlePlanUpdate = useCallback((planId: string, completedSteps: number[]) => {
-    // Sauvegarder dans localStorage
     if (currentConversationId) {
       const saved = localStorage.getItem(`execution_plan_${currentConversationId}`);
       if (saved) {
@@ -856,7 +855,6 @@ export default function ChatPage() {
         } catch(e) {}
       }
     }
-    // Mettre à jour l'état local
     if (executionPlan && executionPlan.planId === planId) {
       setExecutionPlan(prev => prev ? { ...prev, plan: { ...prev.plan, completedSteps } } : prev);
     }
