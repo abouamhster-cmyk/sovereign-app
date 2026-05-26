@@ -1,13 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { CheckCircle, Loader2, Mic, Send, MapPin, Clock, Mail, FileText, ListTodo, Sparkles, DollarSign, Calendar, Phone, MessageCircle, ImageIcon, X } from "lucide-react";
 import { toast } from "sonner";
 import ReactMarkdown from 'react-markdown';
 import { ExecutionPlan } from "@/components/ExecutionPlan";
 
-
-  
 const API_URL = "https://sovereign-bridge.onrender.com";
 
 export type Action = {
@@ -119,8 +117,23 @@ export function MessageWithActions({ content, actions: providedActions = [], onA
   const [currentReplyTo, setCurrentReplyTo] = useState("");
   const [replyMessage, setReplyMessage] = useState("");
 
+  // Charger la progression sauvegardée au montage
+  useEffect(() => {
+    if (activeExecutionPlan && activeExecutionPlan.planId) {
+      const saved = localStorage.getItem(`execution_plan_${activeExecutionPlan.planId}`);
+      if (saved) {
+        try {
+          const parsed = JSON.parse(saved);
+          if (parsed.completedSteps && parsed.completedSteps.length > 0) {
+            setActiveExecutionPlan(prev => prev ? { ...prev, completedSteps: parsed.completedSteps } : prev);
+          }
+        } catch(e) {}
+      }
+    }
+  }, [activeExecutionPlan?.planId]);
+
   // ============================================================
-  // EXÉCUTION D'UNE ACTION (déplacée à l'intérieur du composant)
+  // EXÉCUTION D'UNE ACTION
   // ============================================================
   const executeActionFn = async (action: Action): Promise<{ success: boolean; data?: any }> => {
     try {
@@ -156,6 +169,8 @@ export function MessageWithActions({ content, actions: providedActions = [], onA
           if (plan && !plan.completedSteps.includes(stepIndex)) {
             plan.completedSteps.push(stepIndex);
             executionPlans.set(planIdStep, plan);
+            // Sauvegarder dans localStorage
+            localStorage.setItem(`execution_plan_${planIdStep}`, JSON.stringify(plan));
           }
           return { 
             success: true, 
@@ -173,6 +188,7 @@ export function MessageWithActions({ content, actions: providedActions = [], onA
         case "complete_execution_plan": {
           const planIdComplete = params.plan_id;
           executionPlans.delete(planIdComplete);
+          localStorage.removeItem(`execution_plan_${planIdComplete}`);
           return { 
             success: true, 
             data: { 
@@ -219,35 +235,38 @@ export function MessageWithActions({ content, actions: providedActions = [], onA
           break;
         }
 
-        // ========== EMAILS ==========
-       case "get_emails":
-    try {
-        toast.info("📧 Récupération des emails...", { duration: 1500 });
-        
-        const response = await fetch(`${API_URL}/api/chat`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-                messages: [{ role: "user", content: "montre-moi mes emails" }],
-                user_id: localStorage.getItem("userId") || "rebecca"
-            })
-        });
-        const result = await response.json();
-        
-        // Afficher directement la réponse dans la modale
-        if (result.reply) {
-            setCurrentData({ title: "📧 Emails non lus", content: result.reply });
-            setShowDataModal(true);
-            return { success: true };
+        // ========== EMAILS - CORRIGÉ ==========
+        case "get_emails": {
+          try {
+            toast.info("📧 Récupération des emails...", { duration: 1500 });
+            
+            const response = await fetch(`${API_URL}/api/test/emails`);
+            const result = await response.json();
+            
+            if (result.success && result.messages && result.messages.length > 0) {
+              let emailText = `📧 **${result.messages.length} email(s) non lu(s) :**\n\n`;
+              result.messages.forEach((email: any, idx: number) => {
+                const fromClean = email.from?.split('<')[0].trim() || 'Inconnu';
+                emailText += `${idx + 1}. **${fromClean}**\n`;
+                emailText += `   📧 ${email.subject}\n`;
+                emailText += `   📅 ${email.date?.split(' ')[0] || 'Date inconnue'}\n\n`;
+              });
+              emailText += `\n💡 Dis-moi 'ouvre l'email [numéro]' pour voir le contenu complet.`;
+              
+              setCurrentData({ title: "📧 Emails non lus", content: emailText });
+              setShowDataModal(true);
+              return { success: true };
+            } else {
+              setCurrentData({ title: "📧 Emails", content: "📭 Aucun email non lu dans ta boîte." });
+              setShowDataModal(true);
+              return { success: true };
+            }
+          } catch (error) {
+            console.error("Erreur get_emails:", error);
+            toast.error("❌ Erreur lors de la récupération des emails");
+            return { success: false };
+          }
         }
-        
-        toast.info(result.reply || "Aucun email non lu");
-        return { success: true };
-    } catch (error) {
-        console.error("Erreur get_emails:", error);
-        toast.error("❌ Erreur lors de la récupération des emails");
-        return { success: false };
-    }
         
         // ========== WHATSAPP - LECTURE MESSAGES ==========
         case "read_table":
@@ -265,7 +284,7 @@ export function MessageWithActions({ content, actions: providedActions = [], onA
               });
               const result = await response.json();
               
-              if (result.reply && result.reply.includes("📱") && result.reply.includes("WhatsApp")) {
+              if (result.reply) {
                 setCurrentData({ title: "📱 Messages WhatsApp", content: result.reply });
                 setShowDataModal(true);
                 return { success: true };
