@@ -1029,42 +1029,59 @@ export function MessageWithActions({ content, actions: providedActions = [], onA
               <pre className="text-sm text-ivory whitespace-pre-wrap font-sans">{currentData.content}</pre>
             </div>
       
-            {/*LA BOÎTE DE RÉPONSE EMAIL*/}
-            {currentData.title === "📧 Emails non lus" && (
-              <div className="mt-4 p-3 bg-white/5 rounded-lg border border-gold-500/30">
-                <p className="text-xs text-gold-500 mb-2">✏️ Répondre à cet email</p>
-                <textarea
-                  id="emailReplyBody"
-                  className="w-full bg-black/30 border border-white/20 rounded-lg p-2 text-sm text-ivory"
-                  rows={3}
-                  placeholder="Écris ta réponse ici..."
-                />
-                <button
-                  onClick={() => {
-                    const body = (document.getElementById("emailReplyBody") as HTMLTextAreaElement)?.value;
-                    if (body) {
-                      // Extraire le destinataire du texte affiché
-                      const toMatch = currentData.content.match(/\*\*([^*@]+@[^*]+)\*\*/) || 
-                                      currentData.content.match(/De : (.*?)(?:\n|$)/);
-                      const to = toMatch ? toMatch[1].trim() : "";
-                      
-                      setPendingEmailReply({
-                        to: to,
-                        subject: "Re: Votre message",
-                        body: body
-                      });
-                      setShowEmailConfirm(true);
-                      setShowDataModal(false);
-                    } else {
-                      toast.error("❌ Écris ta réponse d'abord");
-                    }
-                  }}
-                  className="mt-2 w-full py-2 bg-gold-500/20 text-gold-500 rounded-lg text-sm hover:bg-gold-500/30 transition-colors"
-                >
-                  📧 Envoyer la réponse
-                </button>
+          {/* ========== BOÎTE DE RÉPONSE EMAIL ========== */}
+          {(currentData.title === "📧 Emails non lus" || currentData.title?.includes("Emails")) && (
+            <div className="mt-4 p-4 bg-white/5 rounded-xl border border-gold-500/30">
+              <div className="flex items-center gap-2 mb-3">
+                <Mail className="w-4 h-4 text-gold-500" />
+                <p className="text-xs font-medium text-gold-500">✏️ Répondre à cet email</p>
               </div>
-            )}
+              <textarea
+                id="emailReplyBody"
+                className="w-full bg-black/30 border border-white/20 rounded-lg p-3 text-sm text-ivory placeholder:text-gray-500 focus:outline-none focus:border-gold-500"
+                rows={4}
+                placeholder="Écris ta réponse ici..."
+              />
+              <button
+                onClick={() => {
+                  const body = (document.getElementById("emailReplyBody") as HTMLTextAreaElement)?.value;
+                  if (body && body.trim()) {
+                    // Extraire le destinataire du texte affiché
+                    let to = "";
+                    const toMatch = currentData.content.match(/\*\*([^*@]+@[^*]+)\*\*/);
+                    if (toMatch) {
+                      to = toMatch[1].trim();
+                    } else {
+                      const fromMatch = currentData.content.match(/De : (.*?)(?:\n|$)/);
+                      if (fromMatch) {
+                        const fromText = fromMatch[1];
+                        const emailMatch = fromText.match(/([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/);
+                        if (emailMatch) to = emailMatch[1];
+                      }
+                    }
+                    
+                    if (!to) {
+                      toast.error("❌ Impossible de trouver le destinataire. Indique-le manuellement : envoyez un email à adresse@exemple.com");
+                      return;
+                    }
+                    
+                    setPendingEmailReply({
+                      to: to,
+                      subject: "Re: Votre message",
+                      body: body
+                    });
+                    setShowEmailConfirm(true);
+                    setShowDataModal(false);
+                  } else {
+                    toast.error("❌ Écris ta réponse d'abord");
+                  }
+                }}
+                className="mt-3 w-full py-2.5 bg-gold-500/20 text-gold-500 rounded-lg text-sm font-medium hover:bg-gold-500/30 transition-colors"
+              >
+                📧 Envoyer la réponse
+              </button>
+            </div>
+          )}
                   
             {currentWhatsAppActions.length > 0 && !showReplyInput && (
               <div className="flex flex-wrap gap-2 mt-3 pt-2 border-t border-white/10">
