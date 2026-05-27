@@ -713,14 +713,20 @@ export default function ChatPage() {
       // Ne génère un plan que si l'utilisateur le demande EXPLICITEMENT
       const needsPlan = selectedMode === "fais-le-avec-moi" && (
         userContent.includes("plan") || 
+        userContent.includes("checklist") ||
+        userContent.includes("liste") ||
         userContent.includes("étape") || 
         userContent.includes("étapes") ||
         userContent.includes("guide-moi") ||
         userContent.includes("accompagne-moi") ||
         userContent.includes("démarche") ||
-        userContent.includes("comment faire")
+        userContent.includes("comment faire") ||
+        userContent.includes("je veux") ||
+        userContent.includes("aide-moi") ||
+        userContent.includes("organiser") ||
+        userContent.includes("préparer")
       );
-      
+            
       if (needsPlan && userContent.length > 10 && userContent.length < 500) {
         const hasPlan = await generateExecutionPlan(userContent);
         if (hasPlan && executionPlan) {
