@@ -658,6 +658,73 @@ export default function ChatPage() {
     return fullResponse;
   };
 
+  // ========== GÉNÉRATION DE PLAN LOCAL ==========
+  const generateLocalPlan = (query: string): { planId: string; plan: any } => {
+    const lowerQuery = query.toLowerCase();
+    
+    let subject = "organisation";
+    if (lowerQuery.includes("enfant") || lowerQuery.includes("fille") || lowerQuery.includes("famille")) {
+      subject = "organisation familiale";
+    } else if (lowerQuery.includes("argent") || lowerQuery.includes("finance") || lowerQuery.includes("money")) {
+      subject = "organisation financière";
+    } else if (lowerQuery.includes("ferme") || lowerQuery.includes("farm")) {
+      subject = "organisation de la ferme";
+    } else if (lowerQuery.includes("stress") || lowerQuery.includes("libérer") || lowerQuery.includes("esprit")) {
+      subject = "libération mentale";
+    } else if (lowerQuery.includes("checklist") || lowerQuery.includes("plan") || lowerQuery.includes("route")) {
+      subject = "planification";
+    }
+    
+    return {
+      planId: "local-" + Date.now(),
+      plan: {
+        title: `🎯 ${subject === "libération mentale" ? "Libérer l'esprit" : subject === "planification" ? "Plan d'action" : subject}`,
+        estimated_duration: "30 minutes",
+        steps: [
+          { description: "📝 Vider ton cerveau (tout ce qui te passe par la tête)", action_type: "task", estimated_minutes: 10 },
+          { description: "🔍 Identifier ce qui est vraiment important", action_type: "decision", estimated_minutes: 5 },
+          { description: "🎯 Choisir UNE seule priorité", action_type: "decision", estimated_minutes: 3 },
+          { description: "⚡ Agir sur cette priorité", action_type: "task", estimated_minutes: 10 },
+          { description: "✨ Célébrer cette petite victoire", action_type: "celebrate", estimated_minutes: 2 }
+        ],
+        success_criteria: "Avoir avancé sur une chose importante",
+        next_steps_hint: "Continue sur cette lancée"
+      }
+    };
+  };
+
+  // ========== GÉNÉRATION DE PLAN VIA API ==========
+  const generateExecutionPlan = async (query: string): Promise<boolean> => {
+    setIsGeneratingPlan(true);
+    try {
+      const response = await fetch(`${API_URL}/api/execute/step-by-step`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ query, user_id: userId })
+      });
+      const data = await response.json();
+      console.log("🔍 API step-by-step response:", data);
+      
+      if (data.success && data.plan) {
+        setExecutionPlan({ planId: data.plan_id, plan: data.plan });
+        return true;
+      } else if (data.fallback) {
+        // Utiliser le plan local comme fallback
+        const localPlan = generateLocalPlan(query);
+        setExecutionPlan(localPlan);
+        return true;
+      }
+      return false;
+    } catch (error) {
+      console.error("Erreur API, utilisation plan local:", error);
+      const localPlan = generateLocalPlan(query);
+      setExecutionPlan(localPlan);
+      return true;
+    } finally {
+      setIsGeneratingPlan(false);
+    }
+  };
+
   // ========== ENVOI DE MESSAGE ==========
   const sendMessage = async () => {
     if (isSending || (!input.trim() && uploadedFiles.length === 0) || isLoading || !currentConversationId) return;
@@ -709,25 +776,15 @@ export default function ChatPage() {
       await saveMessage(currentConversationId, "assistant", assistantContent);
       setLastAssistantMessage(assistantContent);
       
-      // ========== GÉNÉRATION DE PLAN UNIQUEMENT SI DEMANDÉ ==========
-      // Ne génère un plan que si l'utilisateur le demande EXPLICITEMENT
-      const needsPlan = selectedMode === "fais-le-avec-moi" && (
-        userContent.includes("plan") || 
-        userContent.includes("checklist") ||
-        userContent.includes("liste") ||
-        userContent.includes("étape") || 
-        userContent.includes("étapes") ||
-        userContent.includes("guide-moi") ||
-        userContent.includes("accompagne-moi") ||
-        userContent.includes("démarche") ||
-        userContent.includes("comment faire") ||
-        userContent.includes("je veux") ||
-        userContent.includes("aide-moi") ||
-        userContent.includes("organiser") ||
-        userContent.includes("préparer")
+      // ========== GÉNÉRATION DE PLAN ==========
+      // Toujours générer un plan en mode "fais-le-avec-moi" sauf pour les salutations simples
+      const isSimpleGreeting = userContent.length < 20 && (
+        userContent.match(/^(cc|bonjour|salut|coucou|ça va|hello|hey|oui|non|merci|ok)$/i)
       );
-            
-      if (needsPlan && userContent.length > 10 && userContent.length < 500) {
+      
+      const shouldGeneratePlan = selectedMode === "fais-le-avec-moi" && !isSimpleGreeting && userContent.length > 10;
+      
+      if (shouldGeneratePlan) {
         const hasPlan = await generateExecutionPlan(userContent);
         if (hasPlan && executionPlan) {
           const guide = `🎯 Je vais t'aider à avancer étape par étape.\n\n**Plan : ${executionPlan.plan.title}**\n*Durée estimée : ${executionPlan.plan.estimated_duration}*\n\nCoche les étapes au fur et à mesure. Une chose à la fois. ✨`;
@@ -750,37 +807,6 @@ export default function ChatPage() {
     } finally {
       setIsLoading(false);
       setIsSending(false);
-    }
-  };
-
-  const generateExecutionPlan = async (query: string): Promise<boolean> => {
-    setIsGeneratingPlan(true);
-    try {
-      const response = await fetch(`${API_URL}/api/execute/step-by-step`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ query, user_id: userId })
-      });
-      const data = await response.json();
-      if (data.success && data.plan) {
-        setExecutionPlan({ planId: data.plan_id, plan: data.plan });
-        return true;
-      } else if (data.fallback) {
-        setExecutionPlan({
-          planId: "fallback-" + Date.now(),
-          plan: { title: "Plan simple", estimated_duration: "15 minutes", steps: [
-            { description: "Identifier l'action la plus importante", action_type: "decision", estimated_minutes: 2 },
-            { description: "La faire maintenant", action_type: "task", estimated_minutes: 10 },
-            { description: "Célébrer cette petite victoire", action_type: "celebrate", estimated_minutes: 1 }
-          ], success_criteria: "Avoir avancé sur une chose importante", next_steps_hint: "Continue sur cette lancée" }
-        });
-        return true;
-      }
-      return false;
-    } catch {
-      return false;
-    } finally {
-      setIsGeneratingPlan(false);
     }
   };
 
