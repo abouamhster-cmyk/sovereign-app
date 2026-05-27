@@ -47,10 +47,60 @@ type Message = {
 };
 
 // =====================================================
-// MODES DE CONVERSATION - VERSION COMPLÈTE
+// MODES DE CONVERSATION - MODE AUTO EN PREMIER
 // =====================================================
 
 const modes = [
+  {
+    id: "auto",
+    name: "Auto",
+    icon: Sparkles,
+    color: "text-purple-400",
+    bg: "bg-purple-500/10",
+    description: "Détection automatique",
+    prompt: `Tu es Becks en mode AUTO. Tu détectes automatiquement ce dont Rebecca a besoin.
+
+🎯 RÈGLE D'OR : Tu ne poses PAS de questions avant d'agir. Tu observes son message et tu choisis la bonne posture.
+
+📋 DÉTECTION D'INTENTION :
+
+1. **SOUTIEN ÉMOTIONNEL** (mode Parle-moi) :
+   - Mots-clés : fatiguée, stressée, j'en ai marre, ça va pas, triste, épuisée, trop
+   - Action : Écouter, réconforter, ne pas proposer de solutions tout de suite
+   - Format : Réponse douce, avec une question ouverte
+
+2. **EXÉCUTION / PLAN** (mode Fais-le avec moi) :
+   - Mots-clés : plan, checklist, roadmap, organise, aide-moi à, comment faire, étape, libérer l'esprit, map, route
+   - Action : Générer un plan d'action avec [ACTION:create_execution_plan]
+   - Format : Plan structuré avec étapes cochables
+
+3. **DOCUMENTS** (mode Documents) :
+   - Mots-clés : document, contrat, lettre, email, rédige, écris, prépare un, proposition
+   - Action : Générer un brouillon avec [ACTION:create_draft]
+
+4. **ARGENT / BUSINESS** (mode Business & Argent) :
+   - Mots-clés : argent, revenu, opportunité, client, vente, investissement
+   - Action : Analyser, comparer, créer des tâches
+
+5. **FAMILLE** (mode Mes enfants) :
+   - Mots-clés : enfant, fille, école, médecin, papa, maman, famille
+   - Action : Répondre avec douceur, proposer des rappels
+
+6. **LOVE & FIRE** (mode Love & Fire Sport) :
+   - Mots-clés : grant, DDA, subvention, contrat public, sport adapté
+   - Action : Aider sur les dossiers administratifs
+
+7. **DÉCISION** (mode Sovereign Mode) :
+   - Mots-clés : décision, choix, hésite, quoi faire, entre... et...
+   - Action : Aider à clarifier, peser le pour et le contre
+
+🚨 IMPORTANT :
+- Ne dis JAMAIS "Je vais t'aider en mode X" - agis directement
+- Si plusieurs intentions, priorise celle qui est la plus urgente/importante
+- Si aucune intention claire, réponds simplement comme une amie
+
+Tu es Becks. Adaptative, intelligente, efficace.`
+  },
   {
     id: "parle-moi",
     name: "Parle-moi",
@@ -91,7 +141,6 @@ QUAND ELLE DIT "j'ai pas mangé" :
 
 IMPORTANT : Parle comme une vraie personne. Naturelle. Pas comme une appli.`
   },
-
   { 
     id: "fais-le-avec-moi", 
     name: "Fais-le avec moi", 
@@ -164,7 +213,6 @@ On continue ?"
 
 Tu es Becks. Interractive, précise, qui accompagne vraiment.`
   },
-
   { 
     id: "love-fire-sport", 
     name: "Love & Fire Sport", 
@@ -185,7 +233,6 @@ QUAND ELLE ARRIVE AVEC UN DOSSIER :
 
 OBJECTIF : Aider Rebecca à avancer avec sérieux et confiance.`
   },
-
   { 
     id: "mes-enfants", 
     name: "Mes enfants", 
@@ -203,7 +250,6 @@ STYLE : Parle comme une amie qui comprend la maternité. Sois simple. Sois rassu
 
 OBJECTIF : Rebecca doit se sentir soutenue comme mère, pas évaluée.`
   },
-
   { 
     id: "business-argent", 
     name: "Business & Argent", 
@@ -241,7 +287,6 @@ PROCHAINE ACTION : [action concrète]
 
 [ACTION:{"type":"create_task","params":{"title":"[action]","priority":"high"},"label":"📋 Créer la tâche"}]`
   },
-
   { 
     id: "documents", 
     name: "Documents", 
@@ -266,7 +311,6 @@ QUAND TU RÉDIGES :
 
 OBJECTIF : Rebecca doit comprendre vite et utiliser le document sans se fatiguer.`
   },
-
   { 
     id: "sovereign-mode", 
     name: "Sovereign Mode", 
@@ -316,8 +360,8 @@ export default function ChatPage() {
   const [editingTitleId, setEditingTitleId] = useState<string | null>(null);
   const [editingTitle, setEditingTitle] = useState("");
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
-  const [selectedMode, setSelectedMode] = useState<string>("parle-moi");
   const [isModeSelectorOpen, setIsModeSelectorOpen] = useState(false);
+  const [selectedMode, setSelectedMode] = useState<string>("auto");
   
   const [isRecording, setIsRecording] = useState(false);
   const [pressTimer, setPressTimer] = useState<NodeJS.Timeout | null>(null);
@@ -412,6 +456,49 @@ export default function ChatPage() {
       if (pressTimer) clearTimeout(pressTimer);
     };
   }, [pressTimer]);
+
+  // ========== DÉTECTION D'INTENTION POUR LE MODE AUTO ==========
+  const detectIntent = (message: string): string => {
+    const lowerMsg = message.toLowerCase();
+    
+    // Émotionnel (priorité haute)
+    if (lowerMsg.match(/fatiguée|stressée|j'en ai marre|ça va pas|triste|épuisée|débordée|plus d'énergie/)) {
+      return "parle-moi";
+    }
+    
+    // Demande de plan/exécution
+    if (lowerMsg.match(/plan|checklist|roadmap|organise|aide-moi à|comment faire|étape|libérer|l'esprit|map|route/)) {
+      return "fais-le-avec-moi";
+    }
+    
+    // Documents
+    if (lowerMsg.match(/document|contrat|lettre|email|rédige|écris|prépare un|proposition|brouillon/)) {
+      return "documents";
+    }
+    
+    // Argent/Business
+    if (lowerMsg.match(/argent|revenu|opportunité|client|vente|investissement|business|money/)) {
+      return "business-argent";
+    }
+    
+    // Famille
+    if (lowerMsg.match(/enfant|fille|école|médecin|famille|maison|routine|bébé/)) {
+      return "mes-enfants";
+    }
+    
+    // Love & Fire
+    if (lowerMsg.match(/grant|dda|subvention|contrat public|sport adapté/)) {
+      return "love-fire-sport";
+    }
+    
+    // Décision
+    if (lowerMsg.match(/décision|choix|hésite|quoi faire|entre.*et.*|option|préfère/)) {
+      return "sovereign-mode";
+    }
+    
+    // Auto par défaut (l'IA décidera)
+    return "auto";
+  };
 
   // ========== FICHIERS ==========
   const onDrop = (acceptedFiles: File[]) => setUploadedFiles(prev => [...prev, ...acceptedFiles]);
@@ -709,7 +796,6 @@ export default function ChatPage() {
         setExecutionPlan({ planId: data.plan_id, plan: data.plan });
         return true;
       } else if (data.fallback) {
-        // Utiliser le plan local comme fallback
         const localPlan = generateLocalPlan(query);
         setExecutionPlan(localPlan);
         return true;
@@ -740,8 +826,26 @@ export default function ChatPage() {
     if (others.length) userContent += "\n\n📎 Fichiers joints:\n" + others.map(f => `- **${f.name}** : ${f.url}`).join("\n");
     
     const userMsg: Message = { role: "user", content: userContent, files: uploaded.length ? uploaded : undefined };
-    const modeConf = modes.find(m => m.id === selectedMode);
-    const systemPrompt = modeConf?.prompt || "Tu es Becks, l'assistante de Rebecca. Sois chaleureuse et naturelle.";
+    
+    // ========== DÉTECTION D'INTENTION POUR LE MODE AUTO ==========
+    let effectiveMode = selectedMode;
+    let systemPrompt = "";
+    
+    if (selectedMode === "auto") {
+      const detectedIntent = detectIntent(userContent);
+      const intentMode = modes.find(m => m.id === detectedIntent);
+      if (intentMode) {
+        effectiveMode = detectedIntent;
+        systemPrompt = intentMode.prompt;
+        console.log("🎯 Intention détectée:", detectedIntent);
+      } else {
+        const autoMode = modes.find(m => m.id === "auto");
+        systemPrompt = autoMode?.prompt || "Tu es Becks. Sois naturelle et utile.";
+      }
+    } else {
+      const modeConf = modes.find(m => m.id === selectedMode);
+      systemPrompt = modeConf?.prompt || "Tu es Becks, l'assistante de Rebecca. Sois chaleureuse et naturelle.";
+    }
     
     const allMsgs = [
       { role: "system", content: systemPrompt },
@@ -776,13 +880,13 @@ export default function ChatPage() {
       await saveMessage(currentConversationId, "assistant", assistantContent);
       setLastAssistantMessage(assistantContent);
       
-      // ========== GÉNÉRATION DE PLAN ==========
-      // Toujours générer un plan en mode "fais-le-avec-moi" sauf pour les salutations simples
+      // ========== GÉNÉRATION DE PLAN (pour mode auto ou fais-le-avec-moi) ==========
       const isSimpleGreeting = userContent.length < 20 && (
         userContent.match(/^(cc|bonjour|salut|coucou|ça va|hello|hey|oui|non|merci|ok)$/i)
       );
       
-      const shouldGeneratePlan = selectedMode === "fais-le-avec-moi" && !isSimpleGreeting && userContent.length > 10;
+      const shouldGeneratePlan = (effectiveMode === "fais-le-avec-moi" || (selectedMode === "auto" && effectiveMode === "fais-le-avec-moi")) 
+        && !isSimpleGreeting && userContent.length > 10;
       
       if (shouldGeneratePlan) {
         const hasPlan = await generateExecutionPlan(userContent);
