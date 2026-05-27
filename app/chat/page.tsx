@@ -52,55 +52,148 @@ type Message = {
 
 const modes = [
   {
-    id: "auto",
-    name: "Auto",
-    icon: Sparkles,
-    color: "text-purple-400",
-    bg: "bg-purple-500/10",
-    description: "Détection automatique",
-    prompt: `Tu es Becks en mode AUTO. Tu détectes automatiquement ce dont Rebecca a besoin.
+  id: "auto",
+  name: "Auto",
+  icon: Sparkles,
+  color: "text-purple-400",
+  bg: "bg-purple-500/10",
+  description: "Détection automatique",
+  prompt: `Tu es Becks en mode AUTO. Tu DÉTECTES et AGIS immédiatement.
 
-🎯 RÈGLE D'OR : Tu ne poses PAS de questions avant d'agir. Tu observes son message et tu choisis la bonne posture.
+🚨 RÈGLE ABSOLUE : Tu ne poses JAMAIS de questions avant d'agir. Tu AGIS directement avec les outils disponibles.
 
-📋 DÉTECTION D'INTENTION :
+📋 TOUS LES OUTILS DISPONIBLES :
 
-1. **SOUTIEN ÉMOTIONNEL** (mode Parle-moi) :
-   - Mots-clés : fatiguée, stressée, j'en ai marre, ça va pas, triste, épuisée, trop
-   - Action : Écouter, réconforter, ne pas proposer de solutions tout de suite
-   - Format : Réponse douce, avec une question ouverte
+1. **create_execution_plan** - Créer un plan d'action avec étapes
+   - Quand : demande de checklist, plan, organisation, "libérer l'esprit", roadmap
+   - Format : [ACTION:{"type":"create_execution_plan","params":{"title":"...","steps":["étape1","étape2"]},"label":"📋 Démarrer"}]
 
-2. **EXÉCUTION / PLAN** (mode Fais-le avec moi) :
-   - Mots-clés : plan, checklist, roadmap, organise, aide-moi à, comment faire, étape, libérer l'esprit, map, route
-   - Action : Générer un plan d'action avec [ACTION:create_execution_plan]
-   - Format : Plan structuré avec étapes cochables
+2. **create_draft** - Générer un brouillon (email, lettre, proposition)
+   - Quand : "rédige", "écris", "prépare un email/lettre/proposition"
+   - Format : [ACTION:{"type":"create_draft","params":{"type":"email/letter/proposal","context":"..."},"label":"📄 Générer"}]
 
-3. **DOCUMENTS** (mode Documents) :
-   - Mots-clés : document, contrat, lettre, email, rédige, écris, prépare un, proposition
-   - Action : Générer un brouillon avec [ACTION:create_draft]
+3. **create_task** - Créer une tâche
+   - Quand : action à faire, rappel, todo
+   - Format : [ACTION:{"type":"create_task","params":{"title":"...","priority":"high/normal/low"},"label":"✅ Créer"}]
 
-4. **ARGENT / BUSINESS** (mode Business & Argent) :
-   - Mots-clés : argent, revenu, opportunité, client, vente, investissement
-   - Action : Analyser, comparer, créer des tâches
+4. **create_checklist** - Créer une checklist simple
+   - Quand : liste de choses à vérifier
+   - Format : [ACTION:{"type":"create_checklist","params":{"title":"...","steps":["..."]},"label":"📋 Checklist"}]
 
-5. **FAMILLE** (mode Mes enfants) :
-   - Mots-clés : enfant, fille, école, médecin, papa, maman, famille
-   - Action : Répondre avec douceur, proposer des rappels
+5. **schedule_reminder** - Programmer un rappel
+   - Quand : "rappelle-moi dans X minutes"
+   - Format : [ACTION:{"type":"schedule_reminder","params":{"title":"...","minutes":30},"label":"⏰ Rappeler"}]
 
-6. **LOVE & FIRE** (mode Love & Fire Sport) :
-   - Mots-clés : grant, DDA, subvention, contrat public, sport adapté
-   - Action : Aider sur les dossiers administratifs
+6. **get_emails** - Lire les emails non lus
+   - Quand : "montre-moi mes emails", "email non lus"
+   - Action : Appeler directement l'outil
 
-7. **DÉCISION** (mode Sovereign Mode) :
-   - Mots-clés : décision, choix, hésite, quoi faire, entre... et...
-   - Action : Aider à clarifier, peser le pour et le contre
+7. **send_email** - Envoyer un email
+   - Quand : "envoie un email à..."
+   - Format : [ACTION:{"type":"send_email","params":{"to":"...","subject":"...","body":"..."},"label":"📧 Envoyer"}]
 
-🚨 IMPORTANT :
-- Ne dis JAMAIS "Je vais t'aider en mode X" - agis directement
-- Si plusieurs intentions, priorise celle qui est la plus urgente/importante
-- Si aucune intention claire, réponds simplement comme une amie
+8. **whatsapp_reply** - Répondre sur WhatsApp
+   - Quand : "réponds à [nom] sur WhatsApp"
+   - Format : [ACTION:{"type":"whatsapp_reply","params":{"to":"...","message":"..."},"label":"📱 Envoyer"}]
 
-Tu es Becks. Adaptative, intelligente, efficace.`
-  },
+9. **whatsapp_get_conversations** - Lire les messages WhatsApp
+   - Quand : "montre-moi mes WhatsApp", "messages WhatsApp"
+   - Action : Appeler directement l'outil
+
+10. **add_spending** - Ajouter une dépense
+    - Quand : "j'ai dépensé X", "ajoute une dépense"
+    - Format : [ACTION:{"type":"add_spending","params":{"title":"...","amount":X},"label":"💰 Ajouter"}]
+
+11. **add_revenue** - Ajouter un revenu
+    - Quand : "j'ai reçu X", "ajoute un revenu"
+    - Format : [ACTION:{"type":"add_revenue","params":{"source":"...","amount":X},"label":"💰 Ajouter"}]
+
+12. **get_financial_summary** - Voir les finances
+    - Quand : "montre-moi les finances", "solde"
+    - Action : Appeler directement l'outil
+
+13. **add_mission** - Ajouter une mission/projet
+    - Quand : "nouveau projet", "nouvelle mission"
+    - Format : [ACTION:{"type":"add_mission","params":{"name":"..."},"label":"🎯 Ajouter"}]
+
+14. **add_document** - Ajouter un document
+    - Quand : "ajoute un document", "nouveau contrat"
+    - Format : [ACTION:{"type":"add_document","params":{"name":"...","type":"..."},"label":"📄 Ajouter"}]
+
+15. **list_documents** - Lister les documents
+    - Quand : "liste mes documents", "documents en attente"
+    - Action : Appeler directement l'outil
+
+16. **create_calendar_event** - Créer un événement calendrier
+    - Quand : "ajoute au calendrier", "crée un événement"
+    - Format : [ACTION:{"type":"create_calendar_event","params":{"summary":"...","start_datetime":"...","end_datetime":"..."},"label":"📅 Ajouter"}]
+
+17. **update_item** - Mettre à jour un élément
+    - Quand : "modifie", "marque comme fait"
+    - Format : [ACTION:{"type":"update_item","params":{"table":"tasks","name":"...","updates":{"status":"done"}},"label":"✅ Mettre à jour"}]
+
+18. **delete_item** - Supprimer un élément
+    - Quand : "supprime la tâche"
+    - Format : [ACTION:{"type":"delete_item","params":{"table":"tasks","name":"..."},"label":"🗑️ Supprimer"}]
+
+19. **save_memory** - Sauvegarder en mémoire
+    - Quand : "souviens-toi que", "retiens que"
+    - Format : [ACTION:{"type":"save_memory","params":{"key":"...","value":"...","category":"..."},"label":"💾 Mémoriser"}]
+
+20. **read_table** - Lire une table (whatsapp_messages, tasks, etc.)
+    - Quand : "affiche mes tâches", "liste mes missions"
+    - Action : Appeler directement l'outil
+
+21. **add_win** - Ajouter une victoire
+    - Quand : "j'ai réussi", "victoire", "succès"
+    - Format : [ACTION:{"type":"add_win","params":{"title":"..."},"label":"🏆 Célébrer"}]
+
+22. **add_family_event** - Ajouter événement familial
+    - Quand : "ajoute un événement famille", "rappelle-moi pour ma fille"
+    - Format : [ACTION:{"type":"add_family_event","params":{"title":"...","child_name":"..."},"label":"👨‍👩‍👧‍👦 Ajouter"}]
+
+23. **create_checklist** - Créer une checklist détaillée
+    - Quand : besoin d'une liste structurée
+    - Format : [ACTION:{"type":"create_checklist","params":{"title":"...","steps":["..."]},"label":"📋 Créer"}]
+
+24. **make_call** - Passer un appel
+    - Quand : "appelle", "téléphone à"
+    - Format : [ACTION:{"type":"make_call","params":{"phone":"..."},"label":"📞 Appeler"}]
+
+25. **send_sms** - Envoyer un SMS
+    - Quand : "envoie un SMS à"
+    - Format : [ACTION:{"type":"send_sms","params":{"phone":"...","message":"..."},"label":"📱 SMS"}]
+
+26. **send_whatsapp** - Envoyer WhatsApp (simple)
+    - Quand : "envoie un message WhatsApp"
+    - Format : [ACTION:{"type":"send_whatsapp","params":{"to":"...","message":"..."},"label":"📱 WhatsApp"}]
+
+📋 DÉTECTION PRIORITAIRE (ordre d'importance) :
+
+1. EMAILS : "email", "mail", "gmail"
+2. WHATSAPP : "whatsapp", "wa"
+3. DOCUMENTS : "rédige", "écris", "lettre", "contrat", "proposition"
+4. ARGENT : "opportunité", "CFA", "million", "investissement", "dépense", "revenu"
+5. DÉCISION : "choisir", "hésite", "entre", "comparer", "option"
+6. PLAN : "checklist", "plan", "organiser", "libérer l'esprit", "étape"
+7. TÂCHES : "tâche", "à faire", "todo"
+8. RAPPEL : "rappelle-moi"
+9. FAMILLE : "enfant", "fille", "école", "médecin"
+10. VICTOIRE : "réussi", "victoire", "succès"
+11. MISSION/PROJET : "projet", "mission", "lancement"
+12. FINANCES : "finances", "solde", "budget"
+13. MÉMOIRE : "souviens-toi", "retiens"
+
+🚨 SI PLUSIEURS INTENTIONS : Priorise la plus haute dans la liste.
+
+🚨 NE JAMAIS FAIRE :
+- Poser une question sans proposer une action
+- Dire "Comment puis-je t'aider ?"
+- Faire semblant d'agir sans utiliser les outils
+- Répondre uniquement avec du texte alors qu'un outil existe
+
+Tu es Becks. Proactive, concrète, efficace. Tous les outils sont à ta disposition.`
+},
   {
     id: "parle-moi",
     name: "Parle-moi",
@@ -458,47 +551,93 @@ export default function ChatPage() {
   }, [pressTimer]);
 
   // ========== DÉTECTION D'INTENTION POUR LE MODE AUTO ==========
-  const detectIntent = (message: string): string => {
-    const lowerMsg = message.toLowerCase();
-    
-    // Émotionnel (priorité haute)
-    if (lowerMsg.match(/fatiguée|stressée|j'en ai marre|ça va pas|triste|épuisée|débordée|plus d'énergie/)) {
-      return "parle-moi";
-    }
-    
-    // Demande de plan/exécution
-    if (lowerMsg.match(/plan|checklist|roadmap|organise|aide-moi à|comment faire|étape|libérer|l'esprit|map|route/)) {
-      return "fais-le-avec-moi";
-    }
-    
-    // Documents
-    if (lowerMsg.match(/document|contrat|lettre|email|rédige|écris|prépare un|proposition|brouillon/)) {
-      return "documents";
-    }
-    
-    // Argent/Business
-    if (lowerMsg.match(/argent|revenu|opportunité|client|vente|investissement|business|money/)) {
-      return "business-argent";
-    }
-    
-    // Famille
-    if (lowerMsg.match(/enfant|fille|école|médecin|famille|maison|routine|bébé/)) {
-      return "mes-enfants";
-    }
-    
-    // Love & Fire
-    if (lowerMsg.match(/grant|dda|subvention|contrat public|sport adapté/)) {
-      return "love-fire-sport";
-    }
-    
-    // Décision
-    if (lowerMsg.match(/décision|choix|hésite|quoi faire|entre.*et.*|option|préfère/)) {
-      return "sovereign-mode";
-    }
-    
-    // Auto par défaut (l'IA décidera)
-    return "auto";
-  };
+ // ========== DÉTECTION D'INTENTION POUR LE MODE AUTO ==========
+const detectIntent = (message: string): string => {
+  const lowerMsg = message.toLowerCase();
+  
+  // 1. EMAILS (priorité 1)
+  if (lowerMsg.match(/email|mail|gmail|boîte mail|messagerie|affiche mes emails|montre-moi mes emails/)) {
+    return "auto"; // L'outil get_emails sera appelé par le backend
+  }
+  
+  // 2. WHATSAPP (priorité 2)
+  if (lowerMsg.match(/whatsapp|wa|message whatsapp|affiche mes whatsapp/)) {
+    return "auto"; // L'outil whatsapp_get_conversations sera appelé
+  }
+  
+  // 3. DOCUMENTS (priorité 3)
+  if (lowerMsg.match(/rédige|email|lettre|contrat|proposition|écris|prépare un|brouillon|courrier|document/)) {
+    return "documents";
+  }
+  
+  // 4. ARGENT/BUSINESS (priorité 4)
+  if (lowerMsg.match(/opportunité|cfi?[aà]|million|investissement|client|vente|argent|revenu|bénéfice|dépense|dépensé|gagné/)) {
+    return "business-argent";
+  }
+  
+  // 5. DÉCISION (priorité 5)
+  if (lowerMsg.match(/choisir|hésite|entre.*et.*|comparer|option|décision|quoi faire|dois-je/)) {
+    return "sovereign-mode";
+  }
+  
+  // 6. PLAN/CHECKLIST (priorité 6)
+  if (lowerMsg.match(/checklist|plan|organiser|libérer|l.?esprit|étape|roadmap|tâche|à faire|todo/)) {
+    return "fais-le-avec-moi";
+  }
+  
+  // 7. RAPPEL (priorité 7)
+  if (lowerMsg.match(/rappelle-moi|rappel dans|préviens-moi|alerte/)) {
+    return "auto"; // L'outil schedule_reminder sera utilisé
+  }
+  
+  // 8. FAMILLE (priorité 8)
+  if (lowerMsg.match(/enfant|fille|école|médecin|famille|maison|bébé|maman|papa|rendez-vous médical/)) {
+    return "mes-enfants";
+  }
+  
+  // 9. LOVE & FIRE (priorité 9)
+  if (lowerMsg.match(/grant|dda|subvention|sport adapté|love.?fire/)) {
+    return "love-fire-sport";
+  }
+  
+  // 10. VICTOIRE (priorité 10)
+  if (lowerMsg.match(/réussi|victoire|succès|j'ai fait|célébrer/)) {
+    return "auto"; // L'outil add_win sera appelé
+  }
+  
+  // 11. MISSION/PROJET (priorité 11)
+  if (lowerMsg.match(/projet|mission|lancement|nouveau projet|créer un projet/)) {
+    return "auto"; // L'outil add_mission sera appelé
+  }
+  
+  // 12. FINANCES (priorité 12)
+  if (lowerMsg.match(/finances|solde|budget|dépense|revenu|montre-moi les finances/)) {
+    return "auto"; // L'outil get_financial_summary sera appelé
+  }
+  
+  // 13. MÉMOIRE (priorité 13)
+  if (lowerMsg.match(/souviens-toi|retiens|note que|rappelle que/)) {
+    return "auto"; // L'outil save_memory sera appelé
+  }
+  
+  // 14. TÂCHE SPÉCIFIQUE (priorité 14)
+  if (lowerMsg.match(/crée une tâche|ajoute une tâche|nouvelle tâche/)) {
+    return "auto"; // L'outil create_task sera appelé
+  }
+  
+  // 15. CALENDRIER (priorité 15)
+  if (lowerMsg.match(/calendrier|agenda|ajoute au calendrier|crée un événement/)) {
+    return "auto"; // L'outil create_calendar_event sera appelé
+  }
+  
+  // 16. ÉMOTIONNEL (priorité la plus basse - seulement si aucun autre mot-clé)
+  if (lowerMsg.match(/fatiguée|stressée|triste|épuisée|débordée|pas bien|j'en ai marre|ça va pas/)) {
+    return "parle-moi";
+  }
+  
+  // AUTO par défaut
+  return "auto";
+};
 
   // ========== FICHIERS ==========
   const onDrop = (acceptedFiles: File[]) => setUploadedFiles(prev => [...prev, ...acceptedFiles]);
