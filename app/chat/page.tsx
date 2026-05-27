@@ -730,9 +730,11 @@ const detectIntent = (message: string): string => {
     if (error) return;
     
     if (data && data.length > 0) {
-      const parsedMessages = data.map(msg => {
-        try {
-          const parsed = JSON.parse(msg.content);
+    const parsedMessages = data.map(msg => {
+      try {
+        const parsed = JSON.parse(msg.content);
+        // Si parsed est un objet avec content, l'utiliser
+        if (parsed && typeof parsed === 'object') {
           return { 
             id: msg.id, 
             role: msg.role, 
@@ -745,16 +747,28 @@ const detectIntent = (message: string): string => {
             decision: parsed.decision,
             created_at: msg.created_at 
           };
-        } catch {
-          return { 
-            id: msg.id, 
-            role: msg.role, 
-            content: msg.content, 
-            files: [], 
-            created_at: msg.created_at 
-          };
         }
-      });
+        // Si c'est une chaîne simple
+        return { 
+          id: msg.id, 
+          role: msg.role, 
+          content: msg.content, 
+          actions: [], 
+          files: [], 
+          created_at: msg.created_at 
+        };
+      } catch {
+        // Si le JSON est invalide, retourner le contenu brut
+        return { 
+          id: msg.id, 
+          role: msg.role, 
+          content: msg.content, 
+          actions: [], 
+          files: [], 
+          created_at: msg.created_at 
+        };
+      }
+    });
       setMessages(parsedMessages);
       
       // Restaurer le dernier état actif
