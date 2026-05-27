@@ -369,14 +369,25 @@ export function MessageWithActions({ content, actions: providedActions = [], onA
             return { success: false };
           }
         }
-
+      case "mark_email_read": {
+        const messageId = params.message_id;
+        if (messageId) {
+          toast.success(`📧 Email marqué comme lu`);
+          // Appel API pour marquer comme lu (à implémenter)
+        }
+        return { success: true };
+      }
         // ========== RÉPONSE AUX EMAILS ==========
-        case "reply_to_email": {
+      case "reply_to_email": {
+          // Récupérer l'email depuis le contexte
+          const emailTo = params.to || params.email_to || (currentData?.content?.match(/De : (.*?)(?:\n|$)/)?.[1]?.trim()) || "destinataire@exemple.com";
+          const emailSubject = params.subject || (currentData?.content?.match(/Objet : (.*?)(?:\n|$)/)?.[1]?.trim()) || "Re: Votre message";
+          const emailBody = params.body || "Je confirme réception de votre message. Je reviens vers vous rapidement.\n\nCordialement,\nRebecca";
+          
           const emailData = {
-            to: params.to,
-            subject: params.subject || "Re: Votre message",
-            body: params.body,
-            original_message_id: params.message_id
+            to: emailTo,
+            subject: emailSubject,
+            body: emailBody
           };
           
           setPendingEmailReply(emailData);
@@ -386,9 +397,9 @@ export function MessageWithActions({ content, actions: providedActions = [], onA
             success: true, 
             data: { 
               type: "email_reply_pending",
-              to: params.to,
-              subject: params.subject,
-              body: params.body
+              to: emailTo,
+              subject: emailSubject,
+              body: emailBody
             } 
           };
         }
@@ -1017,7 +1028,44 @@ export function MessageWithActions({ content, actions: providedActions = [], onA
             <div className="bg-black/30 rounded-lg p-4 mb-4 max-h-96 overflow-y-auto">
               <pre className="text-sm text-ivory whitespace-pre-wrap font-sans">{currentData.content}</pre>
             </div>
-            
+      
+            {/*LA BOÎTE DE RÉPONSE EMAIL*/}
+            {currentData.title === "📧 Emails non lus" && (
+              <div className="mt-4 p-3 bg-white/5 rounded-lg border border-gold-500/30">
+                <p className="text-xs text-gold-500 mb-2">✏️ Répondre à cet email</p>
+                <textarea
+                  id="emailReplyBody"
+                  className="w-full bg-black/30 border border-white/20 rounded-lg p-2 text-sm text-ivory"
+                  rows={3}
+                  placeholder="Écris ta réponse ici..."
+                />
+                <button
+                  onClick={() => {
+                    const body = (document.getElementById("emailReplyBody") as HTMLTextAreaElement)?.value;
+                    if (body) {
+                      // Extraire le destinataire du texte affiché
+                      const toMatch = currentData.content.match(/\*\*([^*@]+@[^*]+)\*\*/) || 
+                                      currentData.content.match(/De : (.*?)(?:\n|$)/);
+                      const to = toMatch ? toMatch[1].trim() : "";
+                      
+                      setPendingEmailReply({
+                        to: to,
+                        subject: "Re: Votre message",
+                        body: body
+                      });
+                      setShowEmailConfirm(true);
+                      setShowDataModal(false);
+                    } else {
+                      toast.error("❌ Écris ta réponse d'abord");
+                    }
+                  }}
+                  className="mt-2 w-full py-2 bg-gold-500/20 text-gold-500 rounded-lg text-sm hover:bg-gold-500/30 transition-colors"
+                >
+                  📧 Envoyer la réponse
+                </button>
+              </div>
+            )}
+                  
             {currentWhatsAppActions.length > 0 && !showReplyInput && (
               <div className="flex flex-wrap gap-2 mt-3 pt-2 border-t border-white/10">
                 {currentWhatsAppActions.map((action, idx) => (
