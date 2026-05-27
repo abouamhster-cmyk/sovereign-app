@@ -837,12 +837,14 @@ const detectIntent = (message: string): string => {
     draft?: any,
     decision?: any
   ) {
-    const messageData: any = { 
-      content,
-      actions: actions || [],
-      files: files || []
-    };
-    
+
+
+
+     const messageData: any = { 
+    content: content,  // ← stocker directement le texte, pas un objet JSON
+    actions: actions || [],
+    files: files || []
+  };
     if (executionPlan) messageData.execution_plan = executionPlan;
     if (checklist) messageData.checklist = checklist;
     if (draft) messageData.draft = draft;
