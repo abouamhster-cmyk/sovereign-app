@@ -204,6 +204,34 @@ useEffect(() => {
   
   loadProgress();
 }, [activeExecutionPlan?.planId]);
+
+
+  const [pendingEmailReply, setPendingEmailReply] = useState<any>(null);
+const [showEmailConfirm, setShowEmailConfirm] = useState(false);
+
+const confirmEmailReply = async () => {
+  if (!pendingEmailReply) return;
+  
+  const response = await fetch(`${API_URL}/api/email/send`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      to: pendingEmailReply.to,
+      subject: pendingEmailReply.subject,
+      body: pendingEmailReply.body
+    })
+  });
+  
+  const result = await response.json();
+  if (result.success) {
+    toast.success(`✅ Réponse envoyée à ${pendingEmailReply.to}`);
+    setShowEmailConfirm(false);
+    setPendingEmailReply(null);
+    localStorage.removeItem("pending_email_reply");
+  } else {
+    toast.error("❌ Erreur lors de l'envoi");
+  }
+};
   // ============================================================
   // SAUVEGARDER LA PROGRESSION
   // ============================================================
@@ -378,7 +406,36 @@ useEffect(() => {
             return { success: false };
           }
         }
-        
+
+
+          case "reply_to_email":
+            // Stocker temporairement l'email pour validation
+            const emailData = {
+              to: params.to,
+              subject: params.subject,
+              body: params.body,
+              original_message_id: params.message_id
+            };
+            localStorage.setItem("pending_email_reply", JSON.stringify(emailData));
+            
+            // Demander confirmation
+            return { 
+              success: true, 
+              data: { 
+                type: "email_reply_pending",
+                content: `📧 **Aperçu de votre réponse :**
+          
+          **À :** ${params.to}
+          **Objet :** ${params.subject}
+          
+          **Contenu :**
+          ${params.body}
+          
+          ---
+          ✏️ **Confirmez-vous l'envoi ?**`
+              } 
+            };
+          
         // ========== WHATSAPP - LECTURE MESSAGES ==========
         case "read_table":
         case "whatsapp_get_conversations": {
@@ -943,6 +1000,28 @@ useEffect(() => {
         </div>
       )}
 
+
+      {showEmailConfirm && pendingEmailReply && (
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
+          <div className="bg-midnight border border-gold-500/30 rounded-xl max-w-lg w-full p-6">
+            <h3 className="text-lg font-serif text-gold-500 mb-4">📧 Confirmation d'envoi</h3>
+            <div className="bg-black/30 rounded-lg p-4 mb-4 max-h-96 overflow-y-auto">
+              <pre className="text-sm text-ivory whitespace-pre-wrap font-sans">
+                {pendingEmailReply.body}
+              </pre>
+            </div>
+            <div className="flex gap-3">
+              <button onClick={confirmEmailReply} className="flex-1 py-2 bg-emerald-500/20 text-emerald-400 rounded-lg hover:bg-emerald-500/30">
+                ✅ Confirmer l'envoi
+              </button>
+              <button onClick={() => { setShowEmailConfirm(false); setPendingEmailReply(null); }} className="flex-1 py-2 bg-white/10 text-gray-400 rounded-lg hover:bg-white/20">
+                ❌ Annuler
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      
       {/* MODALE BROUILLON */}
       {showDraftModal && currentDraft && (
         <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4" onClick={() => setShowDraftModal(false)}>
