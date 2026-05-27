@@ -60,6 +60,7 @@ const getActionIcon = (type: string) => {
   switch(type) {
     case "get_emails": return <Mail className="w-3 h-3" />;
     case "send_email": return <Mail className="w-3 h-3" />;
+    case "reply_to_email": return <Mail className="w-3 h-3" />;
     case "create_task": return <CheckCircle className="w-3 h-3" />;
     case "create_draft": return <FileText className="w-3 h-3" />;
     case "create_checklist": return <ListTodo className="w-3 h-3" />;
@@ -124,6 +125,10 @@ export function MessageWithActions({ content, actions: providedActions = [], onA
   const [showReplyInput, setShowReplyInput] = useState(false);
   const [currentReplyTo, setCurrentReplyTo] = useState("");
   const [replyMessage, setReplyMessage] = useState("");
+  
+  // États pour la confirmation email
+  const [pendingEmailReply, setPendingEmailReply] = useState<any>(null);
+  const [showEmailConfirm, setShowEmailConfirm] = useState(false);
 
   // ============================================================
   // CHARGER LA PROGRESSION SAUVEGARDÉE AU MONTAGE
@@ -135,7 +140,6 @@ export function MessageWithActions({ content, actions: providedActions = [], onA
       const data = await response.json();
       if (data.success && data.completed_steps && data.completed_steps.length > 0) {
         setActiveExecutionPlan(prev => prev ? { ...prev, completedSteps: data.completed_steps } : prev);
-        // Mettre à jour le cache local aussi
         const plan = executionPlans.get(planId);
         if (plan) {
           plan.completedSteps = data.completed_steps;
@@ -147,12 +151,9 @@ export function MessageWithActions({ content, actions: providedActions = [], onA
     }
   };
 
-  // Charger la progression quand un plan est créé
   useEffect(() => {
     if (activeExecutionPlan && activeExecutionPlan.planId) {
-      // D'abord essayer de charger depuis le backend
       loadProgressFromBackend(activeExecutionPlan.planId);
-      // Puis charger depuis localStorage comme fallback
       const saved = localStorage.getItem(`execution_plan_${activeExecutionPlan.planId}`);
       if (saved) {
         try {
@@ -165,73 +166,6 @@ export function MessageWithActions({ content, actions: providedActions = [], onA
     }
   }, [activeExecutionPlan?.planId]);
 
-
-  // 🔥 CHARGER LA PROGRESSION QUAND LE PLAN EST CRÉÉ
-useEffect(() => {
-  const loadProgress = async () => {
-    if (!activeExecutionPlan || !activeExecutionPlan.planId) return;
-    
-    const planId = activeExecutionPlan.planId;
-    const userId = getUserId();
-    
-    // 1. Essayer de charger depuis Supabase
-    try {
-      const response = await fetch(`${API_URL}/api/execute/get-progress/${planId}?user_id=${userId}`);
-      const data = await response.json();
-      if (data.success && data.completed_steps && data.completed_steps.length > 0) {
-        setActiveExecutionPlan(prev => prev ? { ...prev, completedSteps: data.completed_steps } : prev);
-        // Mettre à jour le cache local aussi
-        const plan = executionPlans.get(planId);
-        if (plan) {
-          plan.completedSteps = data.completed_steps;
-          executionPlans.set(planId, plan);
-        }
-        return;
-      }
-    } catch(e) {}
-    
-    // 2. Fallback sur localStorage
-    const saved = localStorage.getItem(`execution_plan_${planId}`);
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved);
-        if (parsed.completedSteps && parsed.completedSteps.length > 0) {
-          setActiveExecutionPlan(prev => prev ? { ...prev, completedSteps: parsed.completedSteps } : prev);
-        }
-      } catch(e) {}
-    }
-  };
-  
-  loadProgress();
-}, [activeExecutionPlan?.planId]);
-
-
-  const [pendingEmailReply, setPendingEmailReply] = useState<any>(null);
-const [showEmailConfirm, setShowEmailConfirm] = useState(false);
-
-const confirmEmailReply = async () => {
-  if (!pendingEmailReply) return;
-  
-  const response = await fetch(`${API_URL}/api/email/send`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      to: pendingEmailReply.to,
-      subject: pendingEmailReply.subject,
-      body: pendingEmailReply.body
-    })
-  });
-  
-  const result = await response.json();
-  if (result.success) {
-    toast.success(`✅ Réponse envoyée à ${pendingEmailReply.to}`);
-    setShowEmailConfirm(false);
-    setPendingEmailReply(null);
-    localStorage.removeItem("pending_email_reply");
-  } else {
-    toast.error("❌ Erreur lors de l'envoi");
-  }
-};
   // ============================================================
   // SAUVEGARDER LA PROGRESSION
   // ============================================================
@@ -249,6 +183,38 @@ const confirmEmailReply = async () => {
       });
     } catch (error) {
       console.error("Erreur sauvegarde progression:", error);
+    }
+  };
+
+  // ============================================================
+  // CONFIRMATION EMAIL
+  // ============================================================
+  const confirmEmailReply = async () => {
+    if (!pendingEmailReply) return;
+    
+    try {
+      const response = await fetch(`${API_URL}/api/email/send`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          to: pendingEmailReply.to,
+          subject: pendingEmailReply.subject,
+          body: pendingEmailReply.body
+        })
+      });
+      
+      const result = await response.json();
+      if (result.success) {
+        toast.success(`✅ Réponse envoyée à ${pendingEmailReply.to}`);
+        setShowEmailConfirm(false);
+        setPendingEmailReply(null);
+        localStorage.removeItem("pending_email_reply");
+      } else {
+        toast.error("❌ Erreur lors de l'envoi: " + (result.error || "Inconnue"));
+      }
+    } catch (error) {
+      console.error("Erreur envoi email:", error);
+      toast.error("❌ Erreur de connexion");
     }
   };
 
@@ -282,52 +248,49 @@ const confirmEmailReply = async () => {
           };
         }
         
-      case "complete_execution_step": {
-  const planIdStep = params.plan_id;
-  const stepIndex = params.step_index;
-  const plan = executionPlans.get(planIdStep);
-  if (plan && !plan.completedSteps.includes(stepIndex)) {
-    plan.completedSteps.push(stepIndex);
-    executionPlans.set(planIdStep, plan);
-    
-    // 🔥 SAUVEGARDE IMMÉDIATE dans localStorage
-    localStorage.setItem(`execution_plan_${planIdStep}`, JSON.stringify(plan));
-    
-    // 🔥 SAUVEGARDE dans Supabase
-    const userId = getUserId();
-    fetch(`${API_URL}/api/execute/update-progress`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        plan_id: planIdStep,
-        completed_steps: plan.completedSteps,
-        user_id: userId
-      })
-    }).catch(e => console.error("Erreur sauvegarde:", e));
-    
-    // 🔥 FORCER la mise à jour de l'affichage
-    setActiveExecutionPlan(prev => prev ? {
-      ...prev,
-      completedSteps: plan.completedSteps
-    } : prev);
-  }
-  return { 
-    success: true, 
-    data: { 
-      type: "execution_step_completed", 
-      planId: planIdStep,
-      stepIndex,
-      completedSteps: plan?.completedSteps || [],
-      totalSteps: plan?.steps.length || 0,
-      isComplete: plan?.completedSteps.length === plan?.steps.length
-    } 
-  };
-}
+        case "complete_execution_step": {
+          const planIdStep = params.plan_id;
+          const stepIndex = params.step_index;
+          const plan = executionPlans.get(planIdStep);
+          if (plan && !plan.completedSteps.includes(stepIndex)) {
+            plan.completedSteps.push(stepIndex);
+            executionPlans.set(planIdStep, plan);
+            
+            localStorage.setItem(`execution_plan_${planIdStep}`, JSON.stringify(plan));
+            
+            const userId = getUserId();
+            fetch(`${API_URL}/api/execute/update-progress`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                plan_id: planIdStep,
+                completed_steps: plan.completedSteps,
+                user_id: userId
+              })
+            }).catch(e => console.error("Erreur sauvegarde:", e));
+            
+            setActiveExecutionPlan(prev => prev ? {
+              ...prev,
+              completedSteps: plan.completedSteps
+            } : prev);
+          }
+          return { 
+            success: true, 
+            data: { 
+              type: "execution_step_completed", 
+              planId: planIdStep,
+              stepIndex,
+              completedSteps: plan?.completedSteps || [],
+              totalSteps: plan?.steps.length || 0,
+              isComplete: plan?.completedSteps.length === plan?.steps.length
+            } 
+          };
+        }
+        
         case "complete_execution_plan": {
           const planIdComplete = params.plan_id;
           executionPlans.delete(planIdComplete);
           localStorage.removeItem(`execution_plan_${planIdComplete}`);
-          // Supprimer aussi du backend (optionnel, mais on peut garder l'historique)
           return { 
             success: true, 
             data: { 
@@ -407,35 +370,29 @@ const confirmEmailReply = async () => {
           }
         }
 
-
-          case "reply_to_email":
-            // Stocker temporairement l'email pour validation
-            const emailData = {
+        // ========== RÉPONSE AUX EMAILS ==========
+        case "reply_to_email": {
+          const emailData = {
+            to: params.to,
+            subject: params.subject || "Re: Votre message",
+            body: params.body,
+            original_message_id: params.message_id
+          };
+          
+          setPendingEmailReply(emailData);
+          setShowEmailConfirm(true);
+          
+          return { 
+            success: true, 
+            data: { 
+              type: "email_reply_pending",
               to: params.to,
               subject: params.subject,
-              body: params.body,
-              original_message_id: params.message_id
-            };
-            localStorage.setItem("pending_email_reply", JSON.stringify(emailData));
-            
-            // Demander confirmation
-            return { 
-              success: true, 
-              data: { 
-                type: "email_reply_pending",
-                content: `📧 **Aperçu de votre réponse :**
-          
-          **À :** ${params.to}
-          **Objet :** ${params.subject}
-          
-          **Contenu :**
-          ${params.body}
-          
-          ---
-          ✏️ **Confirmez-vous l'envoi ?**`
-              } 
-            };
-          
+              body: params.body
+            } 
+          };
+        }
+        
         // ========== WHATSAPP - LECTURE MESSAGES ==========
         case "read_table":
         case "whatsapp_get_conversations": {
@@ -840,6 +797,14 @@ const confirmEmailReply = async () => {
           label: s.text
         })) || []);
       }
+      else if (result.data?.type === "email_reply_pending") {
+        setPendingEmailReply({
+          to: result.data.to,
+          subject: result.data.subject,
+          body: result.data.body
+        });
+        setShowEmailConfirm(true);
+      }
       else if (result.data?.type === "email_list") {
         setCurrentData({ title: "📧 Emails", content: result.data.content });
         setShowDataModal(true);
@@ -989,6 +954,35 @@ const confirmEmailReply = async () => {
         )}
       </div>
 
+      {/* MODALE CONFIRMATION EMAIL */}
+      {showEmailConfirm && pendingEmailReply && (
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
+          <div className="bg-midnight border border-gold-500/30 rounded-xl max-w-lg w-full p-6">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-serif text-gold-500">📧 Confirmation d'envoi</h3>
+              <button onClick={() => { setShowEmailConfirm(false); setPendingEmailReply(null); }} className="text-gray-400 hover:text-white">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="bg-black/30 rounded-lg p-4 mb-4 max-h-96 overflow-y-auto">
+              <p className="text-xs text-gray-400 mb-2">À: {pendingEmailReply.to}</p>
+              <p className="text-xs text-gray-400 mb-4">Objet: {pendingEmailReply.subject}</p>
+              <div className="text-sm text-ivory whitespace-pre-wrap">
+                {pendingEmailReply.body}
+              </div>
+            </div>
+            <div className="flex gap-3">
+              <button onClick={confirmEmailReply} className="flex-1 py-2 bg-emerald-500/20 text-emerald-400 rounded-lg hover:bg-emerald-500/30 transition-colors">
+                ✅ Envoyer
+              </button>
+              <button onClick={() => { setShowEmailConfirm(false); setPendingEmailReply(null); }} className="flex-1 py-2 bg-white/10 text-gray-400 rounded-lg hover:bg-white/20 transition-colors">
+                ❌ Annuler
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* MODALE CHECKLIST */}
       {showChecklistModal && currentChecklist && (
         <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4" onClick={() => setShowChecklistModal(false)}>
@@ -996,28 +990,6 @@ const confirmEmailReply = async () => {
             <div className="flex justify-between items-center mb-4"><h3 className="text-lg font-serif text-gold-500">{currentChecklist.title}</h3><button onClick={() => setShowChecklistModal(false)}><X className="w-5 h-5 text-gray-400 hover:text-gold-500" /></button></div>
             <div className="space-y-3 mb-6">{currentChecklist.steps.map((step, idx) => (<div key={idx} className="flex items-center gap-3 p-2 bg-white/5 rounded-lg"><input type="checkbox" className="w-4 h-4 rounded border-gold-500 accent-gold-500" /><span className="text-sm text-ivory">{step}</span></div>))}</div>
             <button onClick={() => setShowChecklistModal(false)} className="w-full py-2 bg-gold-500/20 text-gold-500 rounded-lg">Fermer</button>
-          </div>
-        </div>
-      )}
-
-
-      {showEmailConfirm && pendingEmailReply && (
-        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
-          <div className="bg-midnight border border-gold-500/30 rounded-xl max-w-lg w-full p-6">
-            <h3 className="text-lg font-serif text-gold-500 mb-4">📧 Confirmation d'envoi</h3>
-            <div className="bg-black/30 rounded-lg p-4 mb-4 max-h-96 overflow-y-auto">
-              <pre className="text-sm text-ivory whitespace-pre-wrap font-sans">
-                {pendingEmailReply.body}
-              </pre>
-            </div>
-            <div className="flex gap-3">
-              <button onClick={confirmEmailReply} className="flex-1 py-2 bg-emerald-500/20 text-emerald-400 rounded-lg hover:bg-emerald-500/30">
-                ✅ Confirmer l'envoi
-              </button>
-              <button onClick={() => { setShowEmailConfirm(false); setPendingEmailReply(null); }} className="flex-1 py-2 bg-white/10 text-gray-400 rounded-lg hover:bg-white/20">
-                ❌ Annuler
-              </button>
-            </div>
           </div>
         </div>
       )}
