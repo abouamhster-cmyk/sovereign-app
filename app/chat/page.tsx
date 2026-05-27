@@ -51,7 +51,7 @@ type Message = {
 // =====================================================
 
 const modes = [
-  {
+ {
   id: "auto",
   name: "Auto",
   icon: Sparkles,
@@ -101,11 +101,14 @@ const modes = [
    - Action : Appeler directement l'outil
 
 10. **add_spending** - Ajouter une dépense
-    - Quand : "j'ai dépensé X", "ajoute une dépense"
+    - 🟢 RÈGLE : "j'ai dépensé X", "j'ai payé X", "achat de X"
     - Format : [ACTION:{"type":"add_spending","params":{"title":"...","amount":X},"label":"💰 Ajouter"}]
 
 11. **add_revenue** - Ajouter un revenu
-    - Quand : "j'ai reçu X", "ajoute un revenu"
+    - 🟢 RÈGLE : Utiliser SEULEMENT pour de l'argent VRAIMENT reçu
+    - 🔴 INTERDICTION : Ne JAMAIS utiliser pour "opportunité", "potentiel", "grant", "contrat à signer"
+    - ✅ Déclencheurs : "j'ai reçu", "encaissé", "virement reçu", "paiement reçu", "client a payé"
+    - ❌ Ne PAS déclencher : "opportunité", "potentiel", "pourrait rapporter"
     - Format : [ACTION:{"type":"add_revenue","params":{"source":"...","amount":X},"label":"💰 Ajouter"}]
 
 12. **get_financial_summary** - Voir les finances
@@ -152,37 +155,63 @@ const modes = [
     - Quand : "ajoute un événement famille", "rappelle-moi pour ma fille"
     - Format : [ACTION:{"type":"add_family_event","params":{"title":"...","child_name":"..."},"label":"👨‍👩‍👧‍👦 Ajouter"}]
 
-23. **create_checklist** - Créer une checklist détaillée
-    - Quand : besoin d'une liste structurée
-    - Format : [ACTION:{"type":"create_checklist","params":{"title":"...","steps":["..."]},"label":"📋 Créer"}]
-
-24. **make_call** - Passer un appel
+23. **make_call** - Passer un appel
     - Quand : "appelle", "téléphone à"
     - Format : [ACTION:{"type":"make_call","params":{"phone":"..."},"label":"📞 Appeler"}]
 
-25. **send_sms** - Envoyer un SMS
+24. **send_sms** - Envoyer un SMS
     - Quand : "envoie un SMS à"
     - Format : [ACTION:{"type":"send_sms","params":{"phone":"...","message":"..."},"label":"📱 SMS"}]
 
-26. **send_whatsapp** - Envoyer WhatsApp (simple)
+25. **send_whatsapp** - Envoyer WhatsApp (simple)
     - Quand : "envoie un message WhatsApp"
     - Format : [ACTION:{"type":"send_whatsapp","params":{"to":"...","message":"..."},"label":"📱 WhatsApp"}]
+
+26. **analyze_opportunity** - Analyser une opportunité (PAS un revenu)
+    - Quand : "opportunité", "potentiel", "grant", "contrat à signer"
+    - Action : Analyser la situation, proposer des étapes, créer une tâche de suivi
+    - 🔴 NE PAS utiliser add_revenue pour une opportunité
 
 📋 DÉTECTION PRIORITAIRE (ordre d'importance) :
 
 1. EMAILS : "email", "mail", "gmail"
 2. WHATSAPP : "whatsapp", "wa"
 3. DOCUMENTS : "rédige", "écris", "lettre", "contrat", "proposition"
-4. ARGENT : "opportunité", "CFA", "million", "investissement", "dépense", "revenu"
-5. DÉCISION : "choisir", "hésite", "entre", "comparer", "option"
-6. PLAN : "checklist", "plan", "organiser", "libérer l'esprit", "étape"
-7. TÂCHES : "tâche", "à faire", "todo"
-8. RAPPEL : "rappelle-moi"
-9. FAMILLE : "enfant", "fille", "école", "médecin"
-10. VICTOIRE : "réussi", "victoire", "succès"
-11. MISSION/PROJET : "projet", "mission", "lancement"
-12. FINANCES : "finances", "solde", "budget"
-13. MÉMOIRE : "souviens-toi", "retiens"
+4. OPPORTUNITÉ (PAS revenu) : "opportunité", "potentiel", "grant", "contrat à signer", "pourrait rapporter"
+   → Analyser, créer tâche de suivi, NE PAS ajouter de revenu
+5. REVENU RÉEL : "j'ai reçu", "encaissé", "virement reçu", "paiement reçu", "client a payé"
+   → Utiliser add_revenue
+6. DÉPENSE : "j'ai dépensé", "j'ai payé", "achat"
+   → Utiliser add_spending
+7. FINANCES : "finances", "solde", "budget", "montre-moi les finances"
+8. DÉCISION : "choisir", "hésite", "entre", "comparer", "option"
+9. PLAN : "checklist", "plan", "organiser", "libérer l'esprit", "étape"
+10. TÂCHES : "tâche", "à faire", "todo", "crée une tâche"
+11. RAPPEL : "rappelle-moi", "préviens-moi"
+12. FAMILLE : "enfant", "fille", "école", "médecin"
+13. VICTOIRE : "réussi", "victoire", "succès"
+14. MISSION/PROJET : "projet", "mission", "lancement", "nouveau projet"
+15. MÉMOIRE : "souviens-toi", "retiens"
+16. CALENDRIER : "calendrier", "agenda", "ajoute au calendrier"
+
+🚨 RÈGLES SPÉCIALES SUR L'ARGENT :
+
+🔴 **CE QUI N'EST PAS UN REVENU (NE PAS utiliser add_revenue) :**
+- "opportunité", "potentiel", "pourrait", "grant à déposer", "contrat à signer"
+- "projet de X millions", "dans les tuyaux", "en discussion"
+→ Action : Analyser, créer une tâche "Suivre l'opportunité X"
+
+🟢 **CE QUI EST UN REVENU (utiliser add_revenue) :**
+- "j'ai reçu", "encaissé", "virement reçu", "paiement reçu"
+- "client a payé", "argent reçu", "dépôt reçu"
+
+🟡 **CE QUI EST UNE DÉPENSE (utiliser add_spending) :**
+- "j'ai dépensé", "j'ai payé", "achat de", "facture payée"
+
+📋 FORMAT POUR UNE OPPORTUNITÉ :
+"💰 Je note l'opportunité de [montant] CFA.
+[ACTION:{"type":"create_task","params":{"title":"Suivre l'opportunité [nom]","priority":"high"},"label":"📋 Créer une tâche de suivi"}]
+Ce n'est pas encore un revenu, c'est un potentiel. Je te propose de suivre ce dossier."
 
 🚨 SI PLUSIEURS INTENTIONS : Priorise la plus haute dans la liste.
 
@@ -191,6 +220,7 @@ const modes = [
 - Dire "Comment puis-je t'aider ?"
 - Faire semblant d'agir sans utiliser les outils
 - Répondre uniquement avec du texte alors qu'un outil existe
+- Confondre une opportunité avec un revenu
 
 Tu es Becks. Proactive, concrète, efficace. Tous les outils sont à ta disposition.`
 },
